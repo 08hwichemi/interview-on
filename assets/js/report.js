@@ -79,7 +79,7 @@ function reportHTML(iv, answers, who, round) {
 
   // 채점표 — 안 찍은 항목은 «—» 로 둡니다. 다 찍어야 하는 건 아닙니다.
   var sheet =
-    '<p class="sec" style="margin-top:22px">채점표</p>' +
+    '<p class="sec gap">채점표</p>' +
     '<div class="rp-sheet">' + SCORESHEET.map(function (r) {
       var got = g[r.item];
       return '<div class="rp-srow">' +
@@ -90,12 +90,12 @@ function reportHTML(iv, answers, who, round) {
     }).join('') + '</div>';
 
   var note = iv.overall_note
-    ? '<p class="sec" style="margin-top:22px">선생님 총평</p><p class="rp-note">' + esc(iv.overall_note) + '</p>'
+    ? '<p class="sec gap">선생님 총평</p><p class="rp-note">' + esc(iv.overall_note) + '</p>'
     : '';
 
   // 질문별 기록 — 무슨 질문을 받았고, 얼마나 말했고, 어땠는지
   var list =
-    '<p class="sec" style="margin-top:22px">질문별 기록 <span class="opt">' +
+    '<p class="sec gap">질문별 기록 <span class="opt">' +
       (answers || []).length + '문항</span></p>' +
     '<div class="rp-answers">' + (answers || []).map(function (a, i) {
       var good = a.good_tags || [], bad = a.bad_tags || [];
@@ -143,6 +143,7 @@ function printReport(bodyId, title) {
   }
   root.className = 'report';
   root.innerHTML = src.innerHTML;
+  fitToOnePage(root);
 
   // 인쇄창이 문서 제목을 파일 이름으로 씁니다.
   var was = document.title;
@@ -160,6 +161,36 @@ function printReport(bodyId, title) {
   setTimeout(restore, 60000);
 
   window.print();
+}
+
+// ── 한 장에 맞추기 ──
+//
+// 상담할 때는 종이 한 장에 다 보이는 게 좋습니다. 두 장이 되면
+// 질문은 앞장, 채점표는 뒷장이 되어 견주면서 이야기하기 어렵습니다.
+//
+// report.css 가 인쇄본을 이미 촘촘하게 잡아 두어 질문 8개쯤까지는 한 장에 듭니다.
+// 그보다 조금 넘칠 때만 살짝 줄여서 한 장에 밀어 넣습니다.
+// 많이 넘치면(글씨가 읽기 힘들어질 만큼) 줄이지 않고 두 장으로 갑니다.
+// 그때는 칸이 가운데서 잘리지 않게만 합니다(@media print 의 break-inside).
+var PAGE_W = 688;    // A4 가로 210mm − 좌우 여백 14mm씩 = 182mm ≒ 688px (96dpi)
+var PAGE_H = 1017;   // A4 세로 297mm − 위아래 여백 14mm씩 = 269mm ≒ 1017px
+var MIN_ZOOM = 0.72; // 이보다 더 줄이면 글씨가 작아서 못 읽습니다
+
+function fitToOnePage(root) {
+  root.style.cssText = '';   // 지난번에 줄여 놓은 값을 먼저 지웁니다
+
+  // 화면에 안 보이게 두되, 인쇄될 폭 그대로 펴서 높이를 잽니다.
+  // 화면 폭으로 재면 줄바꿈이 달라져서 전혀 다른 값이 나옵니다.
+  root.style.cssText =
+    'display:block;position:absolute;left:-10000px;top:0;visibility:hidden;width:' + PAGE_W + 'px';
+  var h = root.scrollHeight;
+  root.style.cssText = '';
+
+  if (!h || h <= PAGE_H) return;            // 이미 한 장에 듭니다
+
+  var z = PAGE_H / h;
+  if (z < MIN_ZOOM) return;                 // 너무 많이 줄여야 합니다. 두 장으로 갑니다
+  root.style.zoom = Math.floor(z * 100) / 100;
 }
 
 // 「30101 고다윤 면접 리포트 2회차」 — 저장할 때 이 이름이 붙습니다.

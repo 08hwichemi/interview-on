@@ -5,6 +5,7 @@
 /* 학생 앱에는 없는 조각들이라 여기서 챙깁니다 */
 .report .sec{margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.14em;
   text-transform:uppercase;color:var(--ink-3)}
+.report .sec.gap{margin-top:22px}
 .report .opt{font-weight:400;letter-spacing:0;text-transform:none;color:var(--ink-3);font-size:11px}
 .report h2{margin:2px 0 0;font-size:20px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
 .pill{font-size:10.5px;padding:3px 8px;border-radius:5px;font-weight:700;white-space:nowrap;
@@ -93,6 +94,41 @@
    인쇄할 때는 그것만 남기고 머리말·단추·왼쪽 칸을 전부 가립니다. */
 #print-root{display:none}
 
+/* 종이는 한 장에 들어가는 게 제일 좋습니다. 화면용 여백 그대로 뽑으면
+   질문 대여섯 개만 되어도 두 장으로 넘어갑니다. 그래서 인쇄본은 따로 좁힙니다.
+   ⚠ 이 규칙들을 @media print 안에 넣으면 안 됩니다.
+      printReport() 가 인쇄 전에 높이를 재서 한 장에 맞출지 정하는데,
+      화면 상태로 재면 실제 종이와 다른 값이 나옵니다. */
+#print-root{font-size:12.5px;line-height:1.5;color:var(--ink)}
+#print-root .sec{margin:0 0 4px;font-size:10px}
+#print-root .sec.gap{margin-top:13px}
+#print-root h2{font-size:16px}
+#print-root .rp-when{margin-top:2px;font-size:11.5px}
+#print-root .rp-times{gap:16px}
+#print-root .rp-times b{font-size:17px}
+#print-root .rp-times span{font-size:9.5px}
+#print-root .rp-edited{margin-top:9px;padding:6px 10px;font-size:11.5px}
+
+#print-root .ansrow{padding:7px 0}
+#print-root .anshead{gap:7px}
+#print-root .anshead .qno{flex-basis:17px;height:17px;font-size:10px}
+#print-root .anshead .qt{font-size:12.5px;line-height:1.4}
+#print-root .anshead .secs{font-size:11px}
+#print-root .pill{font-size:9.5px;padding:2px 6px}
+#print-root .anscomp{margin:3px 0 0 24px;font-size:10.5px}
+#print-root .anstags{gap:4px;margin:4px 0 0 24px}
+#print-root .minitag{font-size:10.5px;padding:1px 6px}
+#print-root .ansmemo{margin:4px 0 0 24px;padding:5px 8px;font-size:11.5px;line-height:1.45}
+
+#print-root .rp-srow{grid-template-columns:76px 1fr 44px;gap:9px;padding:6px 10px}
+/* 좁은 화면용 규칙(.rp-srow .area{grid-column:1/-1})이 인쇄본까지 건드리면
+   채점표가 한 줄씩 더 길어집니다. 인쇄본은 늘 종이 폭(688px) 기준입니다. */
+#print-root .rp-srow .area{grid-column:auto;font-size:10.5px}
+#print-root .rp-srow .item b{font-size:12px}
+#print-root .rp-srow .item .desc{margin-top:1px;font-size:10.5px;line-height:1.4}
+#print-root .rp-srow .got{width:28px;height:26px;font-size:13px}
+#print-root .rp-note{padding:8px 10px;font-size:12px;line-height:1.55}
+
 @media print{
   @page{size:A4;margin:14mm}
   html,body{background:#fff!important}
@@ -102,7 +138,7 @@
   body>*{display:none!important}
   #print-root{display:block!important}
   #print-root .sec{color:#666}
-  /* 한 칸이 두 쪽에 걸쳐 잘리지 않게 합니다 */
+  /* 두 장으로 넘어갈 때, 한 칸이 가운데서 잘리지 않게 합니다 */
   .ansrow,.rp-srow,.rp-note,.rp-head{break-inside:avoid;page-break-inside:avoid}
   .rp-actions{display:none!important}
 }
