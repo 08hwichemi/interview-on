@@ -17,8 +17,13 @@ function closeConfirm() {
   confirmCallback = null;
 }
 document.getElementById('confirm-ok-btn').addEventListener('click', function() {
+  // ⚠️ closeConfirm() 이 confirmCallback 을 비웁니다.
+  //    먼저 부르고 나서 confirmCallback 을 보면 항상 비어 있어서,
+  //    «확인» 을 눌러도 아무 일도 일어나지 않았습니다 (로그아웃·훈련 중단이 안 됐습니다).
+  //    그래서 할 일을 먼저 챙겨 둔 뒤에 창을 닫습니다.
+  var todo = confirmCallback;
   closeConfirm();
-  if(confirmCallback) confirmCallback();
+  if (todo) todo();
 });
 
 // [신규] 안전한 뒤로가기 처리
