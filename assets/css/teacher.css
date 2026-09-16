@@ -208,6 +208,27 @@ body {
   font-size: 13px; line-height: 1.7; color: #7a4a06;
 }
 .t-warnbox.danger { background: #fdeceb; border-color: #f5cdc9; color: #8c2b21; }
+
+/* 안내 상자 (초기 비밀번호 알림) */
+.t-infobox {
+  background: #eef4ff; border: 1px solid #d6e4ff; border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 16px;
+  font-size: 14px; line-height: 1.7; color: #24427c;
+}
+.t-infobox .pw {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 18px; letter-spacing: 3px; color: var(--navy-d);
+}
+
+/* 표 안의 작은 버튼 (비밀번호 초기화) */
+.t-mini {
+  border: 1px solid var(--line); background: #fff; color: var(--muted);
+  padding: 5px 10px; border-radius: 7px;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: inherit; white-space: nowrap;
+}
+.t-mini:hover { background: var(--bg); color: var(--navy); border-color: #c3d4ec; }
+.t-mini:disabled { opacity: .5; cursor: not-allowed; }
 .t-warnbox ul { margin: 6px 0 0; padding-left: 18px; }
 .t-warnbox li { margin: 2px 0; }
 

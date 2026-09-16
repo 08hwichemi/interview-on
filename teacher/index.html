@@ -74,26 +74,19 @@
         <table class="t-table" id="preview-table"></table>
       </div>
       <p class="t-note">
-        초기 비밀번호는 <b>만든 직후 한 번만</b> 보입니다.
-        서버에 저장되지 않으니 그 자리에서 복사하거나 내려받으세요.
+        초기 비밀번호는 모두 같습니다. 첫 로그인 때 본인 비밀번호로 바꾸게 되어 있고,
+        잊은 사람은 아래 명단에서 <b>비밀번호 초기화</b>를 누르면 됩니다.
       </p>
       <div class="t-actions">
         <button class="t-btn" id="btn-create" onclick="createAccounts()">계정 만들기</button>
       </div>
     </section>
 
-    <!-- 3. 결과 (초기 비밀번호) -->
+    <!-- 3. 결과 -->
     <section class="t-card" id="result-area" hidden>
-      <h2>초기 비밀번호</h2>
+      <h2>등록 결과</h2>
       <p id="result-summary"></p>
-      <div class="t-warnbox danger">
-        이 표는 <b>지금만</b> 보입니다. 화면을 새로 고치면 다시 볼 수 없습니다.
-        비밀번호를 잊은 사람은 새로 발급해야 합니다.
-      </div>
-      <div class="t-actions">
-        <button class="t-btn" onclick="copyPasswords()">복사하기</button>
-        <button class="t-btn ghost" onclick="downloadPasswords()">엑셀로 내려받기</button>
-      </div>
+      <div class="t-infobox" id="result-password"></div>
       <div class="t-scroll">
         <table class="t-table" id="result-table"></table>
       </div>

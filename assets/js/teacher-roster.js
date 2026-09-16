@@ -1,12 +1,14 @@
 // 교사 화면 — 명단 관리
 //
-// 엑셀에서 복사한 명단을 붙여넣으면 계정을 만들고 초기 비밀번호를 돌려줍니다.
-// 실제 계정 생성은 Edge Function(create-student-accounts)이 합니다.
-// 초기 비밀번호는 서버 어디에도 저장되지 않으므로, 이 화면을 벗어나면 다시 볼 수 없습니다.
+// 엑셀에서 복사한 명단을 붙여넣으면 계정을 만듭니다.
+// 실제 계정 생성과 비밀번호 초기화는 Edge Function(create-student-accounts)이 합니다.
+//
+// 초기 비밀번호는 모두 같은 값(INITIAL_PASSWORD)입니다. 서버가 정하고 응답으로 알려줍니다.
+// 첫 로그인 때 본인 비밀번호로 반드시 바꾸게 되어 있습니다.
 
 var rosterMode = 'student';   // 'student' | 'teacher'
 var parsedRows = [];          // 미리보기에 뜬 줄
-var lastCreated = [];         // 방금 만든 계정 + 초기 비밀번호
+var initialPassword = '';     // 서버가 알려준 초기 비밀번호
 
 // ── 화면 전환 ──
 function setRosterMode(mode) {
@@ -147,9 +149,30 @@ function renderPreview(problems) {
   document.getElementById('result-area').hidden = true;
 }
 
+// 이름이 그대로 화면에 들어가므로 특수문자를 막습니다.
+// 따옴표까지 막아야 data-name="..." 같은 속성 안에 넣어도 안전합니다.
 function esc(s) {
   return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ── 서버 부르기 ──
+// Edge Function 이 4xx 를 주면 본문에 이유가 들어 있습니다.
+// 그냥 res.error.message 만 보면 "non-2xx status code" 같은 쓸모없는 말만 나옵니다.
+async function callAccountFn(body) {
+  var res = await sb.functions.invoke('create-student-accounts', { body: body });
+  if (!res.error) return { data: res.data };
+
+  var reason = res.error.message;
+  try {
+    var ctx = res.error.context;
+    if (ctx && typeof ctx.json === 'function') {
+      var payload = await ctx.json();
+      if (payload && payload.error) reason = payload.error;
+    }
+  } catch (e) { /* 본문을 못 읽으면 원래 메시지를 씁니다 */ }
+  return { error: reason };
 }
 
 // ── 계정 만들기 ──
@@ -160,28 +183,13 @@ async function createAccounts() {
   btn.disabled = true;
   btn.textContent = '만드는 중...';
 
-  var res = await sb.functions.invoke('create-student-accounts', {
-    body: { role: rosterMode, people: parsedRows }
-  });
+  var res = await callAccountFn({ role: rosterMode, people: parsedRows });
 
   btn.disabled = false;
   btn.textContent = '계정 만들기';
 
-  if (res.error) {
-    // Edge Function 이 4xx 를 주면 본문에 이유가 들어 있습니다
-    var reason = res.error.message;
-    try {
-      var ctx = res.error.context;
-      if (ctx && typeof ctx.json === 'function') {
-        var body = await ctx.json();
-        if (body && body.error) reason = body.error;
-      }
-    } catch (e) { /* 본문을 못 읽으면 원래 메시지를 씁니다 */ }
-    toast('실패: ' + reason, 'bad');
-    return;
-  }
+  if (res.error) { toast('실패: ' + res.error, 'bad'); return; }
 
-  lastCreated = res.data.created || [];
   renderResult(res.data);
   loadRoster();
 }
@@ -189,16 +197,22 @@ async function createAccounts() {
 function renderResult(data) {
   var created = data.created || [];
   var skipped = data.skipped || [];
+  initialPassword = data.initial_password || initialPassword;
 
   document.getElementById('result-summary').innerHTML =
     '<b>' + created.length + '명</b> 계정을 만들었습니다.' +
     (skipped.length ? ' <span class="muted">(' + skipped.length + '명 건너뜀)</span>' : '');
 
+  // 초기 비밀번호가 모두 같으므로 한 줄이면 충분합니다.
+  // 예전처럼 사람마다 다른 비밀번호를 표로 뽑아 나눠줄 일이 없습니다.
+  document.getElementById('result-password').innerHTML =
+    '초기 비밀번호는 모두 <b class="pw">' + esc(initialPassword) + '</b> 입니다. ' +
+    '첫 로그인 때 본인 비밀번호로 바꾸게 되어 있습니다.';
+
   document.getElementById('result-table').innerHTML =
-    '<tr><th>아이디</th><th>이름</th><th>초기 비밀번호</th></tr>' +
+    '<tr><th>아이디</th><th>이름</th></tr>' +
     created.map(function (c) {
-      return '<tr><td><b>' + esc(c.login_id) + '</b></td><td>' + esc(c.name) +
-             '</td><td class="pw">' + esc(c.password) + '</td></tr>';
+      return '<tr><td><b>' + esc(c.login_id) + '</b></td><td>' + esc(c.name) + '</td></tr>';
     }).join('');
 
   var sk = document.getElementById('result-skipped');
@@ -217,32 +231,34 @@ function renderResult(data) {
   window.scrollTo({ top: document.getElementById('result-area').offsetTop - 80, behavior: 'smooth' });
 }
 
-// ── 초기 비밀번호 내보내기 ──
-// 서버에 저장돼 있지 않으므로 이 화면을 벗어나면 다시 볼 수 없습니다.
-function copyPasswords() {
-  var text = lastCreated.map(function (c) {
-    return c.login_id + '\t' + c.name + '\t' + c.password;
-  }).join('\n');
-  navigator.clipboard.writeText('아이디\t이름\t초기 비밀번호\n' + text)
-    .then(function () { toast('복사했습니다. 엑셀에 붙여넣으세요.', 'ok'); })
-    .catch(function () { toast('복사에 실패했습니다.', 'bad'); });
+// ── 비밀번호 초기화 ──
+// 비밀번호를 잊은 사람을 초기 비밀번호로 되돌립니다.
+// 되돌린 뒤에는 다음 로그인 때 다시 바꾸게 됩니다.
+async function resetPassword(loginId, name, btn) {
+  if (!confirm(name + '(' + loginId + ') 님의 비밀번호를 초기 비밀번호로 되돌릴까요?')) return;
+
+  var label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '되돌리는 중...';
+
+  var res = await callAccountFn({ action: 'reset', login_ids: [loginId] });
+
+  btn.disabled = false;
+  btn.textContent = label;
+
+  if (res.error) { toast('실패: ' + res.error, 'bad'); return; }
+
+  var failed = res.data.failed || [];
+  if (failed.length) { toast('실패: ' + failed[0].reason, 'bad'); return; }
+
+  initialPassword = res.data.initial_password || initialPassword;
+  toast(name + ' 님의 비밀번호를 ' + initialPassword + ' 으로 되돌렸습니다.', 'ok');
+  loadRoster();
 }
 
-function downloadPasswords() {
-  var rows = [['아이디', '이름', '초기 비밀번호']].concat(
-    lastCreated.map(function (c) { return [c.login_id, c.name, c.password]; })
-  );
-  var csv = rows.map(function (r) {
-    return r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
-  }).join('\r\n');
-
-  // 엑셀이 한글을 깨뜨리지 않도록 BOM 을 붙입니다
-  var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = '초기비밀번호_' + new Date().toISOString().slice(0, 10) + '.csv';
-  a.click();
-  URL.revokeObjectURL(a.href);
+// 표의 버튼에서 부릅니다. 이름에 따옴표가 들어가도 깨지지 않게 data- 속성으로 넘깁니다.
+function onResetClick(btn) {
+  resetPassword(btn.dataset.loginId, btn.dataset.name, btn);
 }
 
 // ── 등록된 명단 보기 ──
@@ -260,13 +276,14 @@ async function loadRoster() {
     if (error) { box.innerHTML = '<p class="muted">불러오지 못했습니다: ' + esc(error.message) + '</p>'; return; }
     if (!data.length) { box.innerHTML = '<p class="muted">등록된 선생님이 없습니다.</p>'; return; }
 
-    box.innerHTML = '<table class="t-table"><tr><th>아이디</th><th>이름</th><th>역할</th><th>비밀번호</th></tr>' +
+    box.innerHTML = '<table class="t-table"><tr><th>아이디</th><th>이름</th><th>역할</th><th>비밀번호</th><th></th></tr>' +
       data.map(function (p) {
         return '<tr><td><b>' + esc(p.login_id) + '</b></td><td>' + esc(p.name) + '</td>' +
                '<td>' + (p.role === 'admin' ? '관리자' : '교사') + '</td>' +
                '<td>' + (p.must_change_password
                  ? '<span class="chip warn">초기 비밀번호</span>'
-                 : '<span class="chip ok">변경 완료</span>') + '</td></tr>';
+                 : '<span class="chip ok">변경 완료</span>') + '</td>' +
+               '<td>' + resetButton(p.login_id, p.name) + '</td></tr>';
       }).join('') + '</table>';
     return;
   }
@@ -279,12 +296,20 @@ async function loadRoster() {
   if (error) { box.innerHTML = '<p class="muted">불러오지 못했습니다: ' + esc(error.message) + '</p>'; return; }
   if (!data.length) { box.innerHTML = '<p class="muted">등록된 학생이 없습니다.</p>'; return; }
 
-  box.innerHTML = '<table class="t-table"><tr><th>학년</th><th>반</th><th>학번</th><th>이름</th><th>계정</th></tr>' +
+  box.innerHTML = '<table class="t-table"><tr><th>학년</th><th>반</th><th>학번</th><th>이름</th><th>계정</th><th></th></tr>' +
     data.map(function (s) {
       return '<tr><td>' + esc(s.grade) + '</td><td>' + esc(s.class_no) + '</td>' +
              '<td><b>' + esc(s.student_no) + '</b></td><td>' + esc(s.name) + '</td>' +
              '<td>' + (s.auth_user_id
                ? '<span class="chip ok">있음</span>'
-               : '<span class="chip">없음</span>') + '</td></tr>';
+               : '<span class="chip">없음</span>') + '</td>' +
+             // 계정이 없는 학생은 되돌릴 비밀번호도 없습니다
+             '<td>' + (s.auth_user_id ? resetButton(s.student_no, s.name) : '') + '</td></tr>';
     }).join('') + '</table>';
+}
+
+// 명단 각 줄 오른쪽에 붙는 "비밀번호 초기화" 버튼
+function resetButton(loginId, name) {
+  return '<button class="t-mini" onclick="onResetClick(this)"' +
+         ' data-login-id="' + esc(loginId) + '" data-name="' + esc(name) + '">비밀번호 초기화</button>';
 }
