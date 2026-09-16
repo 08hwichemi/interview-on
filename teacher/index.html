@@ -39,101 +39,126 @@
     </div>
   </header>
 
-  <main class="wrap">
+  <main class="wrap cols">
 
-    <!-- ══ 1. 학생 고르기 ══ -->
-    <section id="view-pick">
-      <div class="panel pad">
-        <p class="sec">면접할 학생 고르기</p>
-        <p class="hint">반을 고르거나 <b>학번·이름</b>으로 찾아 <b>줄을 누르세요</b>. 전교생이 다 보입니다.</p>
+    <!-- ══ 왼쪽 칸 ══ -->
+    <aside class="rail panel">
 
-        <input type="text" id="search" placeholder="학번이나 이름으로 찾기" oninput="onSearch(this)">
-        <div class="chips" id="class-chips" style="margin-top:14px" hidden></div>
-
-        <p class="sec" style="margin-top:4px">찾은 학생 <span id="found-count"></span></p>
-        <div id="student-list"></div>
+      <!-- 면접 전 — 학생 명단 -->
+      <div id="rail-students">
+        <div class="railhead">
+          <p class="sec" style="margin:0">학생 <span id="found-count"></span>명</p>
+          <input type="text" id="search" placeholder="학번 · 이름" oninput="onSearch(this)">
+          <div class="chips tight" id="class-chips" hidden></div>
+        </div>
+        <div class="raillist" id="student-list"></div>
       </div>
-    </section>
 
-    <!-- ══ 2. 질문 정하기 ══ -->
-    <section id="view-setup" hidden>
-      <div class="panel pad">
-        <div class="headline">
-          <div>
-            <p class="sec" style="margin:0">면접 준비</p>
-            <h2 id="target-name"></h2>
+      <!-- 면접 중 — 질문 진행 상황 -->
+      <div id="rail-progress" hidden>
+        <div class="railhead">
+          <p class="sec" style="margin:0">진행 상황</p>
+          <p class="railwho" id="progress-who"></p>
+        </div>
+        <div class="raillist" id="progress-list"></div>
+      </div>
+
+    </aside>
+
+    <!-- ══ 오른쪽 칸 ══ -->
+    <div class="main">
+
+      <!-- 아무도 안 골랐을 때 -->
+      <section id="view-empty">
+        <div class="panel pad blank">
+          <p class="sec">면접 시작하기</p>
+          <p class="hint" style="margin:0">
+            왼쪽에서 <b>학생을 고르세요.</b> 반으로 추리거나 학번·이름으로 찾을 수 있습니다.
+          </p>
+        </div>
+      </section>
+
+      <!-- 준비 -->
+      <section id="view-setup" hidden>
+        <div class="panel pad">
+          <p class="sec" style="margin:0">면접 준비</p>
+          <h2 id="target-name"></h2>
+
+          <p class="sec" style="margin-top:22px">지난 면접</p>
+          <div id="history"></div>
+
+          <p class="sec" style="margin-top:22px">낼 질문</p>
+          <p class="hint">
+            질문마다 <b>무엇을 보는 질문인지</b> 골라 두세요. 리포트에서 역량별로 모아 보여줍니다.
+          </p>
+          <div id="q-list"></div>
+
+          <div class="btnrow" style="margin-top:12px">
+            <button class="btn" onclick="addQuestion('', '기타')">＋ 직접 적기</button>
+            <button class="ghost" onclick="loadCommon('changche', '공동체역량')">창체 질문 3개</button>
+            <button class="ghost" onclick="loadCommon('major', '진로역량')">전공 질문 3개</button>
           </div>
-          <button class="ghost" onclick="backToPick()">← 다른 학생</button>
+
+          <button class="btn solid wide" id="btn-start" onclick="startInterview()" disabled>면접 시작</button>
         </div>
+      </section>
 
-        <p class="sec" style="margin-top:20px">지난 면접</p>
-        <div id="history"></div>
-
-        <p class="sec" style="margin-top:22px">낼 질문</p>
-        <p class="hint">
-          질문마다 <b>무엇을 보는 질문인지</b> 골라 두세요. 면접이 끝나면 역량별로 모아 보여줍니다.
-        </p>
-        <div id="q-list"></div>
-
-        <div class="btnrow" style="margin-top:12px">
-          <button class="btn" onclick="addQuestion('', '기타')">＋ 직접 적기</button>
-          <button class="ghost" onclick="loadCommon('changche', '공동체역량')">창체 질문 3개</button>
-          <button class="ghost" onclick="loadCommon('major', '진로역량')">전공 질문 3개</button>
-        </div>
-
-        <button class="btn solid wide" id="btn-start" onclick="startInterview()" disabled>면접 시작</button>
-      </div>
-    </section>
-
-    <!-- ══ 3. 면접 진행 ══ -->
-    <section id="view-run" hidden>
-      <div class="panel pad">
-        <div class="headline">
-          <div>
-            <p class="sec" style="margin:0"><span id="run-who"></span></p>
+      <!-- 진행 -->
+      <section id="view-run" hidden>
+        <div class="panel pad">
+          <div class="headline">
             <span class="pill teacher" id="run-comp"></span>
+            <span class="step-no" id="run-step"></span>
           </div>
-          <span class="step-no" id="run-step"></span>
+
+          <div class="qcard" id="run-question"></div>
+
+          <div class="timerbox">
+            <div class="timer" id="timer">00:00</div>
+            <button class="btn solid" id="btn-timer" onclick="toggleTimer()">답변 시작</button>
+          </div>
+
+          <p class="sec" style="margin-top:22px">들으면서 누르세요</p>
+          <div id="tag-area"></div>
+
+          <div class="btnrow" style="margin:16px 0 0">
+            <button class="ghost" id="btn-prev" onclick="prevQuestion()">← 이전</button>
+            <button class="btn solid grow" id="btn-next" onclick="nextQuestion()">다음 질문 →</button>
+          </div>
         </div>
+      </section>
 
-        <div class="qcard" id="run-question"></div>
+      <!-- 마무리 -->
+      <section id="view-finish" hidden>
+        <div class="panel pad">
+          <div class="headline">
+            <div>
+              <p class="sec" style="margin:0">면접 마무리</p>
+              <h2 id="finish-who"></h2>
+            </div>
+            <button class="ghost" onclick="backToRun()">← 질문으로</button>
+          </div>
+          <p class="hint">전체 답변 시간 <b id="finish-total"></b></p>
 
-        <div class="timerbox">
-          <div class="timer" id="timer">00:00</div>
-          <button class="btn solid" id="btn-timer" onclick="toggleTimer()">답변 시작</button>
+          <p class="sec" style="margin-top:20px">채점표</p>
+          <div class="scorehead">
+            <span class="area">평가요소</span><span class="item">평가항목</span>
+            <span class="picks">A · B · C · D · E</span>
+          </div>
+          <div id="scoresheet"></div>
+
+          <p class="sec" style="margin-top:22px">한 줄 총평 <span class="opt">(안 써도 됩니다)</span></p>
+          <textarea id="finish-note" style="min-height:70px"
+            placeholder="예: 경험은 풍부한데 결론을 먼저 말하는 연습이 필요합니다."></textarea>
+
+          <div class="note info">
+            <b>면접 끝내기</b>를 누르면 그 자리에서 학생 폰에 리포트가 보입니다.
+          </div>
+          <button class="btn solid wide" id="btn-finish" onclick="finishInterview()">면접 끝내기 (학생에게 공개)</button>
         </div>
+      </section>
 
-        <p class="sec" style="margin-top:22px">들으면서 누르세요</p>
-        <div id="tag-area"></div>
-
-        <button class="btn solid wide" id="btn-next" onclick="nextQuestion()">다음 질문 →</button>
-      </div>
-    </section>
-
-    <!-- ══ 4. 끝내기 ══ -->
-    <section id="view-finish" hidden>
-      <div class="panel pad">
-        <p class="sec">면접 마무리</p>
-        <h2 id="finish-who"></h2>
-        <p class="hint">전체 답변 시간 <b id="finish-total"></b></p>
-
-        <p class="sec" style="margin-top:20px">학업역량</p>
-        <div class="chips" id="grade-academic"></div>
-        <p class="sec">진로역량</p>
-        <div class="chips" id="grade-career"></div>
-        <p class="sec">공동체역량</p>
-        <div class="chips" id="grade-community"></div>
-
-        <p class="sec" style="margin-top:20px">한 줄 총평 <span class="opt">(안 써도 됩니다)</span></p>
-        <textarea id="finish-note" style="min-height:70px" placeholder="예: 경험은 풍부한데 결론을 먼저 말하는 연습이 필요합니다."></textarea>
-
-        <div class="note info">
-          <b>면접 끝내기</b>를 누르면 그 자리에서 학생 폰에 리포트가 보입니다.
-        </div>
-        <button class="btn solid wide" id="btn-finish" onclick="finishInterview()">면접 끝내기 (학생에게 공개)</button>
-      </div>
-    </section>
-
+    </div>
   </main>
 </div>
 
