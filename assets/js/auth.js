@@ -92,8 +92,10 @@ async function submitPasswordChange() {
   function fail(msg) { errEl.innerText = msg; errEl.style.display = 'block'; }
   errEl.style.display = 'none';
 
-  if (pw1.length < 8) { fail('비밀번호는 8자 이상이어야 합니다.'); return; }
-  if (pw1 !== pw2)    { fail('두 비밀번호가 서로 다릅니다.'); return; }
+  // 학생들이 외우기 쉽도록 숫자 6자리 이상으로 받습니다.
+  if (!/^[0-9]+$/.test(pw1)) { fail('비밀번호는 숫자만 쓸 수 있습니다.'); return; }
+  if (pw1.length < 6)        { fail('비밀번호는 숫자 6자리 이상이어야 합니다.'); return; }
+  if (pw1 !== pw2)           { fail('두 비밀번호가 서로 다릅니다.'); return; }
 
   setBusy(true);
   const { error: pwErr } = await sb.auth.updateUser({ password: pw1 });
