@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.25">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.26">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.25">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.25">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-16.25">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-16.25">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.26">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.26">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-16.26">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-16.26">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-16.26">
 </head>
 <body>
 
@@ -122,6 +123,7 @@
             <button class="btn" onclick="addQuestion('', '기타')">＋ 직접 적기</button>
             <button class="ghost" onclick="loadCommon('changche', '공동체역량')">창체 질문 3개</button>
             <button class="ghost" onclick="loadCommon('major', '진로역량')">전공 질문 3개</button>
+            <button class="ghost" onclick="openSaenggibu()">📄 생기부에서 뽑기</button>
           </div>
 
           <p class="sec" style="margin-top:22px">끝인사 <span class="opt">(면접을 닫는 질문)</span></p>
@@ -294,6 +296,30 @@
 </div>
 
 
+
+<!-- ══ 생기부에서 질문 뽑기 ══ (saenggibu.js)
+     ⚠️ 파일은 이 브라우저 안에서만 읽고 바로 버립니다. 서버로 가지 않습니다. -->
+<div id="sg-modal" class="chat-modal">
+  <div class="chat-sheet sg-sheet">
+    <div class="chat-top">
+      <h3>📄 생기부에서 질문 뽑기</h3>
+      <button class="chat-x" onclick="closeSaenggibu()">&times;</button>
+    </div>
+
+    <div class="sg-pick">
+      <input type="file" id="sg-file" accept="application/pdf,.pdf" hidden onchange="onSaenggibuFile(this)">
+      <button class="btn" onclick="document.getElementById('sg-file').click()">생기부 PDF 고르기</button>
+      <span class="sg-safe">브라우저에서만 읽고 버립니다 · 서버에 안 올라갑니다</span>
+    </div>
+
+    <div class="sg-body" id="sg-body"></div>
+
+    <div class="sg-foot" id="sg-foot" hidden>
+      <button class="btn solid" id="sg-add" onclick="addSaenggibuPicks()" disabled>담을 질문을 고르세요</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ 톡 목록 ══ (chat.js) -->
 <div id="chat-list-modal" class="chat-modal">
   <div class="chat-sheet">
@@ -334,16 +360,17 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-16.25"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-16.25"></script>
-<script src="../assets/js/utils.js?v=2026-09-16.25"></script>
-<script src="../assets/js/api.js?v=2026-09-16.25"></script>
-<script src="../assets/js/browse.js?v=2026-09-16.25"></script>
-<script src="../assets/js/reviews.js?v=2026-09-16.25"></script>
-<script src="../assets/js/questions.js?v=2026-09-16.25"></script>
-<script src="../assets/js/report.js?v=2026-09-16.25"></script>
-<script src="../assets/js/chat.js?v=2026-09-16.25"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-16.25"></script>
+<script src="../assets/js/config.js?v=2026-09-16.26"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-16.26"></script>
+<script src="../assets/js/utils.js?v=2026-09-16.26"></script>
+<script src="../assets/js/api.js?v=2026-09-16.26"></script>
+<script src="../assets/js/browse.js?v=2026-09-16.26"></script>
+<script src="../assets/js/reviews.js?v=2026-09-16.26"></script>
+<script src="../assets/js/questions.js?v=2026-09-16.26"></script>
+<script src="../assets/js/report.js?v=2026-09-16.26"></script>
+<script src="../assets/js/chat.js?v=2026-09-16.26"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-16.26"></script>
+<script src="../assets/js/saenggibu.js?v=2026-09-16.26"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);

@@ -1,0 +1,628 @@
+// 생기부에서 질문 뽑기
+//
+// ⚠️ 생기부는 브라우저 안에서만 읽고 버립니다. 서버로 보내지 않습니다.
+//    남는 것은 선생님이 «낼 질문» 에 담은 질문 글자뿐입니다.
+//
+// 파일은 셋으로 나뉩니다.
+//   ① 글자 꺼내기   pdf.js 로 PDF 에서 줄을 뽑습니다 (브라우저에서만 됩니다)
+//   ② 자르기        영역과 학년으로 자릅니다        — 순수 함수, 시험하기 쉽습니다
+//   ③ 질문 만들기   문장에서 이야깃거리를 찾아 틀에 끼웁니다 — 역시 순수 함수
+//
+// ②③ 은 브라우저가 없어도 돌아갑니다. tools/생기부-시험.js 가 그걸 시험합니다.
+
+// ══════════════ ② 자르기 ══════════════
+
+// 나이스 생기부의 영역 이름. 판마다 조금씩 달라서 여러 표기를 받아 둡니다.
+var SG_SECTIONS = [
+  { key: 'changche', title: '창의적 체험활동',
+    heads: ['창의적 체험활동상황', '창의적체험활동상황', '창의적 체험활동 상황'] },
+  { key: 'sesa',     title: '세부능력 및 특기사항',
+    heads: ['세부능력 및 특기사항', '세부능력및특기사항', '교과학습발달상황'] },
+  // ⚠️ 교과학습발달상황 안에는 성적표가 먼저 나옵니다.
+  //    성적표 줄은 sgIsTableRow() 가 걸러 냅니다.
+  { key: 'haengteuk', title: '행동특성 및 종합의견',
+    heads: ['행동특성 및 종합의견', '행동특성및종합의견'] }
+];
+
+// 여기서 끊어야 하는 다른 영역들 (뒤에 붙는 내용이 섞이지 않게)
+var SG_STOPS = [
+  '인적', '학적사항', '출결상황', '수상경력', '자격증', '진로희망',
+  '독서활동상황', '봉사활동실적', '학교폭력'
+];
+
+// 창의적 체험활동 안의 갈래
+var SG_AREAS = ['자율활동', '동아리활동', '봉사활동', '진로활동'];
+
+function sgNorm(s) {
+  return String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+}
+
+// 줄들을 영역별로 자릅니다.
+// 반환: { changche:[줄...], sesa:[줄...], haengteuk:[줄...] }
+function sgSplitSections(lines) {
+  var out = { changche: [], sesa: [], haengteuk: [] };
+  var cur = null;
+
+  (lines || []).forEach(function (raw) {
+    var line = sgNorm(raw);
+    if (!line) return;
+
+    // 새 영역이 시작되는가
+    var started = null;
+    SG_SECTIONS.forEach(function (sec) {
+      if (started) return;
+      sec.heads.forEach(function (h) {
+        if (!started && line.replace(/\s/g, '').indexOf(h.replace(/\s/g, '')) > -1) started = sec.key;
+      });
+    });
+    if (started) { cur = started; return; }   // 제목 줄 자체는 담지 않습니다
+
+    // 우리가 안 보는 영역이 시작되면 끊습니다
+    var stop = SG_STOPS.some(function (w) { return line.indexOf(w) > -1 && line.length < 40; });
+    if (stop) { cur = null; return; }
+
+    if (cur) out[cur].push(line);
+  });
+
+  return out;
+}
+
+// 줄 안에서 학년 표시를 찾습니다.
+// 나이스 PDF 는 세 가지로 적습니다 — 「[1학년]」, 「1학년」, 그리고 표 안에서는
+// 숫자 하나만 덩그러니 「1」. 마지막 것 때문에 애를 먹었습니다.
+function sgGradeOf(line) {
+  var t = sgNorm(line);
+  if (/^\[?\s*[1-3]\s*\]?$/.test(t)) return Number(t.replace(/[^0-9]/g, ''));
+  var m = t.match(/(?:^|[^0-9])([1-3])\s*학\s*년/);
+  return m ? Number(m[1]) : null;
+}
+
+// 성적표 줄인가 — 「국어 국어 4 91/73.8(15.5) A(190) 2」 같은 것.
+// 숫자와 기호가 많으면 표입니다. 여기서 질문을 뽑을 수는 없습니다.
+function sgIsTableRow(line) {
+  var t = sgNorm(line);
+  if (!t) return true;
+  var marks = (t.match(/[0-9./()%]/g) || []).length;
+  return marks / t.length > 0.28;
+}
+
+// 표 머리글·갈래 이름처럼 되풀이되는 줄
+var SG_NOISE = [
+  '과 목', '세부능력 및 특기사항', '영역 시간 특기사항', '학년 행동특성 및 종합의견',
+  '학기 교과 과목', '성취도', '석차등급', '표준편차', '수강자수', '창의적 체험활동상황'
+];
+function sgIsNoise(line) {
+  var t = sgNorm(line);
+  if (t.length > 40) return false;
+  return SG_NOISE.some(function (w) { return t.indexOf(w) > -1; });
+}
+
+// 영역 안의 줄들을 학년별로 다시 자릅니다.
+// 학년 표시가 없으면 «학년 모름(0)» 으로 모읍니다.
+function sgSplitGrades(lines) {
+  var byGrade = { 0: [], 1: [], 2: [], 3: [] };
+  var cur = 0;
+  (lines || []).forEach(function (line) {
+    var g = sgGradeOf(line);
+    if (g) {
+      cur = g;
+      // 「2학년」 「[2학년]」 「2」 처럼 표시만 있는 줄이면 버립니다.
+      if (sgNorm(line).replace(/(?:제)?[1-3]\s*학\s*년/, '')
+            .replace(/[0-9()\[\]|:\s]/g, '') === '') return;
+    }
+    byGrade[cur].push(line);
+  });
+  return byGrade;
+}
+
+// 문장으로 쪼갭니다.
+// 생기부는 「~함.」 「~음.」 으로 끝나는 문장이 이어 붙어 있습니다.
+function sgSentences(lines) {
+  // ⚠️ 여기가 제일 중요합니다.
+  //    나이스 PDF 는 칸 너비에 맞춰 «낱말 가운데서» 줄을 끊습니다.
+  //      '…추진력이 뛰' / '어나며 수업에…'
+  //    줄을 띄어쓰기로 이으면 «뛰 어나며» 가 되어 말이 깨집니다.
+  //    그래서 앞 줄이 문장부호로 끝났을 때만 띄우고, 아니면 그냥 붙입니다.
+  var kept = (lines || []).filter(function (l) {
+    return !sgIsNoise(l) && !sgIsTableRow(l);
+  });
+
+  var text = '';
+  kept.forEach(function (line, i) {
+    var t = sgNorm(line);
+    if (!t) return;
+    if (i > 0) text += /[.!?]$/.test(text) ? ' ' : '';
+    text += t;
+  });
+
+  // 갈래 이름과 시간(자율활동 64), 쪽번호를 걷어냅니다
+  text = text.replace(/\((?:\s*\d+\s*시간\s*)\)/g, ' ')
+             .replace(new RegExp('(' + SG_AREAS.join('|') + ')\\s*\\d*\\s*', 'g'), ' ')
+             .replace(/\s*-\s*\d+\s*-\s*/g, ' ')
+             .replace(/\s+/g, ' ');
+
+  return text.split(/(?<=[.!?])\s+/)
+    .map(sgNorm)
+    .filter(function (s) { return s.length >= 12; });   // 토막 글자는 버립니다
+}
+
+// ══════════════ ③ 질문 만들기 ══════════════
+
+// 문장에서 «이야깃거리» 를 찾습니다.
+// 「」 '' 안의 제목, ~을 주제로, ~에 대해 탐구/조사/발표 …
+var SG_QUOTES = '「」『』"\'\u201c\u201d\u2018\u2019';
+var SG_TOPIC_RULES = [
+  { re: /[「『"'\u2018\u201c]([^」』"'\u2019\u201d]{3,40})[」』"'\u2019\u201d]/g,    kind: '제목' },
+  { re: /([^,.\s][^,.]{2,40}?)(?:을|를)\s*주제로/g,              kind: '주제' },
+  { re: /([^,.\s][^,.]{2,40}?)에\s*(?:대해|관해|대하여)\s*(?:탐구|조사|발표|실험|연구|분석)/g, kind: '탐구' },
+  { re: /([^,.\s][^,.]{2,40}?)\s*(?:탐구|실험|프로젝트|캠페인|동아리|활동)(?:을|를|에)?\s*(?:진행|수행|기획|참여)/g, kind: '활동' }
+];
+
+// 창체 갈래 이름·과목 꼬리표가 앞에 붙어 오면 떼어 냅니다.
+// 「동아리활동 (과학탐구부) 미세먼지와 식물 생장」 처럼 통째로 잡히면
+// 질문이 우스워집니다.
+function sgCleanTopic(raw) {
+  var t = sgNorm(raw);
+
+  // 따옴표가 섞여 있으면 그 «안쪽» 만 씁니다. 바깥은 군더더기입니다.
+  var inner = t.match(/[「『"'\u2018\u201c]([^」』"'\u2019\u201d]{3,40})[」』"'\u2019\u201d]/);
+  if (inner) t = sgNorm(inner[1]);
+
+  // 남은 따옴표·괄호 묶음을 떼어 냅니다
+  t = t.replace(new RegExp('^[' + SG_QUOTES + '\\s]+'), '')
+       .replace(new RegExp('[' + SG_QUOTES + '\\s]+$'), '')
+       .replace(/^\([^)]*\)\s*/, '')            // (과학탐구부)
+       .replace(/^\[[^\]]*\]\s*/, '');         // [생명과학Ⅰ]
+
+  // 앞에 붙은 갈래 이름 떼기
+  SG_AREAS.forEach(function (a) {
+    t = t.replace(new RegExp('^' + a + '\\s*(\\([^)]*\\))?\\s*'), '');
+  });
+  t = sgNorm(t).replace(/^\([^)]*\)\s*/, '');
+
+  return sgNorm(t);
+}
+
+// 따옴표가 줄을 넘어가며 잘리면 「라는 인물을 새로 설정하고」 처럼
+// 토씨로 시작하는 토막이 잡힙니다. 질문으로 쓸 수 없습니다.
+var SG_JUNK_HEAD = /^(?:라는|이라는|라고|이라고|하는|되는|하여|으로|로서|에서|에게|및|와|과|의|을|를|은|는|이|가|도|만)\s/;
+
+function sgLooksJunk(t) {
+  if (SG_JUNK_HEAD.test(t)) return true;
+  // 한글이 거의 없으면 표에서 흘러든 조각입니다
+  var hangul = (t.match(/[가-힣]/g) || []).length;
+  return hangul < 2;
+}
+
+function sgTopics(sentence) {
+  var found = [];
+  SG_TOPIC_RULES.forEach(function (rule) {
+    var re = new RegExp(rule.re.source, 'g');
+    var m;
+    while ((m = re.exec(sentence)) !== null) {
+      var t = sgCleanTopic(m[1]);
+      if (t.length < 3 || t.length > 30) continue;
+      // 아직도 따옴표가 남아 있으면 제대로 못 잘린 것입니다. 버립니다.
+      if (new RegExp('[' + SG_QUOTES + ']').test(t)) continue;
+      if (sgLooksJunk(t)) continue;
+      if (found.some(function (f) { return f.text === t; })) continue;
+      found.push({ text: t, kind: rule.kind });
+    }
+  });
+  return found;
+}
+
+// 「1984(조지 오웰)」 처럼 괄호 안이 사람 이름이면 읽은 책입니다.
+// 책에 「아는 대로 설명해 보세요」 는 안 맞습니다.
+function sgBookOf(topic) {
+  var m = String(topic).match(/^(.{2,40}?)\s*\(([가-힣]{2,4}(?:\s[가-힣]{1,10})?)\)$/);
+  return m ? { title: sgNorm(m[1]), author: sgNorm(m[2]) } : null;
+}
+
+var SG_BOOK_TEMPLATES = [
+  { comp: '학업역량',
+    make: function (b) { return '「' + b.title + '」을(를) 읽었군요. 어떤 대목이 가장 기억에 남고, 왜 그랬나요?'; } },
+  { comp: '진로역량',
+    make: function (b) { return '「' + b.title + '」을(를) 읽고 생각이 바뀐 것이 있다면 무엇인가요?'; } }
+];
+
+// 영역마다 다른 질문 틀입니다.
+var SG_TEMPLATES = {
+  changche: [
+    { comp: '공동체역량',
+      make: function (t) { return '「' + t + '」 기록이 있습니다. 그때 본인이 실제로 한 일과, 가장 어려웠던 판단은 무엇이었나요?'; } },
+    { comp: '진로역량',
+      make: function (t) { return '「' + t + '」 활동이 지금의 진로 생각에 어떤 영향을 주었나요?'; } }
+  ],
+  sesa: [
+    { comp: '학업역량',
+      make: function (t) { return '「' + t + '」이(가) 기록에 나옵니다. 아는 대로 설명해 보세요.'; } },
+    { comp: '학업역량',
+      make: function (t) { return '「' + t + '」은(는) 무엇이 궁금해서 시작했고, 결과를 어떻게 확인했나요?'; } }
+  ],
+  haengteuk: [
+    { comp: '공동체역량',
+      make: function (t) { return '선생님이 「' + t + '」이라고 적어 주셨습니다. 그렇게 보였을 장면을 하나 들어 주세요.'; } }
+  ]
+};
+
+// 행동특성에 따옴표로 묶인 것은 «칭찬하는 말» 이 아니라 활동 이름입니다.
+// 「30분의 기적」에 «이라고 적어 주셨습니다» 를 붙이면 말이 안 됩니다.
+var SG_HT_ACT_TEMPLATES = [
+  { comp: '공동체역량',
+    make: function (t) { return '「' + t + '」 이야기가 있습니다. 어떻게 시작했고 본인이 맡은 몫은 무엇이었나요?'; } }
+];
+
+// 행동특성은 «칭찬하는 말» 자체가 이야깃거리입니다.
+// 따옴표가 없을 때가 많아서 서술어를 보고 찾습니다.
+//
+// ⚠️ 앞말을 끌고 오지 않도록 «띄어쓰기 없는 한 마디» 또는 «두 마디» 까지만 봅니다.
+//    안 그러면 «맡은 일을 끝까지 해내는 책임감» 이 통째로 잡힙니다.
+var SG_TRAIT_RE =
+  /([가-힣]{1,6}(?:\s[가-힣]{1,6})?(?:력|성|심|감|태도|자세|리더십|능력|역량|의지|열정|노력|경청|배려|소통|책임))(?:이|가|은|는|을|를)?\s*(?:뛰어남|뛰어나|돋보임|돋보이|우수함|우수하|강함|강하|탁월|있음|보임|보여|발휘)/g;
+
+// 「해내는 책임감」 처럼 앞에 꾸밈말이 붙어 나오면 떼어 냅니다.
+// 꾸밈말은 «-는 / -은 / -한 / -된» 처럼 끝납니다.
+// 「의사소통 능력」 같은 한 덩어리 말은 그대로 둡니다.
+var SG_MODIFIER_END = /(?:는|은|ㄴ|한|된|인|워|며|고|게|이|히)$/;
+
+function sgTrimTrait(t) {
+  var parts = sgNorm(t).split(' ');
+  if (parts.length === 2 && SG_MODIFIER_END.test(parts[0])) return parts[1];
+  return sgNorm(t);
+}
+
+function sgTraits(sentence) {
+  var out = [], m;
+  var re = new RegExp(SG_TRAIT_RE.source, 'g');
+  while ((m = re.exec(sentence)) !== null) {
+    var t = sgTrimTrait(m[1]);
+    if (t.length >= 2 && !out.some(function (x) { return x.text === t; })) {
+      out.push({ text: t, kind: '평가' });
+    }
+  }
+  return out;
+}
+
+// 세특 문장은 「정보: 계획적이고…」 처럼 과목 이름으로 시작합니다.
+// 과목을 붙여 두면 선생님이 «정보 세특» 만 골라 볼 수 있습니다.
+function sgSubjectOf(sentence) {
+  var m = sgNorm(sentence).match(/^([가-힣A-Za-zⅠⅡ·\s]{2,14}?)\s*[:：]\s*\S/);
+  if (!m) return '';
+  var subj = sgNorm(m[1]);
+  return (subj.length <= 12) ? subj : '';
+}
+
+// 한 영역·한 학년의 문장들에서 질문을 만듭니다.
+// 반환: [{ text, competency, topic, subject, source, grade, area }]
+function sgMakeQuestions(sectionKey, grade, sentences) {
+  var templates = SG_TEMPLATES[sectionKey] || [];
+  var made = [];
+  var seen = {};
+
+  var subject = '';   // 과목은 한 번 나오면 그 뒤 문장까지 이어집니다
+
+  (sentences || []).forEach(function (sentence) {
+    if (sectionKey === 'sesa') {
+      var found = sgSubjectOf(sentence);
+      if (found) subject = found;
+    }
+    var topics;
+    if (sectionKey === 'haengteuk') {
+      // 칭찬하는 말 + 따옴표로 묶인 활동 이름만. «독서 토론 등의 다양한» 같은
+      // 토막이 활동 규칙에 걸려 들어오는 것을 막습니다.
+      topics = sgTraits(sentence).concat(
+        sgTopics(sentence).filter(function (t) { return t.kind === '제목'; }));
+    } else {
+      topics = sgTopics(sentence);
+    }
+
+    topics.forEach(function (topic) {
+      var book = (sectionKey === 'haengteuk') ? null : sgBookOf(topic.text);
+      var use = book ? SG_BOOK_TEMPLATES
+              : (sectionKey === 'haengteuk' && topic.kind === '제목') ? SG_HT_ACT_TEMPLATES
+              : templates;
+
+      use.forEach(function (tpl) {
+        var text = book ? tpl.make(book) : tpl.make(topic.text);
+        if (seen[text]) return;
+        seen[text] = true;
+        made.push({
+          text: text,
+          competency: tpl.comp,
+          topic: book ? book.title : topic.text,
+          subject: subject,
+          source: sentence,        // 원문을 같이 보여줍니다. 이상하면 바로 알아채도록
+          grade: grade,
+          area: sectionKey
+        });
+      });
+    });
+  });
+
+  return made;
+}
+
+// 「AI 시대, 우리는 왜 여전히 코딩을 배워야 하는가?」 와
+// 「우리는 왜 여전히 코딩을 배워야 하는가?」 처럼 한쪽이 다른 쪽에 통째로
+// 들어 있으면 같은 이야기입니다. 긴 쪽만 남깁니다.
+function sgDropContained(questions) {
+  var topics = questions.map(function (q) { return q.topic || ''; });
+  var buried = {};
+  topics.forEach(function (a, i) {
+    topics.forEach(function (b, j) {
+      if (i === j || buried[a] || !a || !b) return;
+      if (a.length < b.length && b.indexOf(a) > -1) buried[a] = true;
+    });
+  });
+  return questions.filter(function (q) { return !buried[q.topic || '']; });
+}
+
+// 줄 뭉치 하나를 통째로 받아 질문 목록을 돌려줍니다.
+function sgBuild(lines) {
+  var sections = sgSplitSections(lines);
+  var all = [];
+  var counts = {};
+
+  SG_SECTIONS.forEach(function (sec) {
+    var byGrade = sgSplitGrades(sections[sec.key]);
+    counts[sec.key] = 0;
+    [1, 2, 3, 0].forEach(function (g) {
+      var sentences = sgSentences(byGrade[g]);
+      if (!sentences.length) return;
+      var qs = sgDropContained(sgMakeQuestions(sec.key, g, sentences));
+      counts[sec.key] += qs.length;
+      all = all.concat(qs);
+    });
+  });
+
+  return { questions: all, counts: counts, sections: sections };
+}
+
+// 브라우저 밖(시험)에서도 쓸 수 있게 내보냅니다.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { sgSplitSections: sgSplitSections, sgCleanTopic: sgCleanTopic,
+                     sgIsTableRow: sgIsTableRow, sgBookOf: sgBookOf, sgSubjectOf: sgSubjectOf, sgIsNoise: sgIsNoise, sgGradeOf: sgGradeOf, sgSplitGrades: sgSplitGrades,
+                     sgSentences: sgSentences, sgTopics: sgTopics, sgTraits: sgTraits,
+                     sgMakeQuestions: sgMakeQuestions, sgBuild: sgBuild,
+                     SG_SECTIONS: SG_SECTIONS };
+}
+
+// ══════════════ ① 글자 꺼내기 (브라우저) ══════════════
+//
+// pdf.js 로 PDF 에서 줄을 뽑습니다.
+// ⚠️ 파일은 브라우저 메모리에서만 다룹니다. 서버로 보내지 않습니다.
+//    아래 어디에도 fetch/upload 가 없습니다.
+
+var SG_PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+var SG_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+var sgPdfReady = null;
+
+function sgLoadPdfJs() {
+  if (sgPdfReady) return sgPdfReady;
+  sgPdfReady = new Promise(function (ok, fail) {
+    if (window.pdfjsLib) { ok(window.pdfjsLib); return; }
+    var s = document.createElement('script');
+    s.src = SG_PDFJS;
+    s.onload = function () {
+      if (!window.pdfjsLib) { fail(new Error('pdf.js 를 불러오지 못했습니다.')); return; }
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = SG_WORKER;
+      ok(window.pdfjsLib);
+    };
+    s.onerror = function () { fail(new Error('pdf.js 를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.')); };
+    document.head.appendChild(s);
+  });
+  return sgPdfReady;
+}
+
+// PDF 한 쪽의 글자 조각을 «줄» 로 묶습니다.
+// 표라서 조각이 뿔뿔이 나오므로, 세로 위치(y)가 비슷하면 한 줄로 봅니다.
+function sgItemsToLines(items) {
+  var rows = [];
+  items.forEach(function (it) {
+    var text = it.str;
+    if (!text || !text.trim()) return;
+    var y = Math.round(it.transform[5]);
+    var x = it.transform[4];
+    var row = rows.filter(function (r) { return Math.abs(r.y - y) <= 3; })[0];
+    if (!row) { row = { y: y, parts: [] }; rows.push(row); }
+    row.parts.push({ x: x, text: text });
+  });
+
+  return rows
+    .sort(function (a, b) { return b.y - a.y; })        // 위에서 아래로
+    .map(function (r) {
+      return r.parts.sort(function (a, b) { return a.x - b.x; })   // 왼쪽에서 오른쪽으로
+        .map(function (p) { return p.text; }).join(' ');
+    });
+}
+
+// 파일 하나를 읽어 줄 목록을 돌려줍니다.
+async function sgReadPdf(file) {
+  var pdfjsLib = await sgLoadPdfJs();
+  var buf = await file.arrayBuffer();
+  var pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+
+  var lines = [];
+  for (var i = 1; i <= pdf.numPages; i++) {
+    var page = await pdf.getPage(i);
+    var content = await page.getTextContent();
+    lines = lines.concat(sgItemsToLines(content.items));
+  }
+  return lines;
+}
+
+// ══════════════ 화면 (교사) ══════════════
+
+var sgFound = [];        // 뽑은 질문들
+var sgPicked = {};       // { 번호: true } — 담을 것
+var sgGrade = 0;         // 0 = 모든 학년
+var sgArea = '';         // '' = 모든 영역
+var sgSubject = '';      // '' = 모든 과목 (세특일 때만 씁니다)
+var SG_NO_SUBJECT = '(과목 모름)';
+var sgMask = true;       // 개인정보 가림
+
+function openSaenggibu() {
+  sgFound = []; sgPicked = {}; sgGrade = 0; sgArea = ''; sgSubject = '';
+  document.getElementById('sg-modal').style.display = 'flex';
+  document.getElementById('sg-file').value = '';
+  renderSaenggibu();
+}
+
+function closeSaenggibu() {
+  document.getElementById('sg-modal').style.display = 'none';
+  sgFound = []; sgPicked = {};   // 화면을 닫으면 읽은 내용도 버립니다
+}
+
+async function onSaenggibuFile(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+
+  var body = document.getElementById('sg-body');
+  body.innerHTML = '<p class="sg-note">읽는 중입니다...</p>';
+
+  try {
+    var lines = await sgReadPdf(file);
+
+    // 글자가 없는 PDF(스캔본)면 여기서 알려줍니다
+    var letters = lines.join('').replace(/[\s\d\-|()]/g, '').length;
+    if (letters < 50) {
+      body.innerHTML = '<p class="sg-note bad">이 파일은 <b>글자가 없는 PDF</b> 입니다.<br>' +
+        '사진으로 찍거나 스캔한 파일은 글자를 꺼낼 수 없습니다.<br>' +
+        '나이스에서 <b>PDF 로 저장</b>한 파일을 넣어 주세요.</p>';
+      return;
+    }
+
+    var r = sgBuild(lines);
+    sgFound = r.questions;
+    sgPicked = {};
+
+    if (!sgFound.length) {
+      body.innerHTML = '<p class="sg-note bad">질문을 만들 만한 대목을 못 찾았습니다.<br>' +
+        '생기부 판이 달라 자르는 자리가 안 맞을 수 있습니다. 선생님께 알려 주세요.</p>';
+      return;
+    }
+    renderSaenggibu();
+  } catch (e) {
+    body.innerHTML = '<p class="sg-note bad">파일을 읽지 못했습니다.<br>' +
+      esc((e && e.message) || String(e)) + '</p>';
+  }
+}
+
+// 이름·학번이 원문에 섞여 있을 수 있어 가려서 보여줍니다.
+function sgMaskText(s) {
+  if (!sgMask) return s;
+  return String(s)
+    .replace(/\d{5,}/g, '●●●●●')                                   // 학번·전화
+    .replace(/\d{6}\s*-\s*\d{7}/g, '●●●●●●-●●●●●●●');              // 주민번호
+}
+
+function toggleSgMask() { sgMask = !sgMask; renderSaenggibu(); }
+function pickSgGrade(g) { sgGrade = (sgGrade === g) ? 0 : g; renderSaenggibu(); }
+function pickSgArea(a) { sgArea = (sgArea === a) ? '' : a; sgSubject = ''; renderSaenggibu(); }
+function pickSgSubject(x) { sgSubject = (sgSubject === x) ? '' : x; renderSaenggibu(); }
+
+function toggleSgPick(i) {
+  if (sgPicked[i]) delete sgPicked[i]; else sgPicked[i] = true;
+  renderSaenggibu();
+}
+
+function sgVisible() {
+  return sgFound.map(function (q, i) { return { q: q, i: i }; })
+    .filter(function (x) {
+      if (sgGrade && x.q.grade !== sgGrade) return false;
+      if (sgArea && x.q.area !== sgArea) return false;
+      // 「(과목 모름)」도 골라 볼 수 있어야 합니다. 빈 값이면 거르기가 안 먹습니다.
+      if (sgSubject && (x.q.subject || SG_NO_SUBJECT) !== sgSubject) return false;
+      return true;
+    });
+}
+
+function renderSaenggibu() {
+  var body = document.getElementById('sg-body');
+  var foot = document.getElementById('sg-foot');
+
+  if (!sgFound.length) {
+    body.innerHTML =
+      '<p class="sg-note">나이스에서 뽑은 <b>생기부 PDF</b> 를 고르세요.<br>' +
+      '<b>파일은 이 브라우저 안에서만 읽고 바로 버립니다.</b> 서버에 올라가지 않습니다.</p>';
+    foot.hidden = true;
+    return;
+  }
+
+  // 걸러 보기 — 학년·영역
+  var grades = {};
+  sgFound.forEach(function (q) { grades[q.grade] = (grades[q.grade] || 0) + 1; });
+  var chips = '<div class="chat-picks cls-row">' +
+    [1, 2, 3, 0].filter(function (g) { return grades[g]; }).map(function (g) {
+      return '<button class="chat-pick cls" aria-pressed="' + (sgGrade === g) + '"' +
+             ' onclick="pickSgGrade(' + g + ')">' + (g ? g + '학년' : '학년 모름') +
+             '<span class="n">' + grades[g] + '</span></button>';
+    }).join('') + '</div>' +
+    '<div class="chat-picks cls-row">' + SG_SECTIONS.map(function (sec) {
+      var n = sgFound.filter(function (q) { return q.area === sec.key; }).length;
+      if (!n) return '';
+      return '<button class="chat-pick cls" aria-pressed="' + (sgArea === sec.key) + '"' +
+             ' onclick="pickSgArea(\'' + sec.key + '\')">' + sec.title +
+             '<span class="n">' + n + '</span></button>';
+    }).join('') +
+    '<button class="chat-pick" aria-pressed="' + sgMask + '" onclick="toggleSgMask()">개인정보 가림</button>' +
+    '</div>';
+
+  // 세특은 과목이 많아 한 번에 훑기 어렵습니다. 과목으로 한 번 더 추립니다.
+  if (sgArea === 'sesa') {
+    var subs = {};
+    sgFound.forEach(function (q) {
+      if (q.area !== 'sesa') return;
+      if (sgGrade && q.grade !== sgGrade) return;
+      var k = q.subject || SG_NO_SUBJECT;
+      subs[k] = (subs[k] || 0) + 1;
+    });
+    var keys = Object.keys(subs).sort();
+    if (keys.length > 1) {
+      chips += '<div class="chat-picks cls-row">' + keys.map(function (k) {
+        return '<button class="chat-pick cls" aria-pressed="' + (sgSubject === k) + '"' +
+               ' onclick="pickSgSubject(\'' + k.replace(/'/g, "\\'") + '\')">' + esc(k) +
+               '<span class="n">' + subs[k] + '</span></button>';
+      }).join('') + '</div>';
+    }
+  }
+
+  var list = sgVisible();
+  body.innerHTML = chips + (list.length
+    ? '<div class="sg-list">' + list.map(function (x) {
+        return '<label class="sg-item' + (sgPicked[x.i] ? ' on' : '') + '">' +
+          '<input type="checkbox"' + (sgPicked[x.i] ? ' checked' : '') +
+            ' onchange="toggleSgPick(' + x.i + ')">' +
+          '<span class="sg-q">' +
+            '<span class="sg-qtext">' + esc(x.q.text) + '</span>' +
+            '<span class="sg-meta">' +
+              (x.q.grade ? x.q.grade + '학년 · ' : '') +
+              (x.q.subject ? esc(x.q.subject) + ' · ' : '') + esc(x.q.competency) +
+            '</span>' +
+            '<span class="sg-src">' + esc(sgMaskText(x.q.source)) + '</span>' +
+          '</span></label>';
+      }).join('') + '</div>'
+    : '<p class="sg-note">그 조건에 맞는 질문이 없습니다.</p>');
+
+  var n = Object.keys(sgPicked).length;
+  foot.hidden = false;
+  var btn = document.getElementById('sg-add');
+  btn.disabled = (n === 0);
+  btn.textContent = n ? n + '개를 「낼 질문」에 담기' : '담을 질문을 고르세요';
+}
+
+// 고른 질문을 면접 준비 화면의 «낼 질문» 으로 옮깁니다.
+// 여기서부터는 평범한 질문 글자일 뿐입니다. 생기부 원문은 따라가지 않습니다.
+function addSaenggibuPicks() {
+  var picked = Object.keys(sgPicked).map(Number).sort(function (a, b) { return a - b; });
+  if (!picked.length) return;
+
+  picked.forEach(function (i) {
+    var q = sgFound[i];
+    midQuestions.push({ text: q.text, competency: q.competency });
+  });
+  renderQuestions();
+  closeSaenggibu();
+  toast(picked.length + '개를 「낼 질문」에 담았습니다. 글자는 고쳐 쓰셔도 됩니다.', 'ok');
+}
