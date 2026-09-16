@@ -62,6 +62,11 @@ var seconds = 0;
 var running = false;
 var totalTimerId = null;
 var totalSeconds = 0;
+// 지금 이 면접이 «오늘 진행 중인 새 면접» 인지.
+// 지난 회차를 열어 고칠 때는 시간이 더 흘러서는 안 됩니다.
+// 이게 없어서, 옛 면접을 열고 «질문으로» 를 누르면 그 면접의 전체 시간이
+// 실시간으로 불어났습니다.
+var liveInterview = false;
 
 // ── 공통 ──
 function toast(msg, kind) {
@@ -159,15 +164,39 @@ function renderRailProgress() {
   document.getElementById('progress-who').textContent =
     target ? target.student_no + ' ' + target.name : '';
 
+  // 시간을 «건드린 질문만» 보여주니 1번에만 00:00 이 뜨고 나머지는 빈 줄이라
+  // 고장난 것처럼 보였습니다. 이제 모든 줄에 똑같이 보여줍니다.
   document.getElementById('progress-list').innerHTML = questions.map(function (q, i) {
-    var a = answers[i] || { seconds: 0, good: [], bad: [] };
-    var touched = a.seconds > 0 || a.good.length || a.bad.length || a.rating || a.memo;
+    var a = answers[i] || { seconds: 0, good: [], bad: [], rating: null, memo: '' };
+    var done = a.seconds > 0 || a.good.length || a.bad.length || a.rating || a.memo;
     return '<button class="railrow q" aria-current="' + (i === qIndex) + '" onclick="goToQuestion(' + i + ')">' +
       '<span class="qn">' + (i + 1) + '</span>' +
       '<span class="qt">' + esc(q.text) + '</span>' +
-      (touched ? '<span class="done">' + (a.rating ? esc(a.rating) + ' ' : '') + mmss(a.seconds) + '</span>' : '') +
+      '<span class="done' + (done ? '' : ' yet') + '">' +
+        (a.rating ? esc(a.rating) + ' ' : '') + mmss(a.seconds) +
+      '</span>' +
       '</button>';
   }).join('');
+}
+
+// 면접을 접고 학생 목록으로 돌아갑니다.
+// 예전에는 리포트 화면 위쪽의 작은 «닫기» 하나뿐이라 돌아갈 길을 못 찾았습니다.
+function backToList() {
+  if (liveInterview && interviewId) {
+    if (!confirm('면접을 접고 학생 목록으로 갈까요?\n지금까지 기록은 남아 있고, 나중에 다시 열 수 있습니다.')) return;
+  }
+  stopTimer();
+  stopTotalTimer();
+  liveInterview = false;
+  interviewId = null;
+  viewing = null;
+  target = null;
+  questions = [];
+  answers = [];
+  grades = {};
+  document.getElementById('finish-note').value = '';
+  renderStudents();
+  show('empty');
 }
 
 // ══════════════ 준비 ══════════════
@@ -290,6 +319,7 @@ async function startInterview() {
     return { seconds: 0, good: [], bad: [], rating: null, memo: '' };
   });
   grades = {};
+  liveInterview = true;
   startTotalTimer();
   show('run');
   showQuestion();
@@ -508,8 +538,12 @@ function pickGrade(rowIndex, g, btn) {
 }
 
 // 질문으로 돌아가면 면접이 아직 안 끝난 것이므로 전체 시간도 다시 흐릅니다.
+// 단, 지난 회차를 열어 고치는 중이라면 시간은 그대로 두어야 합니다.
+// 그러지 않으면 옛 면접의 «면접 전체» 가 실시간으로 불어납니다.
 function backToRun() {
-  if (!totalTimerId) totalTimerId = setInterval(function () { totalSeconds++; paintTotal(); }, 1000);
+  if (liveInterview && !totalTimerId) {
+    totalTimerId = setInterval(function () { totalSeconds++; paintTotal(); }, 1000);
+  }
   show('run');
   showQuestion();
 }
@@ -544,6 +578,7 @@ async function finishInterview() {
   btn.textContent = label;
 
   if (error) { toast('저장하지 못했습니다: ' + error.message, 'bad'); return; }
+  liveInterview = false;   // 시간은 여기서 멈춥니다. 뒤에 고쳐도 더 흐르지 않습니다
   openReport(interviewId);
 }
 
@@ -605,18 +640,6 @@ function backToFinish() {
   show('finish');
 }
 
-// 면접을 접고 다른 학생으로 갑니다.
-function closeReport() {
-  interviewId = null;
-  viewing = null;
-  grades = {};
-  questions = [];
-  answers = [];
-  document.getElementById('finish-note').value = '';
-  show('setup');
-  loadHistory();
-}
-
 // ══════════════ 지난 회차 다시 열기 ══════════════
 
 // 누가기록입니다. 지난 면접을 눌러 그대로 다시 봅니다.
@@ -639,6 +662,9 @@ async function openPast(id, round) {
   grades = r.interview.grades || {};
   totalSeconds = r.interview.total_seconds || 0;
   qIndex = 0;
+  liveInterview = false;   // 지난 회차입니다. 시간이 더 흐르면 안 됩니다
+  stopTotalTimer();
+  paintTotal();
 
   openReport(id);
 }
