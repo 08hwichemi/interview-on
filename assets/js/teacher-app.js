@@ -353,6 +353,7 @@ function backToList() {
     if (!confirm('면접을 접고 학생 목록으로 갈까요?\n지금까지 기록은 남아 있고, 나중에 다시 열 수 있습니다.')) return;
   }
   stopTicking();
+  closeChat();
   liveInterview = false;
   interviewId = null;
   viewing = null;
@@ -384,6 +385,48 @@ async function pickStudent(id) {
   loadHistory();
 }
 
+// ══════════════ 학생이 물어본 것 ══════════════
+//
+// 학생이 리포트를 보고 질문을 남기면 선생님이 알아야 합니다.
+// 지난 면접 목록의 회차 옆에 빨간 숫자로 답니다.
+//
+// «언제까지 봤는지» 는 report_reads 에 남깁니다. 학생이 쓰는 표와 같은 표인데
+// 로그인한 본인 줄만 보이므로 서로 섞이지 않습니다.
+var newQuestions = {};   // { interview_id: 안 본 질문 수 }
+
+async function loadNewQuestions(ids) {
+  newQuestions = {};
+  if (!ids.length) return;
+
+  const [msgs, seen] = await Promise.all([
+    sb.from('report_messages')
+      .select('interview_id, sender_role, created_at')
+      .in('interview_id', ids),
+    sb.from('report_reads').select('interview_id, read_at').eq('user_id', me.id)
+  ]);
+  if (msgs.error || seen.error) return;   // 못 읽어도 목록 자체는 보여야 합니다
+
+  var seenAt = {};
+  (seen.data || []).forEach(function (r) { seenAt[r.interview_id] = r.read_at; });
+
+  (msgs.data || []).forEach(function (m) {
+    if (m.sender_role !== 'student') return;          // 내가 쓴 답은 세지 않습니다
+    var last = seenAt[m.interview_id];
+    if (last && new Date(m.created_at) <= new Date(last)) return;
+    newQuestions[m.interview_id] = (newQuestions[m.interview_id] || 0) + 1;
+  });
+}
+
+// 리포트를 열었으면 그 회차의 질문은 본 것입니다.
+async function markSeen(id) {
+  if (!me || !id) return;
+  var now = new Date().toISOString();
+  if (newQuestions[id]) delete newQuestions[id];
+  await sb.from('report_reads')
+    .upsert({ user_id: me.id, interview_id: id, read_at: now },
+            { onConflict: 'user_id,interview_id' });
+}
+
 async function loadHistory() {
   var box = document.getElementById('history');
   box.innerHTML = '<p class="empty">지난 기록 확인 중...</p>';
@@ -397,6 +440,9 @@ async function loadHistory() {
   if (error) { box.innerHTML = '<p class="empty">지난 기록을 못 읽었습니다: ' + esc(error.message) + '</p>'; return; }
   if (!data.length) { box.innerHTML = '<p class="empty">이 학생의 첫 면접입니다.</p>'; return; }
 
+  // 학생이 물어본 것이 있으면 회차 옆에 빨간 숫자가 붙습니다
+  await loadNewQuestions(data.map(function (iv) { return iv.id; }));
+
   // 누가기록입니다. 눌러서 그때 리포트를 그대로 다시 봅니다.
   box.innerHTML = '<div class="rows">' + data.map(function (iv, i) {
     var round = data.length - i;
@@ -406,10 +452,12 @@ async function loadHistory() {
     var state = iv.status === '전달됨'  ? '<span class="pill ok2">전달함</span>'
               : iv.status === '작성완료' ? '<span class="pill warn">아직 안 보냄</span>'
               :                            '<span class="pill warn">진행중</span>';
+    var asked = newQuestions[iv.id] || 0;
     return '<button class="row pickable" onclick="openPast(\'' + iv.id + '\', ' + round + ')">' +
       '<span class="who">' +
         '<span class="id">' + round + '회차</span>' +
-        '<span class="nm">' + d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '</span>' +
+        '<span class="nm">' + d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() +
+          (asked ? '<span class="chat-new">' + asked + '</span>' : '') + '</span>' +
         state +
         '<span class="sub">' + esc(iv.teacher_name) + (got.length ? ' · ' + got.join(' ') : '') + '</span>' +
       '</span>' +
@@ -800,6 +848,13 @@ async function openReport(id) {
   document.getElementById('report-note').textContent = sent
     ? '이미 전달했습니다. 고친 내용은 학생이 새로고침하면 바로 보입니다.'
     : '전달을 눌러야 학생 폰에 보입니다. 그 전까지는 선생님만 볼 수 있습니다.';
+
+  // 학생이 리포트를 보고 물어보면 여기로 옵니다.
+  document.getElementById('t-chat-with').textContent = sent
+    ? who
+    : '전달한 뒤부터 학생이 물어볼 수 있습니다.';
+  openChat(id, 't-chat-box');
+  markSeen(id);   // 열었으니 새 질문 표시를 지웁니다
 }
 
 async function deliverReport() {

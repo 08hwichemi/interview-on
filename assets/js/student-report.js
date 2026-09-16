@@ -156,6 +156,19 @@ async function openMyReport(id, round) {
     return;
   }
   box.innerHTML = reportHTML(r.interview, r.answers, myName(), round);
+
+  // 이 리포트를 써 준 선생님과 이야기할 수 있습니다.
+  document.getElementById('chat-with').textContent =
+    r.interview.teacher_name ? r.interview.teacher_name + ' 선생님' : '';
+  openChat(id, 'chat-box');
+}
+
+// 리포트가 길어서 아래 이야기 칸이 안 보입니다. 단추를 누르면 그리로 내려갑니다.
+function scrollToChat() {
+  var el = document.getElementById('my-chat');
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(function () { document.getElementById('chat-input').focus(); }, 300);
 }
 
 async function markRead(id) {

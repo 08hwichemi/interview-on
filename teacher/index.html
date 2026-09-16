@@ -4,11 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.22">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.23">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.22">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.22">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-16.22">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.23">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.23">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-16.23">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-16.23">
 </head>
 <body>
 
@@ -215,6 +216,20 @@
           <div id="report-body" class="report"></div>
 
           <p class="hint" id="report-note" style="margin:22px 0 0"></p>
+
+          <!-- 학생이 리포트를 보고 물어보면 여기로 옵니다 (report-chat.js) -->
+          <div class="chat-wrap">
+            <div class="chat-head">
+              <p class="sec">학생과의 이야기</p>
+              <p class="chat-hint" id="t-chat-with"></p>
+            </div>
+            <div class="chat-box" id="t-chat-box"></div>
+            <div class="chat-send">
+              <textarea id="t-chat-input" rows="1" placeholder="학생에게 답하기"
+                        oninput="autoGrow(this)" onkeydown="chatKey(event,'t-chat-input','t-chat-send')"></textarea>
+              <button id="t-chat-send" onclick="sendChat('t-chat-input','t-chat-send')">보내기</button>
+            </div>
+          </div>
           <div class="actionbar">
             <button class="ghost" onclick="backToFinish()">← 채점표 고치기</button>
             <button class="btn solid main" id="btn-deliver" onclick="deliverReport()">학생에게 전달</button>
@@ -288,15 +303,16 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-16.22"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-16.22"></script>
-<script src="../assets/js/utils.js?v=2026-09-16.22"></script>
-<script src="../assets/js/api.js?v=2026-09-16.22"></script>
-<script src="../assets/js/browse.js?v=2026-09-16.22"></script>
-<script src="../assets/js/reviews.js?v=2026-09-16.22"></script>
-<script src="../assets/js/questions.js?v=2026-09-16.22"></script>
-<script src="../assets/js/report.js?v=2026-09-16.22"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-16.22"></script>
+<script src="../assets/js/config.js?v=2026-09-16.23"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-16.23"></script>
+<script src="../assets/js/utils.js?v=2026-09-16.23"></script>
+<script src="../assets/js/api.js?v=2026-09-16.23"></script>
+<script src="../assets/js/browse.js?v=2026-09-16.23"></script>
+<script src="../assets/js/reviews.js?v=2026-09-16.23"></script>
+<script src="../assets/js/questions.js?v=2026-09-16.23"></script>
+<script src="../assets/js/report.js?v=2026-09-16.23"></script>
+<script src="../assets/js/report-chat.js?v=2026-09-16.23"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-16.23"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
