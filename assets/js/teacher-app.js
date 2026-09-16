@@ -166,6 +166,36 @@ function show(view) {
   window.scrollTo(0, 0);
 }
 
+// ══════════════ 머리말 메뉴 ══════════════
+//
+// 면접 | 실전 면접 후기 | 대학별 기출 질문
+// 뒤의 둘은 학생 앱과 같은 자료를 같은 모양으로 보여줍니다 (reviews.js · questions.js).
+// 선생님이 학생에게 "이런 질문이 나온다" 고 말하려면 같은 화면을 봐야 합니다.
+var PAGES = ['interview', 'reviews', 'questions'];
+var browseReady = false;   // 대학 목록을 이미 받아 뒀는지
+
+function goPage(name) {
+  PAGES.forEach(function (p) {
+    document.getElementById('page-' + p).hidden = (p !== name);
+    document.getElementById('nav-' + p).setAttribute('aria-current', p === name);
+  });
+  window.scrollTo(0, 0);
+  // 대학 목록은 자료 전체를 한 번 훑어야 나옵니다.
+  // 면접만 보시는 날에는 안 받도록, 처음 들어올 때 받습니다.
+  if (name !== 'interview') loadBrowseOnce();
+}
+
+async function loadBrowseOnce() {
+  if (browseReady) return;
+  browseReady = true;
+  try {
+    await loadBrowseMeta();
+  } catch (e) {
+    browseReady = false;
+    toast('자료를 불러오지 못했습니다: ' + ((e && e.message) || e), 'bad');
+  }
+}
+
 // 학번 앞 3자리가 학년+반입니다 (3학년 2반 → 302)
 function classKey(s) { return String(s.student_no).slice(0, 3); }
 
@@ -454,7 +484,7 @@ async function startInterview() {
   }).select('id').single();
 
   btn.disabled = false;
-  btn.textContent = '면접 시작';
+  btn.textContent = '질문 완료 · 면접 화면으로 →';
 
   if (error) { toast('면접을 시작하지 못했습니다: ' + error.message, 'bad'); return; }
 

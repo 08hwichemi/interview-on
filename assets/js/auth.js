@@ -159,8 +159,9 @@ async function afterLogin() {
 // --- 앱 본 화면으로 ---
 async function enterApp() {
   // 학생은 이 모바일 앱, 선생님은 면접 화면으로 갑니다.
-  // 관리자도 면접을 보므로 똑같이 면접 화면으로 보냅니다.
-  // 명단 관리(admin/)는 거기서 «명단 관리» 를 눌러 들어갑니다 — 관리자에게만 보입니다.
+  // 관리자는 «명단 관리» 가 본업이라 곧바로 그 화면으로 보냅니다.
+  // (면접도 보시므로 거기 머리말에서 면접 화면으로 건너갈 수 있습니다)
+  if (currentUser.role === 'admin')   { location.replace('admin/');   return; }
   if (currentUser.role !== 'student') { location.replace('teacher/'); return; }
 
   setBusy(true);
@@ -169,12 +170,7 @@ async function enterApp() {
   if (nameEl) nameEl.innerText = currentUser.name || currentUser.login_id || '';
 
   try {
-    const [revData, qData] = await Promise.all([
-      supabaseRequest('reviews'),
-      supabaseRequest('questions')
-    ]);
-    appMeta.rev = revData.map(d => ({ y: d['년도'], u: d['대학'], t: d['세부유형'], m: d['모집단위'] }));
-    appMeta.q   = qData.map(d => ({ y: d['년도'], u: d['대학'], t1: d['전형/역량1'], t2: d['역량2'] }));
+    await loadBrowseMeta();   // browse.js — 교사 화면도 같은 함수를 씁니다
   } catch (e) {
     console.error('데이터를 불러오지 못했습니다:', e);
     showToast('자료를 불러오지 못했습니다.\n인터넷 연결을 확인해 주세요.', 'error');
@@ -182,6 +178,7 @@ async function enterApp() {
 
   setBusy(false);
   navigateTo('home');
+  watchReports();   // 선생님이 리포트를 보내면 홈에 빨간 숫자가 붙습니다
 }
 
 // --- 앱 시작 시 이미 로그인돼 있는지 확인 ---

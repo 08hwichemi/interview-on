@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.21">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.22">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.21">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.21">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.22">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.22">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-16.22">
 </head>
 <body>
 
@@ -32,6 +33,11 @@
   <header class="top">
     <div class="top-in">
       <div class="brand">면접<em>ON</em></div>
+      <nav class="topnav">
+        <button class="navbtn" id="nav-interview" aria-current="true" onclick="goPage('interview')">면접</button>
+        <button class="navbtn" id="nav-reviews"   onclick="goPage('reviews')">실전 면접 후기</button>
+        <button class="navbtn" id="nav-questions" onclick="goPage('questions')">대학별 기출 질문</button>
+      </nav>
       <span class="grow"></span>
       <span class="ub-name" id="t-user-name"></span>
       <span class="ub-role" id="t-user-role"></span>
@@ -41,7 +47,7 @@
     </div>
   </header>
 
-  <main class="wrap cols">
+  <main class="wrap cols" id="page-interview">
 
     <!-- ══ 왼쪽 칸 ══ -->
     <aside class="rail panel">
@@ -114,7 +120,7 @@
           <p class="sec" style="margin-top:22px">끝인사 <span class="opt">(면접을 닫는 질문)</span></p>
           <div id="closing-box"></div>
 
-          <div class="actionbar"><button class="btn solid main" id="btn-start" onclick="startInterview()" disabled>면접 시작</button></div>
+          <div class="actionbar"><button class="btn solid main" id="btn-start" onclick="startInterview()" disabled>질문 완료 · 면접 화면으로 →</button></div>
         </div>
       </section>
 
@@ -219,15 +225,78 @@
 
     </div>
   </main>
+
+  <!-- ══ 실전 면접 후기 ══
+       학생 앱과 같은 자료를 같은 모양으로 봅니다 (reviews.js) -->
+  <main class="wrap narrow" id="page-reviews" hidden>
+    <div class="panel pad">
+      <p class="sec" style="margin:0 0 4px">실전 면접 후기</p>
+      <p class="hint">선배들이 남긴 합·불 사례와 실제로 받은 질문입니다. 카드를 누르면 펼쳐집니다.</p>
+
+      <button id="rev-main-univ-btn" class="main-univ-btn" onclick="openUnivModal('rev')">
+        <span>🏫 원하시는 대학을 먼저 선택해 주세요</span><span>▼</span>
+      </button>
+
+      <div id="rev-sub-filters" class="sub-filters">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <select id="rev-year" onchange="updateRevFilters('year')"><option value="전체">년도 (전체)</option></select>
+          <select id="rev-type" onchange="updateRevFilters('type')"><option value="전체">전형 (전체)</option></select>
+        </div>
+        <select id="rev-major" onchange="updateRevFilters('major')"><option value="전체">학과 (전체)</option></select>
+      </div>
+
+      <div id="review-list">
+        <div class="guide-msg"><div class="icon">👆</div>
+          <div class="text">위 버튼을 눌러 대학을 선택해주세요</div></div>
+      </div>
+      <div id="review-empty" style="text-align:center;padding:40px 20px;color:var(--ink-3);display:none">
+        조건에 맞는 결과가 없습니다.</div>
+    </div>
+  </main>
+
+  <!-- ══ 대학별 기출 질문 ══ -->
+  <main class="wrap narrow" id="page-questions" hidden>
+    <div class="panel pad">
+      <p class="sec" style="margin:0 0 4px">대학별 기출 질문</p>
+      <p class="hint">선행학습 영향평가 보고서에 공개된 실제 문항입니다.</p>
+
+      <button id="q-main-univ-btn" class="main-univ-btn" onclick="openUnivModal('q')">
+        <span>🏫 원하시는 대학을 먼저 선택해 주세요</span><span>▼</span>
+      </button>
+
+      <div id="question-list">
+        <div class="guide-msg"><div class="icon">👆</div>
+          <div class="text">위 버튼을 눌러 대학을 선택해주세요</div></div>
+      </div>
+      <div id="question-empty" style="text-align:center;padding:40px 20px;color:var(--ink-3);display:none">
+        조건에 맞는 결과가 없습니다.</div>
+    </div>
+  </main>
+</div>
+
+<!-- 대학 고르기 팝업 — 학생 앱과 같은 것입니다 (browse.js) -->
+<div id="univ-modal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>대학 선택</h3>
+      <button class="close-btn" onclick="closeUnivModal()">&times;</button>
+    </div>
+    <div class="univ-list" id="univ-modal-list"></div>
+  </div>
 </div>
 
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-16.21"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-16.21"></script>
-<script src="../assets/js/report.js?v=2026-09-16.21"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-16.21"></script>
+<script src="../assets/js/config.js?v=2026-09-16.22"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-16.22"></script>
+<script src="../assets/js/utils.js?v=2026-09-16.22"></script>
+<script src="../assets/js/api.js?v=2026-09-16.22"></script>
+<script src="../assets/js/browse.js?v=2026-09-16.22"></script>
+<script src="../assets/js/reviews.js?v=2026-09-16.22"></script>
+<script src="../assets/js/questions.js?v=2026-09-16.22"></script>
+<script src="../assets/js/report.js?v=2026-09-16.22"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-16.22"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);

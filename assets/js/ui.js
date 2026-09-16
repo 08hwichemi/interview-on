@@ -107,39 +107,5 @@ function navigateTo(screenId) {
   window.scrollTo(0, 0);
 }
 
-// 4. 모달(팝업) 관련 함수
-function openUnivModal(type) {
-  currentModalType = type;
-  var univs = getFilteredList(appMeta[type], {}, 'u'); // 해당 카테고리의 모든 대학 추출
-  var html = '';
-  
-  // 전체 보기 버튼 추가
-  html += '<button class="univ-list-btn" style="background:var(--surface-2); color:var(--ink-2);" onclick="selectUniv(\'전체\')">🌐 모든 대학 (전체 보기)</button>';
-  
-  univs.forEach(function(u) {
-    html += '<button class="univ-list-btn" onclick="selectUniv(\'' + u + '\')">' + u + '</button>';
-  });
-  
-  document.getElementById('univ-modal-list').innerHTML = html;
-  document.getElementById('univ-modal').style.display = 'flex';
-}
-
-function closeUnivModal() {
-  document.getElementById('univ-modal').style.display = 'none';
-}
-
-// 팝업에서 대학을 눌렀을 때 실행!
-function selectUniv(univName) {
-  if (currentModalType === 'rev') {
-    selectedRevUniv = univName;
-    document.getElementById('rev-main-univ-btn').innerHTML = '<span>🏫 ' + univName + '</span><span>▼</span>';
-    document.getElementById('rev-sub-filters').style.display = 'block'; // 세부 필터 잠금 해제
-    updateRevFilters('univ'); // 학과/전형 옵션 업데이트
-  } else {
-    selectedQUniv = univName;
-    document.getElementById('q-main-univ-btn').innerHTML = '<span>🏫 ' + univName + '</span><span>▼</span>';
-    // 🛡️ [수정] 복잡한 필터링 과정을 건너뛰고 대학 선택 즉시 바로 검색을 실행합니다.
-    updateQFilters();
-  }
-  closeUnivModal();
-}
+// 대학 고르기 팝업(openUnivModal · closeUnivModal · selectUniv)은
+// browse.js 로 옮겼습니다. 교사 화면도 같은 팝업을 씁니다.

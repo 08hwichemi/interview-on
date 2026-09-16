@@ -90,6 +90,22 @@ header.top{
 }
 .brand{font-size:17px;font-weight:800;letter-spacing:-.03em;white-space:nowrap}
 .brand em{font-style:normal;color:var(--ink-3);font-weight:600}
+
+/* ── 머리말 메뉴 ──
+   교사 화면은 면접 | 실전 면접 후기 | 대학별 기출 질문,
+   관리자 화면은 명단 관리 | 면접 화면. 두 화면이 같은 모양을 씁니다. */
+.topnav{display:flex;gap:2px;margin-left:6px;flex-wrap:wrap}
+.navbtn{
+  padding:7px 13px;border:0;border-radius:7px;background:transparent;
+  font-family:inherit;font-size:13.5px;font-weight:600;color:var(--ink-3);
+  cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-block;
+}
+.navbtn:hover{background:var(--surface-2);color:var(--ink-2)}
+.navbtn[aria-current="true"]{background:var(--ink);color:#fff}
+@media(max-width:760px){
+  .topnav{order:3;width:100%;margin-left:0}
+  .navbtn{flex:1 1 auto;text-align:center;font-size:12.5px;padding:7px 8px}
+}
 .yr{
   font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
   padding:3px 8px; border-radius:5px; background:var(--surface-2); color:var(--ink-2);

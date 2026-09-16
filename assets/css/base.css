@@ -169,46 +169,7 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
 .menu-title { font-size: 22px; font-weight: 800; color: var(--ink); margin-bottom: 8px; }
 .menu-desc { font-size: 14px; color: var(--ink-3); line-height: 1.4; word-break: keep-all; }
 
-/* --- [신규] 앱 스타일 UI 요소 --- */
-.main-univ-btn {
-  width: 100%; background-color: var(--ink); color: white; border: none; border-radius: 12px; padding: 16px 20px;
-  font-size: 16px; font-weight: bold; margin-bottom: 16px; cursor: pointer; box-shadow: 0 4px 10px rgba(26,79,160,0.2);
-  display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;
-}
-.main-univ-btn:active { background-color: var(--ink); }
-
-.sub-filters {
-  display: none; /* 대학 고르기 전엔 숨김 */
-  background: var(--surface-2); padding: 16px; border-radius: 12px; border: 1px solid var(--line); margin-bottom: 16px;
-}
-.sub-filters select {
-  width: 100%; padding: 12px; border: 1px solid var(--line-2); border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white;
-}
-
-/* --- [신규] 대학 선택 모달(팝업) 창 --- */
-.modal-overlay {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 2000;
-  display: none; justify-content: center; align-items: flex-end; /* 아래에서 위로 등장 */
-}
-.modal-content {
-  background: white; width: 100%; max-width: 480px; 
-  height: 75dvh; /* 🛡️ [수정] 아이폰 하단바를 똑똑하게 계산하는 dvh 단위 사용 */
-  max-height: 80%; /* 🛡️ [추가] 화면을 뚫고 나가지 않게 최대치 제한 */
-  border-radius: 24px 24px 0 0;
-  display: flex; flex-direction: column; 
-  overflow: hidden; /* 🛡️ [추가] 목록이 길어져도 팝업 상자 밖으로 안 튀어나가게 가둠 */
-  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-.modal-header { padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
-.modal-header h3 { margin: 0; font-size: 18px; color: var(--ink); font-weight: 800; }
-.close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--ink-3); padding: 0; line-height: 1; }
-.univ-list { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-.univ-list-btn {
-  background: var(--surface-2); border: 1px solid var(--line); padding: 16px; border-radius: 12px;
-  font-size: 16px; font-weight: bold; color: var(--ink-2); text-align: left; cursor: pointer; transition: all 0.1s;
-}
-.univ-list-btn:active { background: var(--line); transform: scale(0.98); }
+/* 대학 고르기 단추·필터·팝업은 browse.css 로 옮겼습니다 */
 
 /* --- [신규] 로그인 화면: 학생 / 선생님 탭 --- */
 .login-tabs {
@@ -258,3 +219,17 @@ body.has-update .header { top: 44px; }
 
 /* 지금 보고 있는 판 번호 */
 .verlabel { font-size: 10px; color: var(--ink-3); opacity: .8; }
+
+/* --- 안 읽은 리포트 개수 (빨간 숫자) --- */
+.newbadge {
+  display: inline-grid; place-items: center; vertical-align: middle;
+  min-width: 24px; height: 24px; padding: 0 7px; margin-left: 8px;
+  border-radius: 999px; background: #D14343; color: #fff;
+  font-size: 13px; font-weight: 800; line-height: 1;
+}
+/* 목록에서 아직 안 읽은 회차 */
+.card.unread .card-header { background: var(--amber-soft); }
+.card.unread .card-title::after {
+  content: 'NEW'; margin-left: 8px; padding: 2px 6px; border-radius: 4px;
+  background: #D14343; color: #fff; font-size: 10px; font-weight: 800; vertical-align: middle;
+}
