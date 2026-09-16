@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.23">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.24">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.23">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.23">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-16.23">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-16.23">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.24">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.24">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-16.24">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-16.24">
 </head>
 <body>
 
@@ -42,6 +42,7 @@
       <span class="grow"></span>
       <span class="ub-name" id="t-user-name"></span>
       <span class="ub-role" id="t-user-role"></span>
+      <button class="chatbtn" id="chat-open" onclick="openChatList()" hidden>💬 톡<span class="chat-badge" id="chat-badge" hidden></span></button>
       <a class="ghost" id="admin-link" href="../admin/" style="text-decoration:none" hidden>명단 관리</a>
       <button class="ghost" onclick="teacherLogout()">로그아웃</button>
       <span class="verlabel" title="지금 보고 있는 판">v<span id="app-version">-</span></span>
@@ -96,8 +97,13 @@
       <!-- 준비 -->
       <section id="view-setup" hidden>
         <div class="panel pad">
-          <p class="sec" style="margin:0">면접 준비</p>
-          <h2 id="target-name"></h2>
+          <div class="headline">
+            <div>
+              <p class="sec" style="margin:0">면접 준비</p>
+              <h2 id="target-name"></h2>
+            </div>
+            <button class="ghost" id="btn-talk" hidden>💬 이 학생에게 톡</button>
+          </div>
 
           <p class="sec" style="margin-top:22px">지난 면접</p>
           <div id="history"></div>
@@ -217,19 +223,6 @@
 
           <p class="hint" id="report-note" style="margin:22px 0 0"></p>
 
-          <!-- 학생이 리포트를 보고 물어보면 여기로 옵니다 (report-chat.js) -->
-          <div class="chat-wrap">
-            <div class="chat-head">
-              <p class="sec">학생과의 이야기</p>
-              <p class="chat-hint" id="t-chat-with"></p>
-            </div>
-            <div class="chat-box" id="t-chat-box"></div>
-            <div class="chat-send">
-              <textarea id="t-chat-input" rows="1" placeholder="학생에게 답하기"
-                        oninput="autoGrow(this)" onkeydown="chatKey(event,'t-chat-input','t-chat-send')"></textarea>
-              <button id="t-chat-send" onclick="sendChat('t-chat-input','t-chat-send')">보내기</button>
-            </div>
-          </div>
           <div class="actionbar">
             <button class="ghost" onclick="backToFinish()">← 채점표 고치기</button>
             <button class="btn solid main" id="btn-deliver" onclick="deliverReport()">학생에게 전달</button>
@@ -300,19 +293,56 @@
   </div>
 </div>
 
+
+<!-- ══ 톡 목록 ══ (chat.js) -->
+<div id="chat-list-modal" class="chat-modal">
+  <div class="chat-sheet">
+    <div class="chat-top">
+      <h3>💬 톡</h3>
+      <button class="chat-x" onclick="closeChatList()">&times;</button>
+    </div>
+    <div class="chat-list-body">
+      <p class="chat-cap">새로운 대화 시작하기</p>
+      <div class="chat-picks" id="chat-partners"></div>
+      <button class="chat-start" id="chat-start-btn" onclick="startPickedChat()" disabled>상대를 먼저 고르세요</button>
+
+      <div class="chat-div"></div>
+
+      <p class="chat-cap">내 대화방</p>
+      <div class="chat-rooms" id="chat-rooms"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 대화방 ══ -->
+<div id="chat-room-modal" class="chat-modal">
+  <div class="chat-sheet">
+    <div class="chat-top">
+      <h3 id="chat-room-who"></h3>
+      <button class="chat-x" onclick="closeChatRoom()">&times;</button>
+    </div>
+    <div class="chat-body" id="chat-body"></div>
+    <div class="chat-send">
+      <textarea id="chat-input" rows="1" placeholder="메시지를 입력하세요"
+                oninput="chatGrow(this)" onkeydown="chatKey(event)"></textarea>
+      <button id="chat-send" onclick="sendChat()">보내기</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-16.23"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-16.23"></script>
-<script src="../assets/js/utils.js?v=2026-09-16.23"></script>
-<script src="../assets/js/api.js?v=2026-09-16.23"></script>
-<script src="../assets/js/browse.js?v=2026-09-16.23"></script>
-<script src="../assets/js/reviews.js?v=2026-09-16.23"></script>
-<script src="../assets/js/questions.js?v=2026-09-16.23"></script>
-<script src="../assets/js/report.js?v=2026-09-16.23"></script>
-<script src="../assets/js/report-chat.js?v=2026-09-16.23"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-16.23"></script>
+<script src="../assets/js/config.js?v=2026-09-16.24"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-16.24"></script>
+<script src="../assets/js/utils.js?v=2026-09-16.24"></script>
+<script src="../assets/js/api.js?v=2026-09-16.24"></script>
+<script src="../assets/js/browse.js?v=2026-09-16.24"></script>
+<script src="../assets/js/reviews.js?v=2026-09-16.24"></script>
+<script src="../assets/js/questions.js?v=2026-09-16.24"></script>
+<script src="../assets/js/report.js?v=2026-09-16.24"></script>
+<script src="../assets/js/chat.js?v=2026-09-16.24"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-16.24"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
@@ -377,6 +407,10 @@
 
     document.getElementById('gate').hidden = true;
     document.getElementById('app').hidden = false;
+
+    // 톡은 어느 화면에서나 쓸 수 있게 머리말에 있습니다
+    document.getElementById('chat-open').hidden = false;
+    startChat({ id: me.id, role: 'teacher', name: me.name });
 
     loadStudents();
   })().catch(function (e) {

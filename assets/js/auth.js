@@ -179,6 +179,11 @@ async function enterApp() {
   setBusy(false);
   navigateTo('home');
   watchReports();   // 선생님이 리포트를 보내면 홈에 빨간 숫자가 붙습니다
+
+  // 톡은 어느 화면에서나 쓸 수 있게 머리말에 있습니다
+  document.getElementById('chat-open').hidden = false;
+  startChat({ id: currentUser.id, role: 'student',
+              name: (currentUser.login_id || '') + ' ' + (currentUser.name || '') });
 }
 
 // --- 앱 시작 시 이미 로그인돼 있는지 확인 ---

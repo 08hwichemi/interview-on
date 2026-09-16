@@ -1,70 +1,146 @@
-/* 리포트에 딸린 이야기 — 학생 앱과 교사 화면이 함께 씁니다 (report-chat.js)
+/* 톡 — 학생과 선생님의 1:1 대화 (chat.js)
+   학생 앱과 교사 화면이 함께 씁니다. 이동수업 출석부 앱과 같은 짜임입니다.
    말풍선 모양은 학생들이 매일 쓰는 메신저와 같게 하되,
    색은 우리 앱의 먹빛·종이빛 그대로 씁니다. */
 
-.chat-wrap{
-  margin-top:22px;padding-top:18px;border-top:1px solid var(--line);
+/* ── 화면 위 「톡」 단추 ── */
+.chatbtn{
+  position:relative;flex:0 0 auto;
+  padding:7px 13px;border:1px solid var(--line-2);border-radius:8px;
+  background:var(--surface);color:var(--ink);
+  font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;white-space:nowrap;
 }
-.chat-head{
-  display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px;
-}
-.chat-head .sec{margin:0}
-.chat-hint{margin:0;font-size:12.5px;color:var(--ink-3)}
-
-.chat-box{
-  max-height:min(46vh,380px);overflow-y:auto;
-  padding:14px 12px;border-radius:10px;background:var(--surface-2);
-}
-.chat-empty{
-  margin:0;padding:22px 10px;text-align:center;
-  font-size:13px;line-height:1.7;color:var(--ink-3);
-}
-.chat-day{
-  margin:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--ink-3);
-}
-.chat-day:first-child{margin-top:0}
-
-.chat-row{display:flex;flex-direction:column;align-items:flex-start;margin-bottom:10px}
-.chat-row.mine{align-items:flex-end}
-.chat-name{
-  margin:0 0 3px 2px;font-size:11.5px;font-weight:600;color:var(--ink-3);
-}
-/* 말풍선과 시각을 한 줄에. 내 말은 시각이 왼쪽에 붙습니다 */
-.chat-line{display:flex;align-items:flex-end;gap:5px;max-width:82%}
-.chat-row.mine .chat-line{flex-direction:row-reverse}
-.chat-bubble{
-  padding:9px 12px;border-radius:12px;
-  background:var(--surface);border:1px solid var(--line);
-  font-size:13.5px;line-height:1.55;color:var(--ink);
-  word-break:break-word;white-space:normal;
-}
-.chat-row.mine .chat-bubble{background:var(--ink);border-color:var(--ink);color:#fff}
-.chat-when{
-  flex:0 0 auto;font-size:10.5px;color:var(--ink-3);padding-bottom:2px;white-space:nowrap;
-}
-
-/* 쓰는 칸 */
-.chat-send{display:flex;gap:8px;align-items:flex-end;margin-top:10px}
-.chat-send textarea{
-  flex:1;min-height:42px;max-height:120px;resize:none;
-  padding:11px 13px;border:1px solid var(--line-2);border-radius:10px;
-  font-family:inherit;font-size:13.5px;line-height:1.5;color:var(--ink);
-  background:var(--surface);box-sizing:border-box;
-}
-.chat-send textarea:focus{outline:none;border-color:var(--ink-3)}
-.chat-send button{
-  flex:0 0 auto;padding:11px 18px;border:0;border-radius:10px;
-  background:var(--ink);color:#fff;
-  font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;
-}
-.chat-send button[disabled]{opacity:.45;cursor:default}
-
-/* 새 이야기가 왔다는 표시 */
-.chat-new{
+.chatbtn:hover{border-color:var(--ink-3)}
+/* ⚠️ display 를 직접 주는 칸은 브라우저의 [hidden] 규칙을 이깁니다.
+   그래서 안 읽은 말이 없는데도 «톡 0» 이 붙어 있었습니다.
+   학생 앱(base.css)에는 전역 [hidden] 규칙이 없어서 여기서 따로 막습니다. */
+.chat-badge[hidden],.chat-new[hidden],.chatbtn[hidden]{display:none!important}
+.chat-badge{
   display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 6px;
   margin-left:6px;border-radius:999px;background:#D14343;color:#fff;
   font-size:11px;font-weight:800;line-height:1;vertical-align:middle;
 }
 
-/* 인쇄할 때는 이야기를 빼고 리포트만 뽑습니다 */
-@media print{ .chat-wrap{display:none!important} }
+/* ── 창 두 개 (톡 목록 · 대화방) ── */
+.chat-modal{
+  display:none;position:fixed;inset:0;z-index:3000;
+  background:rgba(0,0,0,.55);
+  justify-content:center;align-items:flex-end;
+}
+.chat-sheet{
+  display:flex;flex-direction:column;overflow:hidden;
+  width:100%;max-width:520px;height:86dvh;max-height:860px;
+  background:var(--surface);border-radius:18px 18px 0 0;
+  animation:chatUp .22s cubic-bezier(.16,1,.3,1);
+}
+@keyframes chatUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+/* 넓은 화면에서는 가운데에 창처럼 띄웁니다 */
+@media(min-width:720px){
+  .chat-modal{align-items:center}
+  .chat-sheet{border-radius:16px;height:min(82dvh,760px)}
+  @keyframes chatUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+}
+
+.chat-top{
+  flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:16px 18px;border-bottom:1px solid var(--line);
+}
+.chat-top h3{margin:0;font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.chat-x{
+  border:0;background:none;cursor:pointer;color:var(--ink-3);
+  font-size:22px;line-height:1;padding:0 2px;font-family:inherit;
+}
+.chat-x:hover{color:var(--ink)}
+
+/* ── 톡 목록 ── */
+.chat-list-body{flex:1;min-height:0;display:flex;flex-direction:column;padding:16px 18px 18px}
+.chat-cap{
+  margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3);
+}
+.chat-picks{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;flex:0 0 auto}
+.chat-pick{
+  flex:0 0 auto;padding:7px 12px;border:1px solid var(--line-2);border-radius:999px;
+  background:var(--surface);color:var(--ink-2);
+  font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;
+}
+.chat-pick[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.chat-start{
+  width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;
+  background:var(--ink);color:#fff;
+  font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;
+}
+.chat-start[disabled]{opacity:.35;cursor:default}
+.chat-div{height:1px;background:var(--line);margin:18px 0 16px;flex:0 0 auto}
+
+.chat-rooms{flex:1;min-height:0;overflow-y:auto}
+.chat-room{
+  width:100%;display:flex;align-items:center;gap:11px;text-align:left;
+  padding:11px 12px;margin-bottom:8px;
+  border:1px solid var(--line);border-radius:12px;background:var(--surface);
+  font-family:inherit;cursor:pointer;
+}
+.chat-room:hover{background:var(--surface-2)}
+.chat-face{
+  flex:0 0 38px;height:38px;display:grid;place-items:center;border-radius:999px;
+  background:var(--surface-2);font-size:19px;
+}
+.chat-room-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.chat-room-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.chat-room-top b{font-size:13.5px;font-weight:700;color:var(--ink)}
+.chat-room-when{flex:0 0 auto;font-size:11px;color:var(--ink-3)}
+.chat-room-bot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.chat-last{
+  flex:1;min-width:0;font-size:12.5px;color:var(--ink-3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.chat-new{
+  flex:0 0 auto;display:grid;place-items:center;min-width:19px;height:19px;padding:0 6px;
+  border-radius:999px;background:#D14343;color:#fff;font-size:11px;font-weight:800;line-height:1;
+}
+.chat-none{
+  margin:0;padding:26px 12px;text-align:center;
+  font-size:13px;line-height:1.7;color:var(--ink-3);
+}
+
+/* ── 대화방 ── */
+.chat-body{flex:1;min-height:0;overflow-y:auto;padding:16px 14px;background:var(--surface-2)}
+.chat-day{margin:12px 0;text-align:center;font-size:11px;font-weight:700;color:var(--ink-3)}
+.chat-day:first-child{margin-top:0}
+
+.chat-row{display:flex;align-items:flex-end;gap:5px;margin-bottom:10px;max-width:82%}
+.chat-row.mine{flex-direction:row-reverse;margin-left:auto}
+.chat-bubble{
+  padding:9px 12px;border-radius:13px;
+  background:var(--surface);border:1px solid var(--line);
+  font-size:13.5px;line-height:1.55;color:var(--ink);word-break:break-word;
+}
+.chat-row.mine .chat-bubble{background:var(--ink);border-color:var(--ink);color:#fff}
+.chat-meta{
+  flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:1px;padding-bottom:2px;
+}
+.chat-row:not(.mine) .chat-meta{align-items:flex-start}
+.chat-when{font-size:10.5px;color:var(--ink-3);white-space:nowrap}
+/* 상대가 아직 안 읽었다는 표시 */
+.chat-1{font-size:10.5px;font-weight:800;color:#D14343}
+
+.chat-send{
+  flex:0 0 auto;display:flex;gap:8px;align-items:flex-end;
+  padding:12px 14px;border-top:1px solid var(--line);background:var(--surface);
+}
+.chat-send textarea{
+  flex:1;min-height:42px;max-height:110px;resize:none;
+  padding:11px 14px;border:1px solid var(--line-2);border-radius:999px;
+  font-family:inherit;font-size:13.5px;line-height:1.5;color:var(--ink);
+  background:var(--surface-2);box-sizing:border-box;
+}
+.chat-send textarea:focus{outline:none;border-color:var(--ink-3)}
+.chat-send button{
+  flex:0 0 auto;padding:11px 18px;border:0;border-radius:999px;
+  background:var(--ink);color:#fff;
+  font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;
+}
+.chat-send button[disabled]{opacity:.45;cursor:default}
+
+/* 인쇄할 때는 톡이 끼지 않습니다 */
+@media print{ .chat-modal,.chatbtn{display:none!important} }

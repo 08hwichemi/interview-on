@@ -8,6 +8,7 @@
 var myReports = [];
 var viewingRound = null;   // 지금 열어 둔 회차 (PDF 파일 이름에 씁니다)
 var reportReads = {};      // { interview_id: 읽은 시각 }
+var reportTeacher = null;  // 지금 보는 리포트를 써 준 선생님
 
 // ══════════════ 안 읽은 리포트 알리기 ══════════════
 //
@@ -157,18 +158,20 @@ async function openMyReport(id, round) {
   }
   box.innerHTML = reportHTML(r.interview, r.answers, myName(), round);
 
-  // 이 리포트를 써 준 선생님과 이야기할 수 있습니다.
-  document.getElementById('chat-with').textContent =
-    r.interview.teacher_name ? r.interview.teacher_name + ' 선생님' : '';
-  openChat(id, 'chat-box');
+  // 이 리포트를 써 준 선생님이 누구인지 기억해 둡니다.
+  // 「선생님께 질문하기」를 누르면 그 선생님과의 톡방이 열립니다.
+  reportTeacher = { id: r.interview.teacher_id,
+                    name: (r.interview.teacher_name || '') + ' 선생님' };
 }
 
-// 리포트가 길어서 아래 이야기 칸이 안 보입니다. 단추를 누르면 그리로 내려갑니다.
-function scrollToChat() {
-  var el = document.getElementById('my-chat');
-  if (!el) return;
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  setTimeout(function () { document.getElementById('chat-input').focus(); }, 300);
+// 리포트를 보다가 바로 물어봅니다. 리포트마다 따로 이야기하지 않고,
+// 그 선생님과의 톡방 하나에 모입니다.
+function askAboutReport() {
+  if (!reportTeacher || !reportTeacher.id) {
+    openChatList();   // 누가 썼는지 모르면 목록에서 고르게 합니다
+    return;
+  }
+  openChatRoom(reportTeacher.id, reportTeacher.name);
 }
 
 async function markRead(id) {
