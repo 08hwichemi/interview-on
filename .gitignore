@@ -1,0 +1,24 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 에디터
+.vscode/
+.idea/
+*.swp
+
+# 의존성 / 빌드
+node_modules/
+dist/
+.cache/
+
+# 환경변수 (비밀키는 절대 커밋하지 않습니다)
+.env
+.env.local
+*.local
+
+# 작업 중 백업본
+*.bak
+*.backup
+index.html.orig
