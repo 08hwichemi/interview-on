@@ -42,6 +42,16 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* 확인이 실패했을 때 이유를 보여주는 자리 */
+#gate p { margin: 0; font-size: 15px; }
+#gate-fail { text-align: center; max-width: 420px; padding: 0 20px; }
+.gate-detail {
+  color: var(--muted); font-size: 13px; line-height: 1.7;
+  margin: 0 0 18px !important;
+  word-break: break-word;
+}
+.gate-actions { display: flex; gap: 10px; justify-content: center; }
+
 /* 상단 바 */
 .t-header {
   background: var(--navy); color: #fff;

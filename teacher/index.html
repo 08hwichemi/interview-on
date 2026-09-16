@@ -10,8 +10,15 @@
 <body>
 
 <div id="gate">
-  <div class="spinner"></div>
-  <p>확인 중...</p>
+  <div class="spinner" id="gate-spinner"></div>
+  <p id="gate-msg">확인 중...</p>
+  <div id="gate-fail" hidden>
+    <p class="gate-detail" id="gate-detail"></p>
+    <div class="gate-actions">
+      <button class="t-btn" onclick="location.reload()">다시 시도</button>
+      <button class="t-btn ghost" onclick="gateRelogin()">로그인 화면으로</button>
+    </div>
+  </div>
 </div>
 
 <div id="app" hidden>
@@ -119,20 +126,66 @@
 <script src="../assets/js/config.js"></script>
 <script src="../assets/js/teacher-roster.js"></script>
 <script>
+  // 확인이 끝나지 않으면 "확인 중..." 이 영영 돌기만 합니다.
+  // 왜 멈췄는지 화면에 보여줍니다.
+  function gateFail(msg, detail) {
+    clearTimeout(gateTimer);
+    document.getElementById('gate-spinner').hidden = true;
+    document.getElementById('gate-msg').textContent = msg;
+    document.getElementById('gate-detail').textContent = detail || '';
+    document.getElementById('gate-fail').hidden = false;
+  }
+
+  // 저장된 로그인 정보가 깨졌을 때 빠져나가는 길
+  async function gateRelogin() {
+    try { await sb.auth.signOut(); } catch (e) { /* 이미 못 쓰는 상태면 그냥 넘어갑니다 */ }
+    try { localStorage.clear(); } catch (e) { /* 사생활 보호 모드면 막힐 수 있습니다 */ }
+    location.replace('../');
+  }
+
+  var gateTimer = setTimeout(function () {
+    gateFail('서버가 답하지 않습니다.',
+      '10초를 기다렸지만 응답이 없습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.');
+  }, 10000);
+
   // 이 페이지는 선생님·관리자 전용입니다.
   // 로그인하지 않았거나 학생이면 학생 앱으로 돌려보냅니다.
   // (서버의 RLS 가 진짜 방어선이고, 이건 화면을 잘못 연 사람을 안내하는 용도입니다)
   (async function guard() {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) { location.replace('../'); return; }
+    // 어느 쪽을 못 읽었는지 구분해서 알려줍니다.
+    if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+      gateFail('앱을 불러오지 못했습니다.',
+        'supabase 라이브러리(cdn.jsdelivr.net)를 못 읽었습니다. 인터넷 연결을 확인해 주세요.');
+      return;
+    }
+    // config.js 가 중간에 멈췄으면 sb 는 읽는 것조차 막힙니다.
+    var ready = false;
+    try { ready = !!sb; } catch (e) { ready = false; }
+    if (!ready) {
+      gateFail('앱을 불러오지 못했습니다.',
+        'assets/js/config.js 를 못 읽었습니다. 파일 경로를 확인해 주세요.');
+      return;
+    }
 
-    const { data: profile } = await sb
+    const { data: { session }, error: sessionErr } = await sb.auth.getSession();
+    if (sessionErr) { gateFail('로그인 정보를 읽지 못했습니다.', sessionErr.message); return; }
+    if (!session) { clearTimeout(gateTimer); location.replace('../'); return; }
+
+    const { data: profile, error: profileErr } = await sb
       .from('profiles')
       .select('name, login_id, role')
       .eq('id', session.user.id)
       .maybeSingle();
 
-    if (!profile || profile.role === 'student') { location.replace('../'); return; }
+    if (profileErr) {
+      gateFail('계정 정보를 읽지 못했습니다.',
+        profileErr.message + ' — 서버의 profiles 권한(RLS) 설정을 확인해야 할 수 있습니다.');
+      return;
+    }
+
+    if (!profile || profile.role === 'student') { clearTimeout(gateTimer); location.replace('../'); return; }
+
+    clearTimeout(gateTimer);
 
     document.getElementById('t-user-name').textContent = profile.name || profile.login_id || '';
     document.getElementById('t-user-role').textContent = profile.role === 'admin' ? '관리자' : '교사';
@@ -147,7 +200,15 @@
     document.getElementById('app').hidden = false;
 
     setRosterMode('student');   // 명단 불러오기까지 같이 합니다
-  })();
+  })().catch(function (e) {
+    console.error(e);
+    var detail = String((e && e.message) || e);
+    if (document.getElementById('app').hidden) {
+      gateFail('확인 중 문제가 생겼습니다.', detail);
+    } else if (typeof toast === 'function') {
+      toast('명단을 불러오지 못했습니다: ' + detail, 'bad');
+    }
+  });
 
   async function teacherLogout() {
     await sb.auth.signOut();
