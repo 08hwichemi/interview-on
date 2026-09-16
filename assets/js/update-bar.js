@@ -10,7 +10,7 @@
 //
 // ※ 새 판을 올릴 때는 아래 BUILD_ID 와 version.txt 를 같은 값으로 고쳐야 합니다.
 
-var BUILD_ID = '2026-09-16.1';
+var BUILD_ID = '2026-09-16.2';
 var UPDATE_SHOWN = false;
 
 // version.txt 는 저장소 맨 위에 하나만 둡니다.
@@ -31,6 +31,9 @@ function showUpdateBar() {
   if (!bar) return;
   UPDATE_SHOWN = true;
   bar.hidden = false;
+  // 학생 앱은 화면 맨 위에 띠를 붙박이로 띄웁니다(휴대폰이라 스크롤해도 보여야 합니다).
+  // 그만큼 본문을 아래로 내려야 머리줄이 가려지지 않습니다 — CSS 가 이 표시를 보고 처리합니다.
+  document.body.classList.add('has-update');
 }
 
 function checkForUpdate() {

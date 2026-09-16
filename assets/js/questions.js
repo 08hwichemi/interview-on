@@ -12,7 +12,7 @@ async function filterQuestions() {
     '대학': selectedQUniv
   };
 
-  document.getElementById('question-list').innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;">데이터를 불러오는 중...</div>';
+  document.getElementById('question-list').innerHTML = '<div style="text-align:center; padding:40px; color:var(--ink-3);">데이터를 불러오는 중...</div>';
   document.getElementById('question-empty').style.display = 'none';
 
   var data = await supabaseRequest('questions', params);

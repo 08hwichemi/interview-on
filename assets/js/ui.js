@@ -105,7 +105,7 @@ function openUnivModal(type) {
   var html = '';
   
   // 전체 보기 버튼 추가
-  html += '<button class="univ-list-btn" style="background:#e0f2fe; color:#0369a1;" onclick="selectUniv(\'전체\')">🌐 모든 대학 (전체 보기)</button>';
+  html += '<button class="univ-list-btn" style="background:var(--surface-2); color:var(--ink-2);" onclick="selectUniv(\'전체\')">🌐 모든 대학 (전체 보기)</button>';
   
   univs.forEach(function(u) {
     html += '<button class="univ-list-btn" onclick="selectUniv(\'' + u + '\')">' + u + '</button>';

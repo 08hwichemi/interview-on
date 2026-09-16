@@ -1,8 +1,25 @@
+/* 학생 앱 (휴대폰).
+   색·글꼴은 교사 화면(teacher.css)과 같은 체계입니다.
+   수시지원계획서는 세이지그린, 3-1 대시보드는 파랑을 쓰고 있어서
+   또 다른 색을 얹지 않고 먹빛과 종이빛만 씁니다.
+   색은 «합격/불합격» «경고» 처럼 뜻이 있는 자리에만 나옵니다. */
+
+:root{
+  --ground:#FAFAF9; --surface:#FFFFFF; --surface-2:#F4F4F2;
+  --line:#E7E5E2; --line-2:#D6D3CE;
+  --ink:#18181B; --ink-2:#52525B; --ink-3:#8A8A93;
+  --amber:#8A5A0E; --amber-soft:#FBF1DE;
+  --rose:#9B2C2C; --rose-soft:#FBEAEA;
+  --r:8px;
+}
+
 /* 기본 초기화 및 폰트 설정 */
 html, body {
   overscroll-behavior: none; 
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background-color: #f4f6f9;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  letter-spacing: -0.01em;
+  background-color: var(--ground);
   margin: 0;
   padding: 0;
   display: flex;
@@ -22,13 +39,13 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
 
 /* [신규] 결과 리포트 아코디언 스타일 */
 .result-card {
-  border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 12px; overflow: hidden; background: white;
+  border: 1px solid var(--line); border-radius: 12px; margin-bottom: 12px; overflow: hidden; background: white;
 }
 .result-card-header {
-  padding: 16px; background: #f8fafc; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+  padding: 16px; background: var(--surface-2); cursor: pointer; display: flex; justify-content: space-between; align-items: center;
 }
 .result-card-body {
-  display: none; padding: 16px; border-top: 1px solid #e2e8f0; background: #fff;
+  display: none; padding: 16px; border-top: 1px solid var(--line); background: #fff;
 }
 .result-card.expanded .result-card-body { display: block; }
 .result-card.expanded .arrow { transform: rotate(90deg); }
@@ -51,7 +68,7 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
 
 /* 상단 헤더 (제목 정중앙 고정 + 이름표 우측 고정) */
 .header {
-  background-color: #1a4fa0;
+  background-color: var(--ink);
   color: white;
   padding: 0 16px;
   height: 70px;
@@ -104,27 +121,32 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
 /* 신규: 입장 코드 화면 스타일 */
 .login-container {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 100dvh; padding: 0 40px; text-align: center; background: linear-gradient(180deg, #1a4fa0 0%, #0f346c 100%);
+  height: 100dvh; padding: 0 40px; text-align: center; background: linear-gradient(180deg, #27272A 0%, var(--ink) 100%);
   color: white;
 }
 .login-logo { font-size: 60px; margin-bottom: 20px; }
 .login-title { font-size: 24px; font-weight: bold; margin-bottom: 8px; }
 .login-subtitle { font-size: 14px; opacity: 0.8; margin-bottom: 30px; line-height: 1.5; }
 .login-input-group { width: 100%; max-width: 220px; }
+/* 입력칸과 로그인 단추가 둘 다 하얀 상자면 무엇을 눌러야 할지 헷갈립니다.
+   입력칸은 어두운 바탕에 녹여 두고, 단추만 하얗게 띄웁니다. */
 .login-input {
-  width: 100%; padding: 12px; border-radius: 10px; border: none; font-size: 16px;
-  text-align: center; margin-bottom: 10px; color: #1e293b; font-weight: bold;
-  box-sizing: border-box;
+  width: 100%; padding: 13px; border-radius: 8px; font-size: 16px;
+  border: 1px solid rgba(255,255,255,.22);
+  background: rgba(255,255,255,.08); color: #fff; font-weight: 600;
+  text-align: center; margin-bottom: 10px; box-sizing: border-box;
 }
+.login-input::placeholder { color: rgba(255,255,255,.5); font-weight: 400; }
+.login-input:focus { outline: none; border-color: #fff; background: rgba(255,255,255,.14); }
 .login-btn {
-  width: 100%; padding: 12px; background: #ffffff; color: #1a4fa0; border: none;
-  border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer;
-  box-sizing: border-box;
-  transition: background-color 0.2s;
+  width: 100%; padding: 14px; background: #ffffff; color: var(--ink); border: none;
+  border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;
+  box-sizing: border-box; margin-top: 4px;
+  transition: opacity .15s;
 }
-.login-btn:active { background: #f1f5f9; }
-.login-error { color: #fca5a5; font-size: 13px; margin-top: 10px; display: none; }
-.spinner { border: 4px solid #f3f3f3; border-top: 4px solid #1a4fa0; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+.login-btn:active { opacity: .82; }
+.login-error { color: #F0D2D2; font-size: 13px; margin-top: 10px; display: none; }
+.spinner { border: 4px solid var(--line); border-top: 4px solid var(--ink); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
 /* 화면 공통 설정 */
@@ -139,28 +161,28 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
 /* 홈 화면 메뉴 버튼 */
 .home-grid { display: flex; flex-direction: column; gap: 24px; margin-bottom: 0; flex: 1; min-height: 480px; }
 .menu-btn {
-  flex: 1; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 24px;
+  flex: 1; background-color: #ffffff; border: 1px solid var(--line); border-radius: 20px; padding: 24px;
   text-align: left; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 6px 16px rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: flex-start;
 }
-.menu-btn:active { background-color: #f8fafc; transform: translateY(3px); box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.menu-btn:active { background-color: var(--surface-2); transform: translateY(3px); box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
 .menu-icon { font-size: 48px; margin-right: 20px; }
-.menu-title { font-size: 22px; font-weight: 800; color: #1e293b; margin-bottom: 8px; }
-.menu-desc { font-size: 14px; color: #64748b; line-height: 1.4; word-break: keep-all; }
+.menu-title { font-size: 22px; font-weight: 800; color: var(--ink); margin-bottom: 8px; }
+.menu-desc { font-size: 14px; color: var(--ink-3); line-height: 1.4; word-break: keep-all; }
 
 /* --- [신규] 앱 스타일 UI 요소 --- */
 .main-univ-btn {
-  width: 100%; background-color: #1a4fa0; color: white; border: none; border-radius: 12px; padding: 16px 20px;
+  width: 100%; background-color: var(--ink); color: white; border: none; border-radius: 12px; padding: 16px 20px;
   font-size: 16px; font-weight: bold; margin-bottom: 16px; cursor: pointer; box-shadow: 0 4px 10px rgba(26,79,160,0.2);
   display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;
 }
-.main-univ-btn:active { background-color: #153e7d; }
+.main-univ-btn:active { background-color: var(--ink); }
 
 .sub-filters {
   display: none; /* 대학 고르기 전엔 숨김 */
-  background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 16px;
+  background: var(--surface-2); padding: 16px; border-radius: 12px; border: 1px solid var(--line); margin-bottom: 16px;
 }
 .sub-filters select {
-  width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white;
+  width: 100%; padding: 12px; border: 1px solid var(--line-2); border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white;
 }
 
 /* --- [신규] 대학 선택 모달(팝업) 창 --- */
@@ -178,15 +200,15 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-.modal-header { padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-.modal-header h3 { margin: 0; font-size: 18px; color: #1e293b; font-weight: 800; }
-.close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #64748b; padding: 0; line-height: 1; }
+.modal-header { padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+.modal-header h3 { margin: 0; font-size: 18px; color: var(--ink); font-weight: 800; }
+.close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--ink-3); padding: 0; line-height: 1; }
 .univ-list { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 .univ-list-btn {
-  background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 12px;
-  font-size: 16px; font-weight: bold; color: #334155; text-align: left; cursor: pointer; transition: all 0.1s;
+  background: var(--surface-2); border: 1px solid var(--line); padding: 16px; border-radius: 12px;
+  font-size: 16px; font-weight: bold; color: var(--ink-2); text-align: left; cursor: pointer; transition: all 0.1s;
 }
-.univ-list-btn:active { background: #e2e8f0; transform: scale(0.98); }
+.univ-list-btn:active { background: var(--line); transform: scale(0.98); }
 
 /* --- [신규] 로그인 화면: 학생 / 선생님 탭 --- */
 .login-tabs {
@@ -197,7 +219,7 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
   font-size: 14px; font-weight: bold; transition: background 0.2s, color 0.2s;
   background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.75);
 }
-.login-tab.active { background: #ffffff; color: #1a4fa0; }
+.login-tab.active { background: #ffffff; color: var(--ink); }
 
 .login-input-group { max-width: 260px; }
 .login-help {
@@ -213,3 +235,23 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
 }
 .logout-btn:active { background: rgba(255,255,255,0.3); }
 #header-user-name { font-size: 12px; }
+
+/* ── 새 판 알림 ──
+   교사 화면과 같은 방식입니다. 다만 학생 앱은 본문이 480px 가운데 정렬이라
+   띠를 흐름 안에 두면 본문 옆에 나란히 서 버립니다. 그래서 붙박이(fixed)로 띄우고,
+   띠 높이만큼 본문을 내려 줍니다. */
+.updatebar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 5000;
+  display: flex; align-items: center; justify-content: center;
+  flex-wrap: wrap; gap: 10px; padding: 10px 14px;
+  background: var(--ink); color: #fff;
+  font-size: 13px; font-weight: 500; text-align: center;
+}
+.updatebar[hidden] { display: none; }
+.updatebar button {
+  flex: 0 0 auto; border: 1px solid rgba(255,255,255,.35); background: transparent; color: #fff;
+  font-family: inherit; font-weight: 600; border-radius: 6px;
+  padding: 5px 13px; font-size: 12.5px; cursor: pointer;
+}
+body.has-update #app-container { padding-top: 44px; }
+body.has-update .header { top: 44px; }

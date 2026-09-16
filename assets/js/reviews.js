@@ -28,7 +28,7 @@ async function filterReviews() {
     '모집단위': document.getElementById('rev-major').value
   };
 
-  document.getElementById('review-list').innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;">데이터를 불러오는 중...</div>';
+  document.getElementById('review-list').innerHTML = '<div style="text-align:center; padding:40px; color:var(--ink-3);">데이터를 불러오는 중...</div>';
   document.getElementById('review-empty').style.display = 'none';
 
   var data = await supabaseRequest('reviews', params);

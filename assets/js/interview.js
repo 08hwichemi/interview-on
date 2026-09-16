@@ -269,7 +269,7 @@ function showCurrentQuestion() {
     // 2. 연습 모드: 타이머 0초로 대기하고 버튼 누를 수 있게 열어둠
     document.getElementById('timer').innerText = "00:00";
     btn.innerText = "▶ 답변 시작";
-    btn.style.backgroundColor = "#1a4fa0"; 
+    btn.style.backgroundColor = "var(--ink)"; 
     btn.disabled = false; 
   }
 }
@@ -281,7 +281,7 @@ function startCountdown() {
   
   var btn = document.getElementById('mock-timer-btn');
   btn.innerText = "답변 준비 중...";
-  btn.style.backgroundColor = "#94a3b8"; // 회색으로 잠금
+  btn.style.backgroundColor = "var(--ink-3)"; // 회색으로 잠금
   btn.disabled = true; // 터치 방지
   document.getElementById('mock-next-btn').style.display = "none";
   
@@ -329,7 +329,7 @@ async function startActualInterview() {
   resetStopwatch(); 
   startStopwatch(); // 00:00 부터 시작
   btn.innerText = "■ 답변 완료 (정지)";
-  btn.style.backgroundColor = "#dc2626";
+  btn.style.backgroundColor = "var(--rose)";
   isTimerRunning = true;
 }
 
@@ -350,7 +350,7 @@ function handleTimerClick() {
     }
     stopStopwatch();
     btn.innerText = "다시 답변하기 (초기화)";
-    btn.style.backgroundColor = "#64748b";
+    btn.style.backgroundColor = "var(--ink-3)";
     document.getElementById('mock-next-btn').style.display = "block";
     
     interviewResults[currentMockIndex] = {
@@ -372,7 +372,7 @@ function handleTimerClick() {
       } else {
         // 연습 모드면 다시 대기 상태로
         btn.innerText = "▶ 답변 시작";
-        btn.style.backgroundColor = "#1a4fa0";
+        btn.style.backgroundColor = "var(--ink)";
       }
     } else if (btn.innerText === "▶ 답변 시작") {
       // 연습 모드에서 대기하다가 [답변 시작]을 누른 경우
@@ -408,21 +408,21 @@ function showInterviewResult() {
       <div class="result-card" onclick="toggleCard(this)">
         <div class="result-card-header">
           <div style="text-align:left;">
-            <div style="font-size:12px; color:#64748b; margin-bottom:2px;">${idx+1}단계. ${res.stage}</div>
-            <div style="font-weight:bold; color:#1e293b;">⏱️ 답변 시간: ${timeStr}</div>
+            <div style="font-size:12px; color:var(--ink-3); margin-bottom:2px;">${idx+1}단계. ${res.stage}</div>
+            <div style="font-weight:bold; color:var(--ink);">⏱️ 답변 시간: ${timeStr}</div>
           </div>
           <div class="arrow">▶</div>
         </div>
         <div class="result-card-body">
           <div style="margin-bottom:12px;">
-            <div style="font-size:11px; color:#1a4fa0; font-weight:bold; margin-bottom:4px;">[질문 내용]</div>
-            <div style="font-size:14px; color:#334155; line-height:1.5; word-break:keep-all;">${currentMockQuestions[idx].text}</div>
+            <div style="font-size:11px; color:var(--ink); font-weight:bold; margin-bottom:4px;">[질문 내용]</div>
+            <div style="font-size:14px; color:var(--ink-2); line-height:1.5; word-break:keep-all;">${currentMockQuestions[idx].text}</div>
           </div>
           ${audioUrls[idx] ? `
-            <div style="border-top:1px dashed #e2e8f0; padding-top:12px; margin-top:12px;" onclick="event.stopPropagation()">
+            <div style="border-top:1px dashed var(--line); padding-top:12px; margin-top:12px;" onclick="event.stopPropagation()">
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <button onclick="playGlobalAudio(${idx}, ${idx+1})" style="padding:8px 16px; background:#e0f2fe; color:#0369a1; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:13px;">▶ 이 답변 듣기</button>
-                <a href="${audioUrls[idx]}" download="면접훈련_${idx+1}.mp4" style="font-size:13px; font-weight:bold; color:#64748b; text-decoration:underline;">📥 파일 저장</a>
+                <button onclick="playGlobalAudio(${idx}, ${idx+1})" style="padding:8px 16px; background:var(--surface-2); color:var(--ink-2); border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:13px;">▶ 이 답변 듣기</button>
+                <a href="${audioUrls[idx]}" download="면접훈련_${idx+1}.mp4" style="font-size:13px; font-weight:bold; color:var(--ink-3); text-decoration:underline;">📥 파일 저장</a>
               </div>
             </div>
           ` : ''}
