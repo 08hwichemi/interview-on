@@ -1,4 +1,4 @@
-// 교사 화면 — 명단 관리
+// 관리자 화면 — 명단 관리
 //
 // 붙여넣거나 엑셀 파일을 고르면 곧바로 계정을 만듭니다.
 // 실제 계정 생성·초기화·삭제는 Edge Function(create-student-accounts)이 합니다.
@@ -11,7 +11,7 @@
 var INITIAL_PW = '123456';
 
 var rosterMode = 'student';   // 'student' | 'teacher'
-var isAdmin = false;          // 로그인 확인이 끝나면 teacher/index.html 이 채웁니다
+var isAdmin = false;          // 로그인 확인이 끝나면 admin/index.html 이 채웁니다
 var pickedClass = '';         // 학생 명단에서 고른 반 ('' 이면 전체)
 var rosterCache = [];         // 방금 불러온 명단
 

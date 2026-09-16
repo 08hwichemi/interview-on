@@ -158,12 +158,12 @@ async function afterLogin() {
 
 // --- 앱 본 화면으로 ---
 async function enterApp() {
-  // 선생님과 학생은 쓰는 화면이 아예 다릅니다.
-  // 학생은 이 모바일 앱, 선생님은 PC용 교사 페이지로 보냅니다.
-  if (currentUser.role !== 'student') {
-    location.replace('teacher/');
-    return;
-  }
+  // 세 사람이 쓰는 화면이 아예 다릅니다.
+  //   학생   → 이 모바일 앱
+  //   교사   → teacher/  면접 준비·진행·리포트
+  //   관리자 → admin/    명단·계정 관리 (교사 화면으로 건너갈 수 있습니다)
+  if (currentUser.role === 'admin')   { location.replace('admin/');   return; }
+  if (currentUser.role === 'teacher') { location.replace('teacher/'); return; }
 
   setBusy(true);
 

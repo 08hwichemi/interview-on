@@ -1,4 +1,4 @@
-// 계정 만들기 / 비밀번호 초기화 / 삭제 (교사 · 학생)
+// 계정 만들기 / 비밀번호 초기화 / 삭제 — 관리자 전용
 //
 // 초기 비밀번호는 학교에서 정한 값 하나로 통일합니다(INITIAL_PASSWORD).
 // 선생님이 한 명 한 명 비밀번호를 나눠줄 필요 없이 "처음엔 123456" 한마디면 되고,
@@ -13,7 +13,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 // 학교에서 정한 초기 비밀번호. 여기만 고치면 전체가 따라갑니다.
-// 화면 쪽 assets/js/teacher-roster.js 의 INITIAL_PW 도 같이 고쳐야 단추 글자가 맞습니다.
+// 화면 쪽 assets/js/admin-roster.js 의 INITIAL_PW 도 같이 고쳐야 단추 글자가 맞습니다.
 const INITIAL_PASSWORD = '123456';
 
 const CORS = {
@@ -59,11 +59,12 @@ Deno.serve(async (req) => {
     .eq('id', user.id)
     .maybeSingle();
 
-  if (!profile || (profile.role !== 'admin' && profile.role !== 'teacher')) {
-    return json({ error: '교사 또는 관리자만 쓸 수 있습니다' }, 403);
+  // 계정을 만들고 · 되돌리고 · 지우는 일은 전부 관리자 몫입니다.
+  // 교사 화면에는 이 기능이 아예 없고, 서버에서도 한 번 더 막습니다.
+  if (!profile || profile.role !== 'admin') {
+    return json({ error: '관리자만 쓸 수 있습니다' }, 403);
   }
   const schoolId: string = profile.school_id;
-  const callerIsAdmin = profile.role === 'admin';
 
   let body: {
     action?: string;
@@ -106,13 +107,6 @@ Deno.serve(async (req) => {
 
       if (!target) {
         failed.push({ login_id: loginId, reason: '그런 아이디가 없습니다' });
-        continue;
-      }
-
-      // 교사·관리자 계정을 건드리는 것은 관리자만.
-      // 이게 없으면 교사가 관리자 비밀번호를 초기화해 관리자로 올라설 수 있습니다.
-      if (target.role !== 'student' && !callerIsAdmin) {
-        failed.push({ login_id: loginId, reason: '선생님 계정은 관리자만 초기화할 수 있습니다' });
         continue;
       }
 
@@ -173,11 +167,6 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      if (target.role !== 'student' && !callerIsAdmin) {
-        failed.push({ login_id: loginId, reason: '선생님 계정은 관리자만 지울 수 있습니다' });
-        continue;
-      }
-
       // 명단 -> 프로필 -> 계정 순서. 반대로 하면 남은 줄이 없는 사람을 가리킵니다.
       if (target.role === 'student') {
         await admin.from('students').delete().eq('auth_user_id', target.id);
@@ -207,11 +196,6 @@ Deno.serve(async (req) => {
   // ──────────────────────────────────────────────
   const targetRole = body.role === 'teacher' ? 'teacher' : 'student';
   const people = body.people;
-
-  // 교사 계정은 관리자만 만들 수 있습니다. 교사가 교사를 늘리지 못하게.
-  if (targetRole === 'teacher' && !callerIsAdmin) {
-    return json({ error: '교사 계정은 관리자만 만들 수 있습니다' }, 403);
-  }
 
   if (!Array.isArray(people) || people.length === 0) {
     return json({ error: '등록할 사람이 없습니다' }, 400);
