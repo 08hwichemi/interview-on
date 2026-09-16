@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.14">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.17">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.14">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.14">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.17">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.17">
 </head>
 <body>
 
@@ -47,7 +47,7 @@
     <aside class="rail panel">
 
       <!-- 면접 전 — 학생 명단 -->
-      <div id="rail-students">
+      <div class="railpane" id="rail-students">
         <div class="railhead">
           <p class="sec" style="margin:0">학생 <span id="found-count"></span>명</p>
           <input type="text" id="search" placeholder="학번 · 이름" oninput="onSearch(this)">
@@ -57,7 +57,7 @@
       </div>
 
       <!-- 면접 중 — 질문 진행 상황 -->
-      <div id="rail-progress" hidden>
+      <div class="railpane" id="rail-progress" hidden>
         <div class="railhead">
           <button class="ghost backbtn" onclick="backToList()">← 학생 목록</button>
           <p class="sec" style="margin:12px 0 0">진행 상황</p>
@@ -102,7 +102,7 @@
             <button class="ghost" onclick="loadCommon('major', '진로역량')">전공 질문 3개</button>
           </div>
 
-          <button class="btn solid wide" id="btn-start" onclick="startInterview()" disabled>면접 시작</button>
+          <div class="actionbar"><button class="btn solid main" id="btn-start" onclick="startInterview()" disabled>면접 시작</button></div>
         </div>
       </section>
 
@@ -153,7 +153,6 @@
               <p class="sec" style="margin:0">면접 마무리</p>
               <h2 id="finish-who"></h2>
             </div>
-            <button class="ghost" onclick="backToRun()">← 질문으로</button>
           </div>
           <p class="hint">
             면접 전체 <b id="finish-total"></b> · 답변한 시간만 더하면 <b id="finish-spoken"></b>
@@ -177,7 +176,10 @@
             <b>면접 끝내기</b>를 누르면 리포트 한 장으로 보여드립니다.
             거기서 확인한 뒤에 <b>학생에게 전달</b>합니다. 그 전까지는 학생에게 안 보입니다.
           </div>
-          <button class="btn solid wide" id="btn-finish" onclick="finishInterview()">면접 끝내기 · 리포트 보기 →</button>
+          <div class="actionbar">
+            <button class="ghost" onclick="backToRun()">← 질문 고치기</button>
+            <button class="btn solid main" id="btn-finish" onclick="finishInterview()">면접 끝내기 · 리포트 보기 →</button>
+          </div>
         </div>
       </section>
 
@@ -192,9 +194,9 @@
           <div id="report-body" class="report"></div>
 
           <p class="hint" id="report-note" style="margin:22px 0 0"></p>
-          <div class="btnrow" style="margin-top:10px">
-            <button class="ghost" onclick="backToFinish()">← 고치러 가기</button>
-            <button class="btn solid grow" id="btn-deliver" onclick="deliverReport()">학생에게 전달</button>
+          <div class="actionbar">
+            <button class="ghost" onclick="backToFinish()">← 채점표 고치기</button>
+            <button class="btn solid main" id="btn-deliver" onclick="deliverReport()">학생에게 전달</button>
           </div>
         </div>
       </section>
@@ -206,10 +208,10 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-16.14"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-16.14"></script>
-<script src="../assets/js/report.js?v=2026-09-16.14"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-16.14"></script>
+<script src="../assets/js/config.js?v=2026-09-16.17"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-16.17"></script>
+<script src="../assets/js/report.js?v=2026-09-16.17"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-16.17"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);

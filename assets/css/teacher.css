@@ -312,7 +312,14 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .railwho{margin:6px 0 0;font-size:14px;font-weight:600}
 .chips.tight{gap:4px;margin:10px 0 0}
 .chips.tight .chip{padding:4px 9px;font-size:11.5px}
-.raillist{overflow-y:auto;padding:6px;flex:1 1 auto}
+/* 왼쪽 칸 안에는 «학생 명단» 과 «진행 상황» 두 쪽이 들어 있고,
+   때에 따라 하나만 보입니다. 이 감싸는 칸에도 flex 를 주지 않으면
+   키 제한이 .raillist 까지 내려가지 못합니다.
+   (그래서 학생이 많을 때 목록이 칸 밖으로 넘치고 스크롤도 안 생겨
+    아래쪽 학생들이 아예 보이지 않았습니다.)
+   min-height:0 은 «내용 크기» 아래로 줄어들 수 있게 해 줍니다. */
+.railpane{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+.raillist{overflow-y:auto;padding:6px;flex:1 1 auto;min-height:0}
 
 .railrow{
   width:100%;display:flex;align-items:baseline;gap:8px;text-align:left;
@@ -390,3 +397,19 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 /* 아직 안 한 질문의 시간은 연하게. 그래도 자리는 차지해서 줄이 가지런합니다. */
 .railrow .done.yet{opacity:.4}
 .railrow[aria-current="true"] .done.yet{opacity:.55}
+
+/* ── 아래쪽 단추 줄 ──
+   창 너비를 다 쓰게 바꾼 뒤로 «학생에게 전달» 같은 단추가 남는 폭을 통째로
+   먹어 우스꽝스럽게 커졌습니다. 단추는 손이 닿는 크기면 충분합니다.
+   왼쪽은 되돌아가는 길, 오른쪽은 다음으로 나아가는 길로 늘 같은 자리에 둡니다. */
+.actionbar{
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+  margin-top:20px;padding-top:18px;border-top:1px solid var(--line);
+}
+.actionbar .main{flex:0 1 auto;min-width:200px;max-width:360px;padding:12px 22px;font-size:14px}
+.actionbar .ghost{padding:12px 18px}
+
+@media(max-width:640px){
+  .actionbar{flex-direction:column-reverse;align-items:stretch}
+  .actionbar .main{max-width:none;min-width:0}
+}
