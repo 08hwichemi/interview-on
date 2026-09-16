@@ -57,8 +57,25 @@ async function loadPartners() {
   chatPartners = (data || [])
     .filter(function (s) { return s.auth_user_id; })
     .map(function (s) {
-      return { id: s.auth_user_id, name: s.student_no + ' ' + s.name, sort: String(s.student_no) };
+      return { id: s.auth_user_id, name: s.student_no + ' ' + s.name,
+               cls: String(s.student_no).slice(0, 3) };   // 학번 앞 3자리 = 학년+반
     });
+}
+
+// 전교생 192명을 한 줄에 쭉 늘어놓으면 고를 수가 없습니다.
+// 반을 먼저 고르고, 그 반 학생만 보여줍니다.
+var chatPickedClass = '';
+
+function chatClasses() {
+  var seen = {};
+  chatPartners.forEach(function (p) { if (p.cls) seen[p.cls] = (seen[p.cls] || 0) + 1; });
+  return Object.keys(seen).sort().map(function (k) { return { key: k, n: seen[k] }; });
+}
+
+function pickChatClass(k) {
+  chatPickedClass = (chatPickedClass === k) ? '' : k;
+  chatPickedPartner = null;
+  renderChatPartners();
 }
 
 // ══════════════ 대화방 목록 ══════════════
@@ -148,6 +165,7 @@ function isChatListOpen() {
 
 function openChatList() {
   chatPickedPartner = null;
+  chatPickedClass = '';
   document.getElementById('chat-list-modal').style.display = 'flex';
   renderChatPartners();
   renderChatRooms();
@@ -160,12 +178,41 @@ function closeChatList() {
 
 function renderChatPartners() {
   var box = document.getElementById('chat-partners');
+  var clsBox = document.getElementById('chat-classes');
   if (!box) return;
+
   if (!chatPartners.length) {
+    if (clsBox) clsBox.hidden = true;
     box.innerHTML = '<p class="chat-none">말을 걸 수 있는 사람이 없습니다.</p>';
     return;
   }
-  box.innerHTML = chatPartners.map(function (p) {
+
+  var list = chatPartners;
+
+  // 선생님 화면 — 반을 먼저 고릅니다.
+  if (chatMe.role === 'teacher' && clsBox) {
+    var classes = chatClasses();
+    clsBox.hidden = (classes.length < 2);
+    clsBox.innerHTML = classes.map(function (c) {
+      return '<button class="chat-pick cls" aria-pressed="' + (chatPickedClass === c.key) + '"' +
+             ' onclick="pickChatClass(\'' + c.key + '\')">' +
+             Number(c.key.slice(1)) + '반<span class="n">' + c.n + '</span></button>';
+    }).join('');
+    if (chatPickedClass) {
+      list = chatPartners.filter(function (p) { return p.cls === chatPickedClass; });
+    } else if (!clsBox.hidden) {
+      // 반을 고르기 전에는 이름을 다 늘어놓지 않습니다
+      box.innerHTML = '<p class="chat-none">반을 먼저 고르세요.</p>';
+      var b0 = document.getElementById('chat-start-btn');
+      b0.disabled = true;
+      b0.textContent = '반을 먼저 고르세요';
+      return;
+    }
+  } else if (clsBox) {
+    clsBox.hidden = true;
+  }
+
+  box.innerHTML = list.map(function (p) {
     return '<button class="chat-pick" aria-pressed="' + (chatPickedPartner === p.id) + '"' +
            ' onclick="pickChatPartner(\'' + p.id + '\')">' + esc(p.name) + '</button>';
   }).join('');

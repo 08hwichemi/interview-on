@@ -85,13 +85,13 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
   background: none; border: none; color: white; font-size: 17px; font-weight: bold; 
   cursor: pointer; display: none; align-items: center; gap: 4px; min-width: 70px; padding: 0;
 }
+/* ⚠️ 예전에는 제목을 «공중에 띄워» 화면 정중앙에 박아 두었습니다.
+   오른쪽에 톡 단추가 생기자 그 위를 덮어 제목이 가려졌습니다.
+   이제 한 줄에 나란히 놓습니다. 서로 밀어내므로 절대 겹치지 않습니다. */
 .header h1 { 
-  position: absolute; /* 제목을 공중에 띄움 */
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%); /* 정확히 화면 정중앙 배치 */
-  width: 50%; /* 양옆 버튼/이름표와 겹치지 않게 너비 제한 */
-  margin: 0; 
+  flex: 1;
+  min-width: 0;
+  margin: 0 8px; 
   font-size: 19px; 
   font-weight: 900; 
   text-align: center;
@@ -102,7 +102,10 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
   pointer-events: none; /* 클릭 방해 금지 */
 }
 .branding { 
-  margin-left: auto; 
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto; 
   font-size: 13px; /* 글자를 살짝 줄여서 세련되게 */
   font-weight: 600; 
   color: rgba(255, 255, 255, 0.65); /* 투명도를 주어 은은하게 배경에 스며들게 함 */

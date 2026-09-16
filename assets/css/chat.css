@@ -144,3 +144,35 @@
 
 /* 인쇄할 때는 톡이 끼지 않습니다 */
 @media print{ .chat-modal,.chatbtn{display:none!important} }
+
+/* 학생 앱 머리말은 먹빛 바탕입니다. 단추도 거기에 맞춥니다.
+   좁은 폰에서는 «톡» 글자를 빼고 말풍선만 남겨 제목 자리를 지킵니다. */
+.header .chatbtn{
+  background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.28);color:#fff;
+  padding:6px 11px;font-size:13px;
+}
+.header .chatbtn:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.45)}
+@media(max-width:420px){
+  .header .chatbtn .chat-label{display:none}
+  .header .chatbtn{padding:6px 9px}
+}
+
+/* 선생님 화면 — 반을 먼저 고르고 그 반 학생만 봅니다.
+   전교생 192명을 한 줄에 늘어놓으면 고를 수가 없습니다. */
+/* 반 단추는 가로로 밀지 않고 줄을 바꿉니다.
+   옆으로 스크롤하면 뒤쪽 반이 있는 줄도 모르고 지나칩니다. */
+.cls-row{margin-bottom:9px;flex-wrap:wrap;overflow:visible}
+.chat-pick.cls .n{
+  margin-left:5px;padding:1px 5px;border-radius:999px;
+  background:var(--line);color:var(--ink-3);font-size:10.5px;font-weight:700;
+}
+.chat-pick.cls[aria-pressed="true"] .n{background:rgba(255,255,255,.22);color:#fff}
+/* 반을 고르면 그 반 학생이 여러 줄로 깔립니다 */
+#chat-partners{flex-wrap:wrap;max-height:152px;overflow-y:auto;overflow-x:hidden}
+/* 좁은 폰에서는 제목이 «스마트 면접 ...» 으로 잘렸습니다.
+   글씨를 조금 줄여 온전히 들어가게 합니다. */
+@media(max-width:420px){
+  .header h1{font-size:16px;letter-spacing:-0.8px}
+  .header .logout-btn{padding:5px 9px;font-size:12px}
+  .branding{gap:6px}
+}
