@@ -74,8 +74,11 @@
 .footer { 
   text-align: center; font-size: 12px; color: var(--ink-3); padding: 12px 20px; 
   margin-top: auto; background-color: var(--surface-2); border-top: 1px solid var(--line); 
-  line-height: 1.6; position: sticky; bottom: 0; z-index: 100; 
-  flex-shrink: 0; /* 🛡️ [핵심 추가] 푸터도 찌그러지지 않게 보호! */
+  line-height: 1.6;
+  flex-shrink: 0; /* 푸터가 찌그러지지 않게 */
+  /* 예전에는 position:sticky; bottom:0 이었습니다. 화면이 짧을 때 아래에 붙이려던
+     것인데, margin-top:auto 가 이미 그 일을 합니다. 리포트처럼 긴 화면에서는
+     내용 위에 떠서 채점표를 가렸습니다. */
 }
 
 /* 🛡️ [신규] 예쁜 토스트 알림 (위에서 스르륵) */

@@ -83,7 +83,9 @@ function navigateTo(screenId) {
       stopStopwatch();
     } else {
       backBtn.style.display = 'flex';
-      if (screenId === 'reviews') appTitle.innerText = '실전 면접 후기';
+      if (screenId === 'my-reports') appTitle.innerText = '내 면접 리포트';
+      else if (screenId === 'report-detail') appTitle.innerText = '면접 리포트';
+      else if (screenId === 'reviews') appTitle.innerText = '실전 면접 후기';
       else if (screenId === 'questions') appTitle.innerText = '대학별 기출 질문';
       else if (screenId === 'interview-setup' || screenId === 'interview-run' || screenId === 'interview-result') {
         appTitle.innerText = '모의 면접 연습';
@@ -95,6 +97,8 @@ function navigateTo(screenId) {
     stopStopwatch();
     initCustomInterviewSetup();
   }
+  // 목록은 들어올 때마다 새로 받습니다. 선생님이 방금 보냈을 수 있습니다.
+  if (screenId === 'my-reports') loadMyReports();
   window.scrollTo(0, 0);
 }
 

@@ -369,7 +369,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   .scorerow .picks{justify-content:flex-start}
 }
 
-/* ── 전체 시간 · 한 줄 판정 · 질문별 기록 ── */
+/* ── 한 줄 판정 ── */
 
 .ratingrow{display:flex;gap:8px;flex-wrap:wrap}
 .rbtn{
@@ -379,29 +379,6 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .rbtn:hover{border-color:var(--ink-3);color:var(--ink)}
 .rbtn[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
 
-/* 마무리 화면의 질문별 기록 — 학생 리포트도 같은 모양입니다 */
-.ansrow{padding:12px 0;border-bottom:1px solid var(--line)}
-.ansrow:last-child{border-bottom:0}
-.anshead{display:flex;align-items:flex-start;gap:9px;flex-wrap:wrap}
-.anshead .qno{
-  flex:0 0 20px;height:20px;margin-top:1px;display:grid;place-items:center;border-radius:5px;
-  background:var(--surface-2);color:var(--ink-2);font-size:11px;font-weight:700;
-}
-.anshead .qt{flex:1;min-width:140px;font-size:14px;font-weight:600;line-height:1.5;word-break:keep-all}
-.anshead .secs{font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;font-weight:600}
-.pill.rate{background:var(--ink);color:#fff}
-.anstags{display:flex;flex-wrap:wrap;gap:5px;margin:7px 0 0 29px}
-.minitag{font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line-2);color:var(--ink-2)}
-.minitag.good{border-color:#BFD3C8;color:#1F4D3A}
-.minitag.bad{border-color:#E4C4C4;color:var(--rose)}
-.ansmemo{
-  margin:7px 0 0 29px;padding:8px 11px;border-radius:6px;background:var(--surface-2);
-  font-size:13px;line-height:1.6;color:var(--ink-2);
-}
-
-@media(max-width:640px){
-  .anstags,.ansmemo{margin-left:0}
-}
 
 /* 지금 보고 있는 판 번호. 작게, 눈에 걸리지 않게. */
 .verlabel{font-size:10.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;letter-spacing:0}

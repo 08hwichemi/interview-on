@@ -4,8 +4,12 @@
 //   왼쪽 칸  면접 전에는 «학생 명단», 면접 중에는 «질문 진행 상황»
 //   오른쪽 칸 준비 → 진행 → 마무리
 //
-// «면접 끝내기» 를 누르는 순간 학생 폰에 리포트가 보입니다.
-// 그 전까지는 status 가 '진행중' 이라 학생에게 아무것도 보이지 않습니다.
+// 면접을 끝내도 곧바로 학생에게 가지 않습니다.
+//   진행중  →  작성완료  →  전달됨
+//           면접 끝내기   학생에게 전달
+//          (선생님만 봄)   (학생도 봄)
+// 선생님이 리포트를 한 장으로 확인하고 다듬은 뒤에 보냅니다.
+// 보낸 뒤에도 고칠 수 있고, 고치면 리포트에 «고친 날»이 남습니다.
 //
 // 계정을 만들고 지우는 일은 여기 없습니다. 그건 관리자 화면(admin/)의 몫입니다.
 
@@ -31,20 +35,10 @@ var TAGS = {
 // 태그를 다 누르지 못해도 이것 하나면 흐름이 읽힙니다.
 var RATINGS = ['우수', '보통', '미흡'];
 
-// ── 채점표 ──
-// 대학이 쓰는 공통 평가요소(학업·진로·공동체)에 면접에서만 볼 수 있는 두 가지를 더했습니다.
-// 평가요소·평가항목 이름은 공개된 공동연구 문서의 용어이고, 설명은 우리가 쓴 문장입니다.
-var SCORESHEET = [
-  { area: '학업역량',   item: '학업태도',              desc: '배우려는 자세와 스스로 공부를 끌고 간 흔적이 답변에 나타나는가' },
-  { area: '학업역량',   item: '탐구력',                desc: '궁금증을 실제 탐구로 옮기고, 그 과정을 자기 말로 풀어내는가' },
-  { area: '진로역량',   item: '진로 탐색 활동과 경험',  desc: '관심 분야를 넓혀 온 경험이 구체적이고, 지원 전공과 이어지는가' },
-  { area: '공동체역량', item: '협업과 소통 능력',       desc: '함께한 일에서 맡은 몫과 조율한 방식을 사례로 말하는가' },
-  { area: '면접 태도',  item: '의사소통 능력',          desc: '질문의 뜻을 알아듣고, 결론과 근거를 분명하게 말하는가' },
-  { area: '면접 확인',  item: '기록의 신뢰도',          desc: '생활기록부에 적힌 것과 답변이 서로 맞는가' }
-];
+// 채점표(SCORESHEET)와 등급(GRADES), esc()·mmss() 는 report.js 에 있습니다.
+// 선생님이 보는 리포트와 학생이 받는 리포트가 같은 종이여야 해서 한 곳에 모았습니다.
 
 var COMPETENCIES = ['학업역량', '진로역량', '공동체역량', '기타'];
-var GRADES = ['A', 'B', 'C', 'D', 'E'];
 
 // ── 상태 ──
 var me = null;
@@ -70,12 +64,6 @@ var totalTimerId = null;
 var totalSeconds = 0;
 
 // ── 공통 ──
-function esc(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
 function toast(msg, kind) {
   var el = document.getElementById('toast');
   el.textContent = msg;
@@ -84,20 +72,15 @@ function toast(msg, kind) {
 }
 
 function show(view) {
-  ['empty', 'setup', 'run', 'finish'].forEach(function (v) {
+  ['empty', 'setup', 'run', 'finish', 'report'].forEach(function (v) {
     document.getElementById('view-' + v).hidden = (v !== view);
   });
   // 면접 중에는 왼쪽 칸이 질문 진행 상황으로 바뀝니다.
-  var inInterview = (view === 'run' || view === 'finish');
+  var inInterview = (view === 'run' || view === 'finish' || view === 'report');
   document.getElementById('rail-students').hidden = inInterview;
   document.getElementById('rail-progress').hidden = !inInterview;
   if (inInterview) renderRailProgress();
   window.scrollTo(0, 0);
-}
-
-function mmss(s) {
-  var m = Math.floor(s / 60), r = s % 60;
-  return (m < 10 ? '0' + m : m) + ':' + (r < 10 ? '0' + r : r);
 }
 
 // 학번 앞 3자리가 학년+반입니다 (3학년 2반 → 302)
@@ -214,16 +197,23 @@ async function loadHistory() {
   if (error) { box.innerHTML = '<p class="empty">지난 기록을 못 읽었습니다: ' + esc(error.message) + '</p>'; return; }
   if (!data.length) { box.innerHTML = '<p class="empty">이 학생의 첫 면접입니다.</p>'; return; }
 
+  // 누가기록입니다. 눌러서 그때 리포트를 그대로 다시 봅니다.
   box.innerHTML = '<div class="rows">' + data.map(function (iv, i) {
+    var round = data.length - i;
     var d = new Date(iv.started_at);
     var g = iv.grades || {};
-    var got = Object.keys(g).map(function (k) { return g[k]; });
-    return '<div class="row"><div class="who">' +
-      '<span class="id">' + (data.length - i) + '회차</span>' +
-      '<span class="nm">' + d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '</span>' +
-      '<span class="sub">' + esc(iv.teacher_name) + (got.length ? ' · ' + got.join(' ') : '') + '</span>' +
-      (iv.status === '진행중' ? ' <span class="pill warn">진행중</span>' : '') +
-      '</div></div>';
+    var got = SCORESHEET.map(function (r) { return g[r.item]; }).filter(Boolean);
+    var state = iv.status === '전달됨'  ? '<span class="pill ok2">전달함</span>'
+              : iv.status === '작성완료' ? '<span class="pill warn">아직 안 보냄</span>'
+              :                            '<span class="pill warn">진행중</span>';
+    return '<button class="row pickable" onclick="openPast(\'' + iv.id + '\', ' + round + ')">' +
+      '<span class="who">' +
+        '<span class="id">' + round + '회차</span>' +
+        '<span class="nm">' + d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '</span>' +
+        state +
+        '<span class="sub">' + esc(iv.teacher_name) + (got.length ? ' · ' + got.join(' ') : '') + '</span>' +
+      '</span>' +
+      '<span class="acts"><span class="go">리포트 →</span></span></button>';
   }).join('') + '</div>';
 }
 
@@ -473,25 +463,29 @@ function openFinish() {
 // 질문마다 «무슨 질문 / 얼마나 / 어땠는지» 를 한 덩어리로 훑어봅니다.
 // 학생 리포트에도 이 모양 그대로 들어갑니다.
 function renderAnswerSummary() {
-  document.getElementById('answer-summary').innerHTML = questions.map(function (q, i) {
-    var a = answers[i];
-    var tags = a.good.concat(a.bad);
-    return '<div class="ansrow">' +
-      '<div class="anshead">' +
-        '<span class="qno">' + (i + 1) + '</span>' +
-        '<span class="qt">' + esc(q.text) + '</span>' +
-        (a.rating ? '<span class="pill rate">' + esc(a.rating) + '</span>' : '') +
-        '<span class="secs">' + mmss(a.seconds) + '</span>' +
-      '</div>' +
-      (tags.length
-        ? '<div class="anstags">' +
-            a.good.map(function (t) { return '<span class="minitag good">' + esc(t) + '</span>'; }).join('') +
-            a.bad.map(function (t) { return '<span class="minitag bad">' + esc(t) + '</span>'; }).join('') +
-          '</div>'
-        : '') +
-      (a.memo ? '<p class="ansmemo">' + esc(a.memo) + '</p>' : '') +
-      '</div>';
-  }).join('');
+  // report.js 가 그리는 리포트와 같은 모양으로 맞춥니다.
+  // 선생님이 마무리 화면에서 본 것과 학생이 받는 것이 달라서는 안 됩니다.
+  document.getElementById('answer-summary').innerHTML =
+    '<div class="rp-answers">' + questions.map(function (q, i) {
+      var a = answers[i];
+      return '<div class="ansrow">' +
+        '<div class="anshead">' +
+          '<span class="qno">' + (i + 1) + '</span>' +
+          '<span class="qt">' + esc(q.text) + '</span>' +
+          (a.rating ? '<span class="pill rate">' + esc(a.rating) + '</span>' : '') +
+          '<span class="secs">' + mmss(a.seconds) + '</span>' +
+        '</div>' +
+        (q.competency && q.competency !== '기타'
+          ? '<div class="anscomp">' + esc(q.competency) + ' 질문</div>' : '') +
+        (a.good.length || a.bad.length
+          ? '<div class="anstags">' +
+              a.good.map(function (x) { return '<span class="minitag good">' + esc(x) + '</span>'; }).join('') +
+              a.bad.map(function (x) { return '<span class="minitag bad">' + esc(x) + '</span>'; }).join('') +
+            '</div>'
+          : '') +
+        (a.memo ? '<p class="ansmemo">' + esc(a.memo) + '</p>' : '') +
+        '</div>';
+    }).join('') + '</div>';
 }
 
 function renderScoresheet() {
@@ -520,28 +514,131 @@ function backToRun() {
   showQuestion();
 }
 
+// ══════════════ 리포트 — 확인하고 전달 ══════════════
+
+var viewing = null;   // 지금 보고 있는 리포트 { interview, answers, round }
+
+// «면접 끝내기» — 저장만 하고 리포트를 띄웁니다. 아직 학생에게 가지 않습니다.
 async function finishInterview() {
   var btn = document.getElementById('btn-finish');
+  var label = btn.textContent;
   btn.disabled = true;
   btn.textContent = '저장하는 중...';
 
-  const { error } = await sb.from('interviews').update({
-    status: '끝남',
+  var patch = {
     finished_at: new Date().toISOString(),
     total_seconds: totalSeconds,
     grades: grades,
     overall_note: document.getElementById('finish-note').value.trim()
-  }).eq('id', interviewId);
+  };
+  // 이미 학생에게 보낸 것을 고쳤다면, 고친 날을 남깁니다.
+  if (viewing && viewing.interview && viewing.interview.status === '전달됨') {
+    patch.edited_at = new Date().toISOString();
+  } else {
+    patch.status = '작성완료';
+  }
+
+  const { error } = await sb.from('interviews').update(patch).eq('id', interviewId);
 
   btn.disabled = false;
-  btn.textContent = '면접 끝내기 (학생에게 공개)';
+  btn.textContent = label;
 
   if (error) { toast('저장하지 못했습니다: ' + error.message, 'bad'); return; }
+  openReport(interviewId);
+}
 
-  toast(target.name + ' 학생에게 리포트가 공개되었습니다.', 'ok');
+// 리포트 한 장을 띄웁니다. 학생이 받을 것과 같은 종이입니다.
+async function openReport(id) {
+  var box = document.getElementById('report-body');
+  box.innerHTML = '<p class="empty">불러오는 중...</p>';
+  show('report');
+
+  var r = await fetchReport(id);
+  if (r.error) { box.innerHTML = '<p class="empty">리포트를 못 읽었습니다: ' + esc(r.error) + '</p>'; return; }
+
+  viewing = { interview: r.interview, answers: r.answers };
+  interviewId = id;
+
+  var who = target ? target.student_no + ' ' + target.name : '';
+  box.innerHTML = reportHTML(r.interview, r.answers, who, viewing.round);
+
+  var sent = r.interview.status === '전달됨';
+  document.getElementById('report-state').innerHTML = sent
+    ? '<span class="pill ok2">학생이 보고 있습니다</span>'
+    : '<span class="pill warn">아직 학생에게 안 갔습니다</span>';
+
+  var d = document.getElementById('btn-deliver');
+  d.textContent = sent ? '고친 내용 다시 알리기' : '학생에게 전달';
+  document.getElementById('report-note').textContent = sent
+    ? '이미 전달했습니다. 고친 내용은 학생이 새로고침하면 바로 보입니다.'
+    : '전달을 눌러야 학생 폰에 보입니다. 그 전까지는 선생님만 볼 수 있습니다.';
+}
+
+async function deliverReport() {
+  if (!interviewId) return;
+  var btn = document.getElementById('btn-deliver');
+  var label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '보내는 중...';
+
+  var already = viewing && viewing.interview.status === '전달됨';
+  var patch = already
+    ? { edited_at: new Date().toISOString() }
+    : { status: '전달됨', delivered_at: new Date().toISOString() };
+
+  const { error } = await sb.from('interviews').update(patch).eq('id', interviewId);
+
+  btn.disabled = false;
+  btn.textContent = label;
+
+  if (error) { toast('보내지 못했습니다: ' + error.message, 'bad'); return; }
+  toast(already ? '고친 내용을 알렸습니다.' : '학생에게 전달했습니다.', 'ok');
+  openReport(interviewId);
+}
+
+// 리포트에서 다시 고치러 갑니다.
+function backToFinish() {
+  document.getElementById('finish-note').value =
+    (viewing && viewing.interview.overall_note) || '';
+  renderScoresheet();
+  renderAnswerSummary();
+  show('finish');
+}
+
+// 면접을 접고 다른 학생으로 갑니다.
+function closeReport() {
   interviewId = null;
+  viewing = null;
   grades = {};
+  questions = [];
+  answers = [];
   document.getElementById('finish-note').value = '';
   show('setup');
   loadHistory();
+}
+
+// ══════════════ 지난 회차 다시 열기 ══════════════
+
+// 누가기록입니다. 지난 면접을 눌러 그대로 다시 봅니다.
+async function openPast(id, round) {
+  var box = document.getElementById('report-body');
+  box.innerHTML = '<p class="empty">불러오는 중...</p>';
+  show('report');
+
+  var r = await fetchReport(id);
+  if (r.error) { box.innerHTML = '<p class="empty">리포트를 못 읽었습니다: ' + esc(r.error) + '</p>'; return; }
+
+  // 고치기로 들어갈 수 있도록 화면 상태를 그 면접으로 되돌립니다.
+  interviewId = id;
+  viewing = { interview: r.interview, answers: r.answers, round: round };
+  questions = r.answers.map(function (a) { return { text: a.question, competency: a.competency }; });
+  answers = r.answers.map(function (a) {
+    return { seconds: a.seconds || 0, good: a.good_tags || [], bad: a.bad_tags || [],
+             rating: a.rating || null, memo: a.memo || '' };
+  });
+  grades = r.interview.grades || {};
+  totalSeconds = r.interview.total_seconds || 0;
+  qIndex = 0;
+
+  openReport(id);
 }

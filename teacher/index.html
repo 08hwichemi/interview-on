@@ -4,9 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.9">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.12">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.9">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.12">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.12">
 </head>
 <body>
 
@@ -172,9 +173,28 @@
             placeholder="예: 경험은 풍부한데 결론을 먼저 말하는 연습이 필요합니다."></textarea>
 
           <div class="note info">
-            <b>면접 끝내기</b>를 누르면 그 자리에서 학생 폰에 리포트가 보입니다.
+            <b>면접 끝내기</b>를 누르면 리포트 한 장으로 보여드립니다.
+            거기서 확인한 뒤에 <b>학생에게 전달</b>합니다. 그 전까지는 학생에게 안 보입니다.
           </div>
-          <button class="btn solid wide" id="btn-finish" onclick="finishInterview()">면접 끝내기 (학생에게 공개)</button>
+          <button class="btn solid wide" id="btn-finish" onclick="finishInterview()">면접 끝내기 · 리포트 보기 →</button>
+        </div>
+      </section>
+
+      <!-- 리포트 — 확인하고 전달 -->
+      <section id="view-report" hidden>
+        <div class="panel pad">
+          <div class="headline">
+            <span id="report-state"></span>
+            <button class="ghost" onclick="closeReport()">닫기</button>
+          </div>
+
+          <div id="report-body" class="report"></div>
+
+          <p class="hint" id="report-note" style="margin:22px 0 0"></p>
+          <div class="btnrow" style="margin-top:10px">
+            <button class="ghost" onclick="backToFinish()">← 고치러 가기</button>
+            <button class="btn solid grow" id="btn-deliver" onclick="deliverReport()">학생에게 전달</button>
+          </div>
         </div>
       </section>
 
@@ -185,9 +205,10 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-16.9"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-16.9"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-16.9"></script>
+<script src="../assets/js/config.js?v=2026-09-16.12"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-16.12"></script>
+<script src="../assets/js/report.js?v=2026-09-16.12"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-16.12"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);

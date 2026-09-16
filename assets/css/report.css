@@ -1,0 +1,80 @@
+/* 면접 리포트 한 장 — 교사 화면과 학생 앱이 함께 씁니다(report.js).
+   두 곳에서 따로 꾸미면 선생님이 본 것과 학생이 받는 것이 달라집니다.
+   teacher.css / base.css 가 :root 에 같은 색 토큰을 두고 있어 그대로 씁니다. */
+
+/* 학생 앱에는 없는 조각들이라 여기서 챙깁니다 */
+.report .sec{margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3)}
+.report .opt{font-weight:400;letter-spacing:0;text-transform:none;color:var(--ink-3);font-size:11px}
+.report h2{margin:2px 0 0;font-size:20px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.pill{font-size:10.5px;padding:3px 8px;border-radius:5px;font-weight:700;white-space:nowrap;
+  letter-spacing:.02em}
+
+/* ── 리포트 한 장 ──
+   선생님이 확인용으로 보는 것과 학생이 받는 것이 같은 종이입니다(report.js). */
+
+.rp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.rp-head h2{margin:2px 0 0;font-size:20px;font-weight:700;letter-spacing:-.02em}
+.rp-when{margin:4px 0 0;font-size:13px;color:var(--ink-3)}
+.rp-times{display:flex;gap:22px}
+.rp-times span{display:flex;flex-direction:column;align-items:flex-end;font-size:11px;
+  font-weight:700;letter-spacing:.08em;color:var(--ink-3)}
+.rp-times b{font-size:24px;font-weight:700;letter-spacing:-.02em;color:var(--ink);
+  font-variant-numeric:tabular-nums;line-height:1.2}
+.rp-edited{
+  margin:14px 0 0;padding:9px 12px;border-radius:6px;background:var(--amber-soft);
+  color:var(--amber);font-size:12.5px;font-weight:600;
+}
+
+/* 읽기 전용 채점표 */
+.rp-sheet{border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.rp-srow{display:grid;grid-template-columns:88px 1fr 52px;gap:12px;align-items:center;
+  padding:11px 14px;border-bottom:1px solid var(--line)}
+.rp-srow:last-child{border-bottom:0}
+.rp-srow .area{font-size:12px;font-weight:700;color:var(--ink-2)}
+.rp-srow .item b{display:block;font-size:14px;font-weight:600}
+.rp-srow .item .desc{display:block;margin-top:2px;font-size:12px;color:var(--ink-3);line-height:1.5}
+.rp-srow .got{
+  justify-self:end;width:34px;height:32px;display:grid;place-items:center;border-radius:6px;
+  background:var(--ink);color:#fff;font-size:15px;font-weight:700;
+}
+.rp-srow .got.none{background:var(--surface-2);color:var(--ink-3);font-weight:500}
+
+.rp-note{
+  margin:0;padding:12px 14px;border-radius:6px;background:var(--surface-2);
+  font-size:14px;line-height:1.7;color:var(--ink);
+}
+.anscomp{margin:5px 0 0 29px;font-size:11.5px;font-weight:600;color:var(--ink-3)}
+.pill.ok2{background:#E9EFEA;color:#2F6B4F}
+
+@media(max-width:640px){
+  .rp-times{gap:16px}
+  .rp-times b{font-size:20px}
+  .rp-srow{grid-template-columns:1fr 44px;gap:8px}
+  .rp-srow .area{grid-column:1/-1}
+  .anscomp{margin-left:0}
+}
+
+/* 질문별 기록 — 무슨 질문을 받았고, 얼마나 말했고, 어땠는지 */
+.ansrow{padding:12px 0;border-bottom:1px solid var(--line)}
+.ansrow:last-child{border-bottom:0}
+.anshead{display:flex;align-items:flex-start;gap:9px;flex-wrap:wrap}
+.anshead .qno{
+  flex:0 0 20px;height:20px;margin-top:1px;display:grid;place-items:center;border-radius:5px;
+  background:var(--surface-2);color:var(--ink-2);font-size:11px;font-weight:700;
+}
+.anshead .qt{flex:1;min-width:140px;font-size:14px;font-weight:600;line-height:1.5;word-break:keep-all}
+.anshead .secs{font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;font-weight:600}
+.pill.rate{background:var(--ink);color:#fff}
+.anstags{display:flex;flex-wrap:wrap;gap:5px;margin:7px 0 0 29px}
+.minitag{font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line-2);color:var(--ink-2)}
+.minitag.good{border-color:#BFD3C8;color:#1F4D3A}
+.minitag.bad{border-color:#E4C4C4;color:var(--rose)}
+.ansmemo{
+  margin:7px 0 0 29px;padding:8px 11px;border-radius:6px;background:var(--surface-2);
+  font-size:13px;line-height:1.6;color:var(--ink-2);
+}
+
+@media(max-width:640px){
+  .anstags,.ansmemo{margin-left:0}
+}
