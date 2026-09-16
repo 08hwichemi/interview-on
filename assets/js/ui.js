@@ -71,7 +71,9 @@ function navigateTo(screenId) {
   var backBtn = document.getElementById('backBtn');
   var appTitle = document.getElementById('app-title');
   
-  if (screenId === 'login') {
+  // 로그인 전, 그리고 비밀번호를 바꿔야 하는 동안에는 헤더를 숨깁니다.
+  // (헤더에 로그아웃 버튼이 있어서, 절차를 건너뛸 구멍이 되면 안 됩니다)
+  if (screenId === 'login' || screenId === 'change-password') {
     header.style.display = 'none';
   } else {
     header.style.display = 'flex';

@@ -28,7 +28,10 @@
     
     <h1 id="app-title">면접ON</h1>
     
-    <div class="branding">🚀 휘쌤 제작</div>
+    <div class="branding">
+      <span id="header-user-name"></span>
+      <button class="logout-btn" onclick="logout()" title="로그아웃">로그아웃</button>
+    </div>
   </div>
 
   <div id="loading">
@@ -40,12 +43,74 @@
     <div class="login-container">
       <div class="login-logo">🏫</div>
       <div class="login-title">스마트 면접 대비</div>
-      <div class="login-subtitle">우리 학교 학생들만을 위한 공간입니다.<br>선생님이 알려주신 코드를 입력하세요.</div>
-      
+      <div class="login-subtitle">우리 학교 학생들만을 위한 공간입니다.</div>
+
+      <div class="login-tabs">
+        <button id="tab-student" class="login-tab active" onclick="showLoginTab('student')">학생</button>
+        <button id="tab-teacher" class="login-tab" onclick="showLoginTab('teacher')">선생님</button>
+      </div>
+
       <div class="login-input-group">
-        <input type="password" id="entry-code-input" class="login-input" placeholder="코드 입력" onkeypress="if(event.keyCode==13) checkEntryCode()">
-        <button class="login-btn" onclick="checkEntryCode()">입장하기</button>
-        <div id="login-error-msg" class="login-error">코드가 일치하지 않습니다.</div>
+
+        <!-- 학생: 학번 + 비밀번호 -->
+        <div id="login-student-form">
+          <input type="text" id="student-no-input" class="login-input" placeholder="학번"
+                 inputmode="numeric" autocomplete="username">
+          <input type="password" id="student-pw-input" class="login-input" placeholder="비밀번호"
+                 autocomplete="current-password" onkeypress="if(event.keyCode==13) loginStudent()">
+          <button class="login-btn" onclick="loginStudent()">로그인</button>
+          <div class="login-help">처음이신가요? 선생님께 받은 비밀번호로 로그인하세요.</div>
+        </div>
+
+        <!-- 교사: 이메일 + 비밀번호 -->
+        <div id="login-teacher-form" style="display:none;">
+          <input type="email" id="teacher-email-input" class="login-input" placeholder="이메일"
+                 autocomplete="username">
+          <input type="password" id="teacher-pw-input" class="login-input" placeholder="비밀번호"
+                 autocomplete="current-password" onkeypress="if(event.keyCode==13) loginTeacher()">
+          <button class="login-btn" onclick="loginTeacher()">로그인</button>
+          <div class="login-help">
+            계정이 없으신가요?
+            <a href="javascript:void(0)" onclick="showLoginTab('signup')">초대 코드로 가입</a>
+          </div>
+        </div>
+
+        <!-- 교사 가입 -->
+        <div id="signup-teacher-form" style="display:none;">
+          <input type="text" id="signup-code-input" class="login-input" placeholder="초대 코드">
+          <input type="text" id="signup-name-input" class="login-input" placeholder="이름">
+          <input type="email" id="signup-email-input" class="login-input" placeholder="이메일"
+                 autocomplete="username">
+          <input type="password" id="signup-pw-input" class="login-input" placeholder="비밀번호 (8자 이상)"
+                 autocomplete="new-password" onkeypress="if(event.keyCode==13) signupTeacher()">
+          <button class="login-btn" onclick="signupTeacher()">가입하기</button>
+          <div class="login-help">
+            <a href="javascript:void(0)" onclick="showLoginTab('teacher')">← 로그인으로 돌아가기</a>
+          </div>
+        </div>
+
+        <div id="login-error-msg" class="login-error"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 최초 로그인 시 비밀번호 변경. 이걸 끝내야 앱으로 들어갑니다. -->
+  <div id="screen-change-password" class="screen">
+    <div class="login-container">
+      <div class="login-logo">🔑</div>
+      <div class="login-title">비밀번호 변경</div>
+      <div class="login-subtitle">
+        선생님께 받은 비밀번호는 다른 사람도 알 수 있습니다.<br>
+        나만 아는 비밀번호로 바꿔 주세요.
+      </div>
+
+      <div class="login-input-group">
+        <input type="password" id="newpw-input" class="login-input" placeholder="새 비밀번호 (8자 이상)"
+               autocomplete="new-password">
+        <input type="password" id="newpw-confirm-input" class="login-input" placeholder="새 비밀번호 확인"
+               autocomplete="new-password" onkeypress="if(event.keyCode==13) submitPasswordChange()">
+        <button class="login-btn" onclick="submitPasswordChange()">변경하고 시작하기</button>
+        <div id="newpw-error" class="login-error"></div>
       </div>
     </div>
   </div>
@@ -257,6 +322,9 @@
      config(전역변수) → utils(공용함수) → api(서버통신) → ui(화면전환·모달)
      → auth(로그인) → reviews / questions(목록) → interview(훈련) → main(앱 시작)
      ※ 화면의 onclick="..." 이 이 함수들을 직접 부르므로 type="module" 을 쓰면 안 됩니다. -->
+<!-- Supabase SDK. 로그인 세션 유지와 토큰 갱신을 대신 처리해 줍니다.
+     config.js 가 이걸 써서 클라이언트를 만들므로 반드시 먼저 와야 합니다. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
 <script src="assets/js/config.js"></script>
 <script src="assets/js/utils.js"></script>
 <script src="assets/js/api.js"></script>

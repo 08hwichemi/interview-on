@@ -1,22 +1,10 @@
 // 앱 시작점 — 페이지가 열리면 여기서부터 실행됩니다.
 
-// 1. 앱 초기화 (수파베이스에서 필터용 메타데이터 가져오기)
-window.onload = async function() {
-  try {
-    const [revData, qData] = await Promise.all([
-      supabaseRequest('reviews'),
-      supabaseRequest('questions')
-    ]);
-
-    appMeta.rev = revData.map(d => ({ y: d['년도'], u: d['대학'], t: d['세부유형'], m: d['모집단위'] }));
-    // 🛡️ [수정] 언더바(_)를 슬래시(/)로 정확하게 맞췄습니다!
-    appMeta.q = qData.map(d => ({ y: d['년도'], u: d['대학'], t1: d['전형/역량1'], t2: d['역량2'] }));
-
-    document.getElementById('loading').style.display = 'none';
-  } catch (e) {
-    console.error("오류:", e);
-    document.getElementById('loading').style.display = 'none';
-  }
+// 1. 로그인 상태를 먼저 확인합니다.
+//    이미 로그인돼 있으면 바로 홈으로, 아니면 로그인 화면으로 보냅니다.
+//    자료 불러오기는 로그인이 확인된 뒤에만 일어납니다 (auth.js 의 enterApp).
+window.onload = function() {
+  initAuth();
 };
 
 // 2. PWA 서비스 워커 등록 (앱 설치의 최종 관문)

@@ -187,3 +187,29 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
   font-size: 16px; font-weight: bold; color: #334155; text-align: left; cursor: pointer; transition: all 0.1s;
 }
 .univ-list-btn:active { background: #e2e8f0; transform: scale(0.98); }
+
+/* --- [신규] 로그인 화면: 학생 / 선생님 탭 --- */
+.login-tabs {
+  display: flex; gap: 8px; margin-bottom: 20px; width: 100%; max-width: 260px;
+}
+.login-tab {
+  flex: 1; padding: 10px; border: none; border-radius: 10px; cursor: pointer;
+  font-size: 14px; font-weight: bold; transition: background 0.2s, color 0.2s;
+  background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.75);
+}
+.login-tab.active { background: #ffffff; color: #1a4fa0; }
+
+.login-input-group { max-width: 260px; }
+.login-help {
+  font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 12px; line-height: 1.5;
+}
+.login-help a { color: #ffffff; font-weight: bold; text-decoration: underline; }
+
+/* 헤더 오른쪽 로그아웃 */
+.logout-btn {
+  background: rgba(255,255,255,0.15); border: none; color: #ffffff;
+  font-size: 11px; font-weight: bold; padding: 5px 10px; border-radius: 6px;
+  cursor: pointer; margin-left: 8px;
+}
+.logout-btn:active { background: rgba(255,255,255,0.3); }
+#header-user-name { font-size: 12px; }
