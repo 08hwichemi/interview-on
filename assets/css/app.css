@@ -1,0 +1,93 @@
+/* 리스트 카드 디자인 (모바일 최적화 적용) */
+.card {
+  background: white; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 12px; overflow: hidden;
+  /* 화면 밖에 있는 카드는 폰이 아예 계산하지 않고 무시하도록 설정 (스크롤 최적화 핵심) */
+  content-visibility: auto;
+  contain-intrinsic-size: 100px;
+  /* CPU 대신 그래픽 카드(GPU)를 강제로 사용하게 하여 버벅임 방지 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+.card-header {
+  padding: 16px; background-color: #f8fafc; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start;
+  /* 카드를 터치할 때 발생하는 미세한 폰트/레이아웃 딜레이 강제 제거 */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.card-title { font-weight: bold; color: #1e293b; margin-bottom: 6px; font-size: 15px; }
+.card-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { background: #e2e8f0; color: #475569; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; }
+.tag-pass { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.tag-fail { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.arrow { color: #94a3b8; transition: transform 0.15s ease-out; font-size: 12px; margin-top: 4px; will-change: transform; }
+.card.expanded .arrow { transform: rotate(90deg); }
+.card-body { display: none; padding: 16px; border-top: 1px solid #e2e8f0; background: white; }
+.card.expanded .card-body { display: block; }
+.content-block { margin-bottom: 16px; }
+.content-block:last-child { margin-bottom: 0; }
+.content-title { font-size: 13px; font-weight: bold; color: #1a4fa0; margin-bottom: 6px; }
+.content-text { font-size: 14px; color: #334155; line-height: 1.6; white-space: pre-wrap; }
+
+/* 초기 유도 메시지 */
+.guide-msg { text-align: center; padding: 60px 20px; color: #94a3b8; }
+.guide-msg .icon { font-size: 40px; margin-bottom: 16px; }
+.guide-msg .text { font-size: 16px; font-weight: bold; color: #64748b; }
+#empty-msg { text-align: center; padding: 40px 20px; color: #64748b; display: none; }
+
+/* AI 모의면접 및 실전 훈련 모드 */
+.timer-display { font-size: 64px; font-weight: bold; color: #1e293b; text-align: center; margin: 30px 0; font-variant-numeric: tabular-nums; }
+.interview-q-card { background: #f8fafc; border: 2px solid #1a4fa0; border-radius: 12px; padding: 24px; margin-bottom: 20px; min-height: 150px; display: flex; align-items: center; justify-content: center; }
+.interview-q-text { font-size: 18px; line-height: 1.6; color: #1e293b; font-weight: bold; text-align: center; word-break: keep-all; }
+.action-btn { width: 100%; padding: 16px; background-color: #1a4fa0; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 10px; transition: background 0.2s; }
+.action-btn.secondary { background-color: #e2e8f0; color: #475569; }
+
+/* 신규: 질문 입력칸 및 결과 화면 스타일 */
+.custom-q-box { background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
+.custom-q-title { font-size: 15px; font-weight: bold; color: #1e293b; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+
+.custom-q-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
+
+/* 🛡️ [신규] '고정' 체크박스 전용 깔끔한 스타일 */
+.lock-label {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 11px; color: #64748b; font-weight: bold; margin-top: 6px; flex-shrink: 0; cursor: pointer;
+}
+.q-checkbox {
+  width: 18px; height: 18px; margin-bottom: 2px; accent-color: #ef4444; cursor: pointer;
+}
+
+.custom-q-row .custom-q-input { margin-bottom: 0; flex: 1; }
+.custom-q-input { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; box-sizing: border-box; font-family: inherit; resize: vertical; }
+.delete-q-btn { width: 42px; height: 42px; padding: 0; background: #fee2e2; border: 1px solid #fca5a5; color: #ef4444; border-radius: 8px; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 16px; flex-shrink: 0; }
+.add-q-btn { width: 100%; padding: 10px; background: white; border: 1px dashed #cbd5e1; color: #64748b; border-radius: 8px; cursor: pointer; font-weight: bold; margin-bottom: 8px; }
+.file-btn-group { display: flex; gap: 8px; margin-bottom: 16px; }
+.file-btn { flex: 1; padding: 10px; font-size: 13px; font-weight: bold; border-radius: 8px; cursor: pointer; text-align: center; border: 1px solid #cbd5e1; background: white; color: #475569; }
+.notice-banner { background: #fffbeb; border: 1px solid #fde68a; padding: 12px; border-radius: 8px; font-size: 13px; color: #92400e; margin-bottom: 16px; line-height: 1.5; }
+
+.result-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
+.result-table th, .result-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+.result-table th { background: #f8fafc; font-weight: bold; color: #475569; }
+.result-table tr:last-child td { border-bottom: none; }
+.total-time-box { background: #e0f2fe; color: #0369a1; padding: 16px; border-radius: 12px; text-align: center; font-weight: bold; font-size: 18px; margin-bottom: 20px; }
+
+/* 푸터 (찌그러짐 방지 추가) */
+.footer { 
+  text-align: center; font-size: 12px; color: #94a3b8; padding: 12px 20px; 
+  margin-top: auto; background-color: #f8fafc; border-top: 1px solid #e2e8f0; 
+  line-height: 1.6; position: sticky; bottom: 0; z-index: 100; 
+  flex-shrink: 0; /* 🛡️ [핵심 추가] 푸터도 찌그러지지 않게 보호! */
+}
+
+/* 🛡️ [신규] 예쁜 토스트 알림 (위에서 스르륵) */
+.toast-msg {
+  visibility: hidden; width: 90%; max-width: 400px; background-color: #1e293b; color: #fff;
+  text-align: center; border-radius: 12px; padding: 16px; position: fixed;
+  z-index: 4000; left: 50%; transform: translateX(-50%); top: 20px;
+  font-size: 14px; font-weight: bold; box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+  opacity: 0; transition: opacity 0.3s, top 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  word-break: keep-all; line-height: 1.5;
+}
+.toast-msg.show { visibility: visible; opacity: 1; top: 60px; }
+.toast-msg.success { background-color: #10b981; } /* 초록색 성공 */
+.toast-msg.error { background-color: #ef4444; }   /* 빨간색 경고 */
+.toast-msg.info { background-color: #3b82f6; }    /* 파란색 안내 */  

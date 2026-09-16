@@ -18,30 +18,47 @@
 
 ```
 .
-├── index.html      학생용 앱 전체 (HTML + CSS + JS 한 파일, 1482줄)
-├── manifest.json   PWA 설치 정보 (앱 이름, 아이콘, 테마 색상)
-├── sw.js           서비스 워커 — 네트워크 우선, 오프라인일 때만 캐시 사용
-├── icon.png        앱 아이콘
-└── README.md
+├── index.html              화면 마크업 (270줄)
+├── manifest.json           PWA 설치 정보
+├── sw.js                   서비스 워커 — 네트워크 우선, 오프라인일 때만 캐시
+├── .nojekyll               GitHub Pages 가 파일을 건드리지 않게 하는 표식
+└── assets/
+    ├── icon-192.png        앱 아이콘 (36KB)
+    ├── icon-512.png        앱 아이콘 고해상도 (283KB)
+    ├── icon-original.png   원본 (1372×1457, 크기 조절용 보관본)
+    ├── css/
+    │   ├── base.css        초기화·레이아웃·헤더·로그인·모달
+    │   └── app.css         카드·훈련 화면·토스트·푸터
+    └── js/
+        ├── config.js       수파베이스 주소/키, 전역 변수
+        ├── utils.js        getFilteredList, populateSelect, toggleCard
+        ├── api.js          supabaseRequest — 모든 서버 통신이 여기를 지납니다
+        ├── ui.js           화면 전환, 토스트, 확인창, 대학 선택 모달
+        ├── auth.js         입장 코드 검증
+        ├── reviews.js      면접 후기 — 필터·조회·목록 그리기
+        ├── questions.js    기출 질문 — 필터·조회·목록 그리기
+        ├── interview.js    모의 면접 — 질문 세팅, 스톱워치, 녹음, 결과 리포트
+        └── main.js         앱 시작점 (초기 데이터 로딩, 서비스 워커 등록)
 ```
 
-> 현재 `index.html` 한 파일에 모든 코드가 들어 있습니다. 기능별 파일 분리는 다음 단계 작업으로 예정되어 있습니다.
+### 고칠 곳 찾기
 
-### index.html 안에서 찾아가기
+| 하고 싶은 일 | 볼 파일 |
+|---|---|
+| 면접 후기 목록 모양 바꾸기 | `assets/js/reviews.js` |
+| 기출 질문 목록 모양 바꾸기 | `assets/js/questions.js` |
+| 녹음·타이머 동작 바꾸기 | `assets/js/interview.js` |
+| 색·글씨·여백 바꾸기 | `assets/css/base.css`, `assets/css/app.css` |
+| 버튼·화면 추가하기 | `index.html` |
+| 서버에서 가져오는 항목 바꾸기 | `assets/js/api.js` |
 
-| 구간 | 줄 번호 | 내용 |
-|---|---|---|
-| CSS | 14 ~ 316 | 레이아웃, 헤더, 모달, 화면별 스타일 |
-| HTML | 317 ~ 533 | 7개 화면 마크업 + 모달 3종 |
-| JS | 534 ~ 1481 | 수파베이스 통신, 화면 전환, 필터, 녹음/스톱워치 |
+### ⚠️ 스크립트는 일반 `<script>` 입니다 — `type="module"` 로 바꾸지 마세요
 
-### 화면 구성
+화면의 버튼들이 `onclick="navigateTo('home')"` 처럼 **함수를 이름으로 직접 부릅니다.**
+모듈로 바꾸면 함수가 전역에서 사라져 **모든 버튼이 한꺼번에 죽습니다.**
 
-`screen-login` → `screen-home` → 아래 3갈래
-
-1. **실전 면접 후기** (`screen-reviews`) — 대학/년도/전형별 선배 후기
-2. **대학별 기출 질문** (`screen-questions`) — 역량별 기출 문항
-3. **모의 면접 연습** (`screen-interview-setup` → `-run` → `-result`) — 직접 만든 질문으로 스톱워치 훈련, 답변 녹음 및 재생
+`index.html` 맨 아래 로딩 순서도 의미가 있습니다:
+`config → utils → api → ui → auth → reviews → questions → interview → main`
 
 ---
 
@@ -49,25 +66,27 @@
 
 프로젝트: `ymtahsghrkqdxalcvcau` (REST API 직접 호출, SDK 미사용)
 
-| 테이블 | 용도 | 주요 컬럼 |
-|---|---|---|
-| `reviews` | 면접 후기 | `년도`, `대학`, `세부유형`, `모집단위` |
-| `questions` | 기출 질문 | `년도`, `대학`, `전형/역량1`, `역량2` |
-| `common_questions` | AI 추천 질문 | `category` (`changche` / `major`) |
+| 테이블 | 용도 | 주요 컬럼 | 행 수 |
+|---|---|---|---|
+| `reviews` | 면접 후기 | `년도`, `대학`, `세부유형`, `모집단위`, `합불` | 814 |
+| `questions` | 기출 질문 | `년도`, `대학`, `전형/역량1`, `역량2` | 722 |
+| `common_questions` | AI 추천 질문 | `category` (`changche` / `major`) | — |
 
-**컬럼명이 한글입니다.** REST 쿼리에서 `encodeURIComponent`로 감싸 처리하고 있습니다 (`supabaseRequest()` 참고).
+**컬럼명이 한글입니다.** REST 쿼리에서 `encodeURIComponent` 로 감싸 처리합니다 (`assets/js/api.js` 참고).
 
-### 인증
+### 🔴 보안: RLS 미적용 (해결 필요)
 
-현재는 전교생 공용 입장 코드 1개 방식입니다. `check_password` RPC가 서버에서 비밀번호를 검증합니다 — 코드값 자체는 클라이언트에 없습니다.
+현재 `reviews` 테이블은 **anon 키만 있으면 누구나 814행 전체를 읽을 수 있습니다.** 입장 코드는 화면만 가릴 뿐 데이터를 보호하지 못합니다. anon 키는 `assets/js/config.js` 에 들어 있고, 배포된 사이트에서 브라우저 개발자도구로 바로 보입니다.
 
-> 교사↔학생 실시간 피드백 기능을 붙이려면 개인 식별이 필요하므로, 향후 수파베이스 Auth 계정 로그인으로 교체될 예정입니다.
+→ 수파베이스 Auth 계정 로그인 도입과 **함께** RLS 정책을 걸어야 합니다. 로그인 없이 RLS만 켜면 앱이 통째로 멈춥니다.
+
+**이 문제가 해결되기 전까지 저장소를 공개(public)로 바꾸지 마세요.**
 
 ---
 
 ## 로컬에서 실행하기
 
-`file://`로 직접 열면 서비스 워커와 마이크 권한이 동작하지 않습니다. 반드시 로컬 서버로 띄우세요.
+`file://` 로 직접 열면 서비스 워커와 마이크 권한이 동작하지 않습니다. 반드시 로컬 서버로 띄우세요.
 
 ```bash
 npx serve
@@ -75,8 +94,17 @@ npx serve
 
 ---
 
+## 배포
+
+GitHub Pages 예정 (`https://08hwichemi.github.io/interview-on/`). 위 RLS 문제를 해결하고 저장소를 공개로 전환한 뒤 켭니다. 그 전까지는 기존 네트리파이 주소를 사용합니다.
+
+하위 경로(`/interview-on/`)에서 서비스되므로 **모든 경로는 상대 경로**여야 합니다. `manifest.json` 의 `start_url`/`scope` 가 `"./"` 이고 서비스 워커 등록이 `'./sw.js'` 인 이유입니다. 절대 경로(`/sw.js`)로 바꾸면 PWA 설치가 깨집니다.
+
+---
+
 ## 알려진 문제
 
-- `index.html:598` — 존재하지 않는 `mock-univ-select` 요소를 참조해 초기화 중 예외 발생. `try/catch`에 묻혀 증상은 안 보이지만, 그 위에서 생기는 진짜 오류까지 함께 삼켜지고 있음
-- `icon.png` 2.18MB — 192px 아이콘 치고 과도하게 커서 첫 로딩이 느림
+- **RLS 미적용** (위 참고) — 최우선 과제
+- 초기 데이터 로딩이 실패해도 화면에 아무 안내가 없음 (`main.js` 의 `catch` 가 콘솔에만 기록)
 - 마이크 녹음 중 화면이 꺼지거나 다른 앱으로 전환하면 녹음이 끊김 (모바일 브라우저 제약, 앱 내 경고문으로 안내 중)
+- 교사↔학생 실시간 피드백 기능 미구현

@@ -1,0 +1,189 @@
+/* 기본 초기화 및 폰트 설정 */
+html, body {
+  overscroll-behavior: none; 
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #f4f6f9;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: 100dvh; /* 🛡️ [수정] 100% 고정 대신, 내용물 길이에 맞춰 도화지가 무한정 늘어나게 허용 (배경 끊김 방지) */
+  height: auto;
+}
+
+/* 🛡️ [추가] 사파리에서 아코디언을 펼칠 때 박스가 찌그러지며 글씨가 밖으로 새는 현상 방지 */
+.result-card, .card {
+  flex-shrink: 0; 
+}
+
+/* [수정] 스크롤바가 생겨도 화면 밀림 방지 */
+html { overflow-y: scroll; scrollbar-gutter: stable; }
+
+/* [신규] 결과 리포트 아코디언 스타일 */
+.result-card {
+  border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 12px; overflow: hidden; background: white;
+}
+.result-card-header {
+  padding: 16px; background: #f8fafc; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+}
+.result-card-body {
+  display: none; padding: 16px; border-top: 1px solid #e2e8f0; background: #fff;
+}
+.result-card.expanded .result-card-body { display: block; }
+.result-card.expanded .arrow { transform: rotate(90deg); }
+
+/* 스마트폰 화면처럼 가운데 정렬 */
+#app-container {
+  width: 100%;
+  max-width: 480px;
+  background-color: #ffffff;
+  min-height: 100dvh;
+  height: fit-content; /* 🛡️ [핵심 추가] 내용물이 늘어나면 도화지도 끝까지 무한정 늘어납니다! */
+  box-shadow: 0 0 20px rgba(0,0,0,0.05);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* [수정] 스크롤바가 생겨도 화면 밀림 방지 */
+html { overflow-y: scroll; scrollbar-gutter: stable; }
+
+/* 상단 헤더 (제목 정중앙 고정 + 이름표 우측 고정) */
+.header {
+  background-color: #1a4fa0;
+  color: white;
+  padding: 0 16px;
+  height: 70px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-sizing: border-box;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.back-btn { 
+  background: none; border: none; color: white; font-size: 17px; font-weight: bold; 
+  cursor: pointer; display: none; align-items: center; gap: 4px; min-width: 70px; padding: 0;
+}
+.header h1 { 
+  position: absolute; /* 제목을 공중에 띄움 */
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%); /* 정확히 화면 정중앙 배치 */
+  width: 50%; /* 양옆 버튼/이름표와 겹치지 않게 너비 제한 */
+  margin: 0; 
+  font-size: 19px; 
+  font-weight: 900; 
+  text-align: center;
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis;
+  letter-spacing: -0.5px;
+  pointer-events: none; /* 클릭 방해 금지 */
+}
+.branding { 
+  margin-left: auto; 
+  font-size: 13px; /* 글자를 살짝 줄여서 세련되게 */
+  font-weight: 600; 
+  color: rgba(255, 255, 255, 0.65); /* 투명도를 주어 은은하게 배경에 스며들게 함 */
+  text-align: right; 
+  white-space: nowrap; /* 글자 줄바꿈 방지 */
+  /* min-width: 80px; <-- 짧은 글자에는 방해되니 아예 삭제합니다! */
+  z-index: 10;
+}
+
+/* 로딩 오버레이 */
+#loading {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(255,255,255,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000;
+}
+
+/* 신규: 입장 코드 화면 스타일 */
+.login-container {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100dvh; padding: 0 40px; text-align: center; background: linear-gradient(180deg, #1a4fa0 0%, #0f346c 100%);
+  color: white;
+}
+.login-logo { font-size: 60px; margin-bottom: 20px; }
+.login-title { font-size: 24px; font-weight: bold; margin-bottom: 8px; }
+.login-subtitle { font-size: 14px; opacity: 0.8; margin-bottom: 30px; line-height: 1.5; }
+.login-input-group { width: 100%; max-width: 220px; }
+.login-input {
+  width: 100%; padding: 12px; border-radius: 10px; border: none; font-size: 16px;
+  text-align: center; margin-bottom: 10px; color: #1e293b; font-weight: bold;
+  box-sizing: border-box;
+}
+.login-btn {
+  width: 100%; padding: 12px; background: #ffffff; color: #1a4fa0; border: none;
+  border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer;
+  box-sizing: border-box;
+  transition: background-color 0.2s;
+}
+.login-btn:active { background: #f1f5f9; }
+.login-error { color: #fca5a5; font-size: 13px; margin-top: 10px; display: none; }
+.spinner { border: 4px solid #f3f3f3; border-top: 4px solid #1a4fa0; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* 화면 공통 설정 */
+.screen { 
+  display: none !important; 
+  padding: 20px; 
+  flex: 1 0 auto; /* 🛡️ [핵심 추가] 자식(아코디언)이 커질 때 부모 화면이 쪼그라들지 못하게 꽉 잡아줍니다! */
+  flex-direction: column; 
+}
+.screen.active { display: flex !important; }
+
+/* 홈 화면 메뉴 버튼 */
+.home-grid { display: flex; flex-direction: column; gap: 24px; margin-bottom: 0; flex: 1; min-height: 480px; }
+.menu-btn {
+  flex: 1; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 24px;
+  text-align: left; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 6px 16px rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: flex-start;
+}
+.menu-btn:active { background-color: #f8fafc; transform: translateY(3px); box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.menu-icon { font-size: 48px; margin-right: 20px; }
+.menu-title { font-size: 22px; font-weight: 800; color: #1e293b; margin-bottom: 8px; }
+.menu-desc { font-size: 14px; color: #64748b; line-height: 1.4; word-break: keep-all; }
+
+/* --- [신규] 앱 스타일 UI 요소 --- */
+.main-univ-btn {
+  width: 100%; background-color: #1a4fa0; color: white; border: none; border-radius: 12px; padding: 16px 20px;
+  font-size: 16px; font-weight: bold; margin-bottom: 16px; cursor: pointer; box-shadow: 0 4px 10px rgba(26,79,160,0.2);
+  display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;
+}
+.main-univ-btn:active { background-color: #153e7d; }
+
+.sub-filters {
+  display: none; /* 대학 고르기 전엔 숨김 */
+  background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 16px;
+}
+.sub-filters select {
+  width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white;
+}
+
+/* --- [신규] 대학 선택 모달(팝업) 창 --- */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 2000;
+  display: none; justify-content: center; align-items: flex-end; /* 아래에서 위로 등장 */
+}
+.modal-content {
+  background: white; width: 100%; max-width: 480px; 
+  height: 75dvh; /* 🛡️ [수정] 아이폰 하단바를 똑똑하게 계산하는 dvh 단위 사용 */
+  max-height: 80%; /* 🛡️ [추가] 화면을 뚫고 나가지 않게 최대치 제한 */
+  border-radius: 24px 24px 0 0;
+  display: flex; flex-direction: column; 
+  overflow: hidden; /* 🛡️ [추가] 목록이 길어져도 팝업 상자 밖으로 안 튀어나가게 가둠 */
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-header { padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+.modal-header h3 { margin: 0; font-size: 18px; color: #1e293b; font-weight: 800; }
+.close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #64748b; padding: 0; line-height: 1; }
+.univ-list { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.univ-list-btn {
+  background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 12px;
+  font-size: 16px; font-weight: bold; color: #334155; text-align: left; cursor: pointer; transition: all 0.1s;
+}
+.univ-list-btn:active { background: #e2e8f0; transform: scale(0.98); }
