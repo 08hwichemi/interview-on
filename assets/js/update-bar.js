@@ -8,10 +8,21 @@
 // 새 판이 올라와도 영영 달라지지 않아 띠가 한 번도 안 뜹니다.
 // version.txt 는 몇 글자짜리 파일이라 자주 물어봐도 부담이 없습니다.
 //
-// ※ 새 판을 올릴 때는 아래 BUILD_ID 와 version.txt 를 같은 값으로 고쳐야 합니다.
+// ⚠️ 한 번 크게 틀렸던 곳입니다.
+// version.txt 는 «항상 새로» 받는데, 이 js 파일은 GitHub Pages 가 브라우저에
+// 10분쯤 쥐고 있게 합니다. 그래서 version.txt 만 새것이 되고 BUILD_ID 는 옛것이 남아
+// 띠가 떴는데 새로고침을 눌러도 안 사라지는 일이 생겼습니다.
+// 고친 방법은 두 가지입니다.
+//   1) 화면이 부르는 우리 파일 주소에 ?v=판번호 를 붙입니다 (tools/판올리기.py 가 해줍니다)
+//   2) «새로고침» 단추가 그냥 새로고침하지 않고 주소에 ?v= 를 붙여 다시 엽니다.
+//      주소가 달라져야 브라우저가 쥐고 있던 옛 파일을 버립니다.
+//
+// ※ 새 판을 올릴 때는 손으로 고치지 말고 `python3 tools/판올리기.py` 를 쓰세요.
+//    version.txt · BUILD_ID · 파일 주소 세 곳을 한꺼번에 맞춥니다.
 
-var BUILD_ID = '2026-09-16.6';
+var BUILD_ID = '2026-09-16.7';
 var UPDATE_SHOWN = false;
+var SERVER_VERSION = null;   // 서버에 올라와 있는 판 번호
 
 // version.txt 는 저장소 맨 위에 하나만 둡니다.
 // 학생 앱은 맨 위(/)에서, 교사 화면은 한 칸 안쪽(/teacher/)에서 열리므로
@@ -46,14 +57,30 @@ function checkForUpdate() {
       t = String(t).trim();
       // 파일이 통째로 없어서 서버가 안내 쪽(HTML)을 주는 경우가 있습니다. 그러면 그냥 둡니다.
       if (!t || t.length > 40 || /[<>]/.test(t)) return;
-      if (t !== BUILD_ID) showUpdateBar();
+      if (t !== BUILD_ID) { SERVER_VERSION = t; showUpdateBar(); }
     })
     .catch(function () { /* 오프라인이면 다음 차례에 다시 봅니다 */ });
 }
 
+// 지금 쓰고 있는 판 번호를 화면에 적어 둡니다.
+// 무엇을 보고 있는지 알 수 없으면 «업데이트 된 거 맞나» 를 확인할 길이 없습니다.
+function paintVersion() {
+  var el = document.getElementById('app-version');
+  if (el) el.textContent = BUILD_ID;
+}
+
+// 그냥 location.reload() 를 하면 브라우저가 쥐고 있던 옛 js·css 를 그대로 다시 씁니다.
+// 주소를 바꿔야 새 파일을 받습니다.
+function reloadFresh() {
+  var base = location.href.split('?')[0].split('#')[0];
+  location.replace(base + '?v=' + encodeURIComponent(SERVER_VERSION || String(Date.now())));
+}
+
 document.addEventListener('DOMContentLoaded', function () {
+  paintVersion();
+
   var rb = document.getElementById('updateReload');
-  if (rb) rb.addEventListener('click', function () { location.reload(); });
+  if (rb) rb.addEventListener('click', reloadFresh);
 
   checkForUpdate();                             // 열자마자 한 번
   setInterval(checkForUpdate, 3 * 60 * 1000);   // 그 뒤로 3분마다

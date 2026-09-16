@@ -255,3 +255,6 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
 }
 body.has-update #app-container { padding-top: 44px; }
 body.has-update .header { top: 44px; }
+
+/* 지금 보고 있는 판 번호 */
+.verlabel { font-size: 10px; color: var(--ink-3); opacity: .8; }
