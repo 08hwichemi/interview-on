@@ -219,6 +219,8 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 
 .headline{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .headline h2{margin:2px 0 0;font-size:20px;font-weight:700;letter-spacing:-.02em}
+/* 리포트 화면의 머리는 «전달했는지» 딱지 한 줄뿐이라 바로 아래 리포트와 붙습니다 */
+#view-report .headline{margin-bottom:14px}
 .opt{font-weight:400;letter-spacing:0;text-transform:none;color:var(--ink-3);font-size:11px}
 
 /* 누를 수 있는 명단 줄 */
@@ -240,6 +242,10 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 }
 .qrow input[type=text]{flex:1}
 .qrow select{flex:0 0 108px;width:auto}
+/* 첫인사·끝인사는 «빼기» 도 «역량 고르기» 도 없는 붙박이 줄입니다.
+   번호를 진하게 해서 면접의 처음과 끝임을 눈에 띄게 합니다. */
+.qrow.fixed{margin-top:8px}
+.qrow.fixed .qno{background:var(--ink);color:#fff}
 
 /* 질문 한 장 */
 .qcard{
@@ -408,8 +414,13 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 }
 .actionbar .main{flex:0 1 auto;min-width:200px;max-width:360px;padding:12px 22px;font-size:14px}
 .actionbar .ghost{padding:12px 18px}
+/* 지우기처럼 되돌릴 수 없는 것은 오른쪽 끝에 떼어 둡니다.
+   넘어가는 단추 바로 옆에 있으면 잘못 누릅니다. */
+.actionbar .far{margin-left:auto}
 
 @media(max-width:640px){
   .actionbar{flex-direction:column-reverse;align-items:stretch}
   .actionbar .main{max-width:none;min-width:0}
+  /* 줄이 세로로 뒤집히므로 order 로 «지우기» 를 맨 아래에 붙잡아 둡니다 */
+  .actionbar .far{margin-left:0;order:-1}
 }

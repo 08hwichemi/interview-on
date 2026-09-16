@@ -78,3 +78,31 @@
 @media(max-width:640px){
   .anstags,.ansmemo{margin-left:0}
 }
+
+/* ── 리포트 위의 단추 줄 (학생 앱) ── */
+.rp-actions{display:flex;justify-content:flex-end;gap:8px;margin:0 0 14px}
+.rp-actions button{
+  padding:9px 16px;border-radius:8px;border:1px solid var(--line-2);
+  background:var(--surface);color:var(--ink);
+  font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;
+}
+.rp-actions button:hover{border-color:var(--ink-3)}
+
+/* ── 인쇄 · PDF 로 저장 ──
+   printReport() 가 리포트를 #print-root 에 옮겨 담습니다.
+   인쇄할 때는 그것만 남기고 머리말·단추·왼쪽 칸을 전부 가립니다. */
+#print-root{display:none}
+
+@media print{
+  @page{size:A4;margin:14mm}
+  html,body{background:#fff!important}
+  /* 종이에서는 배경색이 기본으로 빠집니다. 등급 칸·판정 딱지가
+     흰 바탕에 흰 글씨가 되어 안 보이므로 색을 살려 둡니다. */
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body>*{display:none!important}
+  #print-root{display:block!important}
+  #print-root .sec{color:#666}
+  /* 한 칸이 두 쪽에 걸쳐 잘리지 않게 합니다 */
+  .ansrow,.rp-srow,.rp-note,.rp-head{break-inside:avoid;page-break-inside:avoid}
+  .rp-actions{display:none!important}
+}

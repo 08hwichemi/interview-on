@@ -6,6 +6,7 @@
 // 리포트를 그리는 일은 report.js 가 합니다. 선생님이 확인한 종이와 같은 종이입니다.
 
 var myReports = [];
+var viewingRound = null;   // 지금 열어 둔 회차 (PDF 파일 이름에 씁니다)
 
 // 홈에서 «내 면접 리포트» 를 누르면 여기로 옵니다.
 async function loadMyReports() {
@@ -51,8 +52,16 @@ async function loadMyReports() {
   }).join('');
 }
 
+// 학번과 이름. 화면에서는 굳이 없어도 되지만, PDF 로 뽑아서
+// 선생님께 내거나 상담 때 들고 가면 누구 것인지 적혀 있어야 합니다.
+function myName() {
+  if (!currentUser) return '';
+  return ((currentUser.login_id || '') + ' ' + (currentUser.name || '')).trim();
+}
+
 async function openMyReport(id, round) {
   navigateTo('report-detail');
+  viewingRound = round;
   var box = document.getElementById('report-detail-body');
   box.innerHTML = '<div class="guide-msg"><div class="text">불러오는 중...</div></div>';
 
@@ -62,6 +71,10 @@ async function openMyReport(id, round) {
       '<div class="text">리포트를 못 읽었습니다.<br>' + esc(r.error) + '</div></div>';
     return;
   }
-  // 학생 화면에서는 이름을 다시 적지 않습니다. 본인 것만 보이니까요.
-  box.innerHTML = reportHTML(r.interview, r.answers, '', round);
+  box.innerHTML = reportHTML(r.interview, r.answers, myName(), round);
+}
+
+// 브라우저 인쇄창을 엽니다. 거기서 프린터 대신 «PDF로 저장» 을 고르면 됩니다.
+function printMyReport() {
+  printReport('report-detail-body', reportFileName(myName(), viewingRound));
 }

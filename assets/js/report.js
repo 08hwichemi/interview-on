@@ -120,3 +120,49 @@ function reportHTML(iv, answers, who, round) {
 
   return head + list + sheet + note;
 }
+
+// ── 인쇄 · PDF ──
+//
+// 따로 PDF 만드는 라이브러리를 붙이지 않았습니다. 브라우저 인쇄창에서
+// 프린터 대신 «PDF로 저장» 을 고르면 그대로 PDF 파일이 됩니다.
+//   윈도우  Microsoft Print to PDF
+//   맥·아이폰·안드로이드  PDF로 저장
+// 학생은 PDF 로 받고 선생님은 종이로 뽑는 것뿐, 하는 일은 같습니다.
+//
+// 화면에 있는 리포트를 그대로 #print-root 로 옮겨 담고,
+// 인쇄할 때는 report.css 의 @media print 가 그것만 남기고 다 가립니다.
+function printReport(bodyId, title) {
+  var src = document.getElementById(bodyId);
+  if (!src || !src.innerHTML.trim()) return;
+
+  var root = document.getElementById('print-root');
+  if (!root) {
+    root = document.createElement('div');
+    root.id = 'print-root';
+    document.body.appendChild(root);
+  }
+  root.className = 'report';
+  root.innerHTML = src.innerHTML;
+
+  // 인쇄창이 문서 제목을 파일 이름으로 씁니다.
+  var was = document.title;
+  if (title) document.title = title;
+
+  var restored = false;
+  function restore() {
+    if (restored) return;
+    restored = true;
+    document.title = was;
+    window.removeEventListener('afterprint', restore);
+  }
+  window.addEventListener('afterprint', restore);
+  // afterprint 를 안 알려주는 브라우저가 있어서 시간으로도 되돌립니다.
+  setTimeout(restore, 60000);
+
+  window.print();
+}
+
+// 「30101 고다윤 면접 리포트 2회차」 — 저장할 때 이 이름이 붙습니다.
+function reportFileName(who, round) {
+  return (who ? who + ' ' : '') + '면접 리포트' + (round ? ' ' + round + '회차' : '');
+}

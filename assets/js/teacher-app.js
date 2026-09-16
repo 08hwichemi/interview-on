@@ -40,6 +40,78 @@ var RATINGS = ['우수', '보통', '미흡'];
 
 var COMPETENCIES = ['학업역량', '진로역량', '공동체역량', '기타'];
 
+// ── 첫인사 · 끝인사 ──
+// 실제 면접은 늘 자기소개(또는 지원동기)로 열고 «마지막으로 하고 싶은 말» 로 닫습니다.
+// 매번 손으로 적으면 빠뜨리기 쉬워서 위아래에 붙박이로 두었습니다.
+// 문장은 그대로 고칠 수 있고, 안 쓸 거면 끄면 됩니다.
+var OPENINGS = [
+  { key: 'intro',  label: '자기소개',
+    text: '먼저 간단히 자기소개를 해 주세요.', comp: '기타' },
+  { key: 'motive', label: '지원동기',
+    text: '우리 학과에 지원한 동기를 말해 주세요.', comp: '진로역량' },
+  { key: 'both',   label: '자기소개 + 지원동기',
+    text: '간단한 자기소개와 함께, 우리 학과에 지원한 동기를 말해 주세요.', comp: '진로역량' }
+];
+var CLOSING_TEXT = '마지막으로 하고 싶은 말이 있나요?';
+
+var opening = { on: true, key: 'intro', text: OPENINGS[0].text, comp: OPENINGS[0].comp };
+var closing = { on: true, text: CLOSING_TEXT };
+
+function resetGreetings() {
+  opening = { on: true, key: 'intro', text: OPENINGS[0].text, comp: OPENINGS[0].comp };
+  closing = { on: true, text: CLOSING_TEXT };
+}
+
+function pickOpening(key) {
+  if (opening.key === key && opening.on) { opening.on = false; }   // 다시 누르면 끕니다
+  else {
+    var o = OPENINGS.filter(function (x) { return x.key === key; })[0];
+    opening = { on: true, key: key, text: o.text, comp: o.comp };
+  }
+  renderGreetings();
+  renderQuestions();
+}
+function setOpeningText(v) { opening.text = v; }
+function toggleClosing() { closing.on = !closing.on; renderGreetings(); renderQuestions(); }
+function setClosingText(v) { closing.text = v; }
+
+function hasOpening() { return opening.on && opening.text.trim(); }
+function hasClosing() { return closing.on && closing.text.trim(); }
+
+function renderGreetings() {
+  document.getElementById('opening-box').innerHTML =
+    '<div class="chips tight">' + OPENINGS.map(function (o) {
+      return '<button class="chip" aria-pressed="' + (opening.on && opening.key === o.key) + '"' +
+             ' onclick="pickOpening(\'' + o.key + '\')">' + o.label + '</button>';
+    }).join('') + '</div>' +
+    (opening.on
+      ? '<div class="qrow fixed"><span class="qno">1</span>' +
+        '<input type="text" value="' + esc(opening.text) + '" oninput="setOpeningText(this.value)"></div>'
+      : '<p class="empty">첫인사 없이 바로 질문부터 시작합니다.</p>');
+
+  var last = (hasOpening() ? 1 : 0) +
+             midQuestions.filter(function (q) { return q.text.trim(); }).length + 1;
+  document.getElementById('closing-box').innerHTML =
+    '<div class="chips tight">' +
+      '<button class="chip" aria-pressed="' + closing.on + '" onclick="toggleClosing()">마지막으로 하고 싶은 말</button>' +
+    '</div>' +
+    (closing.on
+      ? '<div class="qrow fixed"><span class="qno">' + last + '</span>' +
+        '<input type="text" value="' + esc(closing.text) + '" oninput="setClosingText(this.value)"></div>'
+      : '<p class="empty">끝인사 없이 마지막 질문으로 끝냅니다.</p>');
+}
+
+// 실제로 면접에 낼 질문 — 첫인사 + 가운데 질문들 + 끝인사
+function composeQuestions() {
+  var list = [];
+  if (hasOpening()) list.push({ text: opening.text.trim(), competency: opening.comp });
+  midQuestions.forEach(function (q) {
+    if (q.text.trim()) list.push({ text: q.text.trim(), competency: q.competency });
+  });
+  if (hasClosing()) list.push({ text: closing.text.trim(), competency: '기타' });
+  return list;
+}
+
 // ── 상태 ──
 var me = null;
 var students = [];
@@ -47,7 +119,8 @@ var pickedClass = '';
 var searchWord = '';
 
 var target = null;
-var questions = [];       // [{ text, competency }]
+var midQuestions = [];    // 준비 화면에서 손으로 채우는 가운데 질문들
+var questions = [];       // 면접에 실제로 내는 질문 (첫인사 + 가운데 + 끝인사)
 var interviewId = null;
 var qIndex = 0;
 var answers = [];         // [{ seconds, good, bad, rating, memo }]
@@ -191,9 +264,11 @@ function backToList() {
   interviewId = null;
   viewing = null;
   target = null;
+  midQuestions = [];
   questions = [];
   answers = [];
   grades = {};
+  resetGreetings();
   document.getElementById('finish-note').value = '';
   renderStudents();
   show('empty');
@@ -207,7 +282,10 @@ async function pickStudent(id) {
 
   renderStudents();   // 고른 줄 표시
   document.getElementById('target-name').textContent = target.student_no + ' ' + target.name;
+  midQuestions = [];
   questions = [];
+  resetGreetings();
+  renderGreetings();
   renderQuestions();
   show('setup');
   loadHistory();
@@ -247,21 +325,23 @@ async function loadHistory() {
 }
 
 function addQuestion(text, competency) {
-  questions.push({ text: text || '', competency: competency || '기타' });
+  midQuestions.push({ text: text || '', competency: competency || '기타' });
   renderQuestions();
 }
-function removeQuestion(i) { questions.splice(i, 1); renderQuestions(); }
-function setQText(i, v) { questions[i].text = v; }
-function setQComp(i, v) { questions[i].competency = v; }
+function removeQuestion(i) { midQuestions.splice(i, 1); renderQuestions(); }
+function setQText(i, v) { midQuestions[i].text = v; renderGreetings(); }
+function setQComp(i, v) { midQuestions[i].competency = v; }
 
 function renderQuestions() {
   var box = document.getElementById('q-list');
-  if (!questions.length) {
+  // 첫인사가 1번이면 가운데 질문은 2번부터입니다. 화면 번호와 실제 순서를 맞춥니다.
+  var base = hasOpening() ? 1 : 0;
+  if (!midQuestions.length) {
     box.innerHTML = '<p class="empty">아직 질문이 없습니다. 아래에서 더하세요.</p>';
   } else {
-    box.innerHTML = questions.map(function (q, i) {
+    box.innerHTML = midQuestions.map(function (q, i) {
       return '<div class="qrow">' +
-        '<span class="qno">' + (i + 1) + '</span>' +
+        '<span class="qno">' + (base + i + 1) + '</span>' +
         '<input type="text" value="' + esc(q.text) + '" placeholder="질문을 적으세요"' +
         ' oninput="setQText(' + i + ', this.value)">' +
         '<select onchange="setQComp(' + i + ', this.value)">' +
@@ -273,7 +353,8 @@ function renderQuestions() {
         '</div>';
     }).join('');
   }
-  document.getElementById('btn-start').disabled = !questions.some(function (q) { return q.text.trim(); });
+  renderGreetings();
+  document.getElementById('btn-start').disabled = (composeQuestions().length === 0);
 }
 
 async function loadCommon(category, competency) {
@@ -283,7 +364,7 @@ async function loadCommon(category, competency) {
   if (error || !data || !data.length) { toast('추천 질문을 불러오지 못했습니다.', 'bad'); return; }
 
   var shuffled = data.slice().sort(function () { return Math.random() - 0.5; });
-  shuffled.slice(0, 3).forEach(function (r) { questions.push({ text: r.content, competency: competency }); });
+  shuffled.slice(0, 3).forEach(function (r) { midQuestions.push({ text: r.content, competency: competency }); });
   renderQuestions();
   toast('추천 질문 3개를 더했습니다.', 'ok');
 }
@@ -291,7 +372,8 @@ async function loadCommon(category, competency) {
 // ══════════════ 진행 ══════════════
 
 async function startInterview() {
-  questions = questions.filter(function (q) { return q.text.trim(); });
+  // 첫인사 → 가운데 질문들 → 끝인사 순서로 한 줄로 폅니다.
+  questions = composeQuestions();
   if (!questions.length) { toast('질문이 없습니다.', 'bad'); return; }
 
   var btn = document.getElementById('btn-start');
@@ -591,7 +673,10 @@ async function openReport(id) {
   var r = await fetchReport(id);
   if (r.error) { box.innerHTML = '<p class="empty">리포트를 못 읽었습니다: ' + esc(r.error) + '</p>'; return; }
 
-  viewing = { interview: r.interview, answers: r.answers };
+  // 같은 면접을 다시 그릴 때는 회차 번호를 잃지 않게 챙겨 둡니다
+  // (전달하고 나면 openReport 를 다시 부릅니다)
+  var keepRound = (viewing && viewing.interview && viewing.interview.id === id) ? viewing.round : null;
+  viewing = { interview: r.interview, answers: r.answers, round: keepRound };
   interviewId = id;
 
   var who = target ? target.student_no + ' ' + target.name : '';
@@ -629,6 +714,42 @@ async function deliverReport() {
   if (error) { toast('보내지 못했습니다: ' + error.message, 'bad'); return; }
   toast(already ? '고친 내용을 알렸습니다.' : '학생에게 전달했습니다.', 'ok');
   openReport(interviewId);
+}
+
+// 종이로 뽑습니다. 인쇄창에서 프린터 대신 «PDF로 저장» 을 고르면 PDF 도 됩니다.
+function printTeacherReport() {
+  var who = target ? target.student_no + ' ' + target.name : '';
+  printReport('report-body', reportFileName(who, viewing && viewing.round));
+}
+
+// 잘못 시작한 면접, 시험 삼아 해 본 면접을 지웁니다.
+// 질문·시간·평가는 interview_answers 에 있는데, 면접 줄을 지우면
+// 서버에서 함께 지워집니다 (ON DELETE CASCADE).
+async function deleteReport() {
+  if (!interviewId) return;
+
+  var iv = viewing && viewing.interview;
+  var who = target ? target.student_no + ' ' + target.name : '이 학생';
+  var msg = who + (iv ? ' · ' + ymd(iv.started_at) : '') + ' 면접 기록을 지웁니다.\n\n' +
+            '질문·시간·평가·총평이 모두 함께 지워지고, 되돌릴 수 없습니다.';
+  if (iv && iv.status === '전달됨') {
+    msg += '\n이미 전달한 리포트라 학생 화면에서도 사라집니다.';
+  }
+  if (!confirm(msg + '\n\n정말 지울까요?')) return;
+
+  const { error } = await sb.from('interviews').delete().eq('id', interviewId);
+  if (error) { toast('지우지 못했습니다: ' + error.message, 'bad'); return; }
+
+  var back = target;
+  stopTimer();
+  stopTotalTimer();
+  liveInterview = false;
+  interviewId = null;
+  viewing = null;
+  toast('리포트를 지웠습니다.', 'ok');
+
+  // 지운 뒤에는 그 학생의 준비 화면으로. 지난 기록 목록이 새로 그려집니다.
+  if (back) pickStudent(back.id); else backToList();
 }
 
 // 리포트에서 다시 고치러 갑니다.

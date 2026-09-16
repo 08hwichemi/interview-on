@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.17">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.18">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.17">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.17">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.18">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.18">
 </head>
 <body>
 
@@ -90,6 +90,10 @@
           <p class="sec" style="margin-top:22px">지난 면접</p>
           <div id="history"></div>
 
+          <p class="sec" style="margin-top:22px">첫인사 <span class="opt">(면접을 여는 질문)</span></p>
+          <p class="hint">고른 것을 다시 누르면 첫인사를 뺍니다. 문장은 그대로 고쳐 쓰셔도 됩니다.</p>
+          <div id="opening-box"></div>
+
           <p class="sec" style="margin-top:22px">낼 질문</p>
           <p class="hint">
             질문마다 <b>무엇을 보는 질문인지</b> 골라 두세요. 리포트에서 역량별로 모아 보여줍니다.
@@ -101,6 +105,9 @@
             <button class="ghost" onclick="loadCommon('changche', '공동체역량')">창체 질문 3개</button>
             <button class="ghost" onclick="loadCommon('major', '진로역량')">전공 질문 3개</button>
           </div>
+
+          <p class="sec" style="margin-top:22px">끝인사 <span class="opt">(면접을 닫는 질문)</span></p>
+          <div id="closing-box"></div>
 
           <div class="actionbar"><button class="btn solid main" id="btn-start" onclick="startInterview()" disabled>면접 시작</button></div>
         </div>
@@ -186,9 +193,9 @@
       <!-- 리포트 — 확인하고 전달 -->
       <section id="view-report" hidden>
         <div class="panel pad">
+          <!-- «← 학생 목록» 은 왼쪽 칸 맨 위에 이미 있어서 여기서는 뺐습니다 -->
           <div class="headline">
             <span id="report-state"></span>
-            <button class="ghost" onclick="backToList()">← 학생 목록</button>
           </div>
 
           <div id="report-body" class="report"></div>
@@ -196,7 +203,9 @@
           <p class="hint" id="report-note" style="margin:22px 0 0"></p>
           <div class="actionbar">
             <button class="ghost" onclick="backToFinish()">← 채점표 고치기</button>
+            <button class="ghost" onclick="printTeacherReport()">인쇄</button>
             <button class="btn solid main" id="btn-deliver" onclick="deliverReport()">학생에게 전달</button>
+            <button class="linkbtn danger far" onclick="deleteReport()">이 리포트 지우기</button>
           </div>
         </div>
       </section>
@@ -208,10 +217,10 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-16.17"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-16.17"></script>
-<script src="../assets/js/report.js?v=2026-09-16.17"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-16.17"></script>
+<script src="../assets/js/config.js?v=2026-09-16.18"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-16.18"></script>
+<script src="../assets/js/report.js?v=2026-09-16.18"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-16.18"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
