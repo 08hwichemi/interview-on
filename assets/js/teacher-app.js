@@ -183,9 +183,11 @@ async function loadStudents() {
   students = data || [];
   if (!students.length) {
     document.getElementById('class-chips').hidden = true;
+    document.getElementById('fav-box').hidden = true;
     box.innerHTML = '<p class="empty">아직 등록된 학생이 없습니다.<br>관리자 선생님께 명단 등록을 부탁하세요.</p>';
     return;
   }
+  await loadFavorites();
   renderClassChips();
   renderStudents();
 }
@@ -210,6 +212,21 @@ function renderClassChips() {
 function pickClass(k) { pickedClass = k; renderClassChips(); renderStudents(); }
 function onSearch(el) { searchWord = el.value.trim(); renderStudents(); }
 
+// 학생 한 줄 — 고르는 단추와 별표 단추가 나란히 붙습니다.
+// 단추 안에 단추를 넣을 수 없어서 감싸는 칸을 하나 둡니다.
+function studentRow(s) {
+  var on = target && target.id === s.id;
+  var fav = favorites[s.id] === true;
+  return '<div class="srow">' +
+    '<button class="railrow" aria-current="' + !!on + '" onclick="pickStudent(\'' + s.id + '\')">' +
+      '<span class="id">' + esc(s.student_no) + '</span>' +
+      '<span class="nm">' + esc(s.name) + '</span>' +
+    '</button>' +
+    '<button class="star" aria-pressed="' + fav + '" onclick="toggleFavorite(\'' + s.id + '\')"' +
+      ' title="' + (fav ? '담당 학생에서 빼기' : '담당 학생으로 담기') + '">★</button>' +
+    '</div>';
+}
+
 function renderStudents() {
   var list = students;
   if (pickedClass) list = list.filter(function (s) { return classKey(s) === pickedClass; });
@@ -221,14 +238,56 @@ function renderStudents() {
 
   var box = document.getElementById('student-list');
   document.getElementById('found-count').textContent = list.length;
+  renderFavorites();
   if (!list.length) { box.innerHTML = '<p class="empty">찾는 학생이 없습니다.</p>'; return; }
 
-  box.innerHTML = list.map(function (s) {
-    var on = target && target.id === s.id;
-    return '<button class="railrow" aria-current="' + !!on + '" onclick="pickStudent(\'' + s.id + '\')">' +
-      '<span class="id">' + esc(s.student_no) + '</span>' +
-      '<span class="nm">' + esc(s.name) + '</span></button>';
-  }).join('');
+  box.innerHTML = list.map(studentRow).join('');
+}
+
+// ══════════════ 담당 학생 (별표) ══════════════
+//
+// 전교생 명단에서 매번 우리 반 학생을 찾아 내리는 게 번거로워서,
+// 별표를 눌러 둔 학생을 명단 맨 위에 따로 모아 둡니다.
+// 브라우저가 아니라 계정에 붙여 두었으므로, 학교 컴퓨터에서 담아 두면
+// 집에서 열어도 그대로 있습니다 (public.teacher_favorites).
+var favorites = {};        // { student_id: true }
+
+async function loadFavorites() {
+  const { data, error } = await sb
+    .from('teacher_favorites').select('student_id').eq('teacher_id', me.id);
+  // 못 읽어도 명단 자체는 써야 하므로 조용히 넘어갑니다.
+  if (error) { console.warn('담당 학생을 못 읽었습니다:', error.message); return; }
+  favorites = {};
+  (data || []).forEach(function (r) { favorites[r.student_id] = true; });
+}
+
+async function toggleFavorite(id) {
+  var wasOn = favorites[id] === true;
+  favorites[id] = !wasOn;     // 먼저 화면부터 바꿉니다. 누르자마자 반응해야 합니다
+  renderStudents();
+
+  var res = wasOn
+    ? await sb.from('teacher_favorites').delete()
+        .eq('teacher_id', me.id).eq('student_id', id)
+    : await sb.from('teacher_favorites')
+        .upsert({ teacher_id: me.id, student_id: id }, { onConflict: 'teacher_id,student_id' });
+
+  if (res.error) {
+    favorites[id] = wasOn;    // 서버가 거절하면 되돌립니다
+    renderStudents();
+    toast('담당 학생을 저장하지 못했습니다: ' + res.error.message, 'bad');
+  }
+}
+
+function renderFavorites() {
+  var picked = students.filter(function (s) { return favorites[s.id]; });
+  var box = document.getElementById('fav-box');
+  box.hidden = !picked.length;
+  if (!picked.length) return;
+
+  document.getElementById('fav-count').textContent = picked.length;
+  // 반 고르기·이름 찾기와 상관없이 담아 둔 학생은 늘 다 보입니다.
+  document.getElementById('fav-list').innerHTML = picked.map(studentRow).join('');
 }
 
 // ══════════════ 왼쪽 칸 — 질문 진행 상황 ══════════════

@@ -327,6 +327,35 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .railpane{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
 .raillist{overflow-y:auto;padding:6px;flex:1 1 auto;min-height:0}
 
+/* ── 담당 학생 (별표) ──
+   전교생 명단에서 매번 우리 반 학생을 찾아 내리지 않도록,
+   별표를 눌러 둔 학생을 명단 맨 위에 따로 모아 둡니다. */
+/* flex:0 0 auto — 줄어들면 안 됩니다.
+   0 1 auto 로 두면 아래 전교생 명단(수천 px)과 함께 눌려서
+   담당 학생 칸이 제목만 남고 0px 로 찌그러졌습니다.
+   대신 담은 학생이 많을 때는 favlist 가 스스로 스크롤합니다. */
+.favbox{
+  flex:0 0 auto;display:flex;flex-direction:column;
+  padding:10px 6px 8px;border-bottom:1px solid var(--line);background:var(--surface-2);
+}
+.favbox .sec{margin:0 0 4px;padding:0 10px;flex:0 0 auto}
+.favlist{overflow-y:auto;min-height:0;max-height:34vh}
+/* 담아 둔 학생 줄은 종이빛 바탕 위에 올라가야 눌린 줄이 드러납니다 */
+.favlist .railrow:hover{background:var(--surface)}
+
+/* 학생 한 줄 = 고르는 단추 + 별표 단추.
+   단추 안에 단추를 넣을 수 없어서 감싸는 칸을 둡니다. */
+.srow{display:flex;align-items:center;gap:2px}
+.srow .railrow{flex:1 1 auto;min-width:0}
+.star{
+  flex:0 0 auto;width:28px;height:28px;display:grid;place-items:center;
+  border:0;border-radius:6px;background:transparent;cursor:pointer;
+  font-size:14px;line-height:1;color:var(--line-2);
+  transition:color .12s;
+}
+.star:hover{color:var(--ink-3)}
+.star[aria-pressed="true"]{color:var(--amber)}
+
 .railrow{
   width:100%;display:flex;align-items:baseline;gap:8px;text-align:left;
   padding:8px 10px;border:0;border-radius:6px;background:transparent;

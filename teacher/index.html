@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.19">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.20">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.19">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.19">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.20">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-16.20">
 </head>
 <body>
 
@@ -52,6 +52,11 @@
           <p class="sec" style="margin:0">학생 <span id="found-count"></span>명</p>
           <input type="text" id="search" placeholder="학번 · 이름" oninput="onSearch(this)">
           <div class="chips tight" id="class-chips" hidden></div>
+        </div>
+        <!-- 담당 학생을 별표로 모아 둡니다. 명단 위에 늘 붙어 있습니다 -->
+        <div class="favbox" id="fav-box" hidden>
+          <p class="sec">★ 담당 학생 <span id="fav-count"></span>명</p>
+          <div class="favlist" id="fav-list"></div>
         </div>
         <div class="raillist" id="student-list"></div>
       </div>
@@ -218,10 +223,10 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-16.19"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-16.19"></script>
-<script src="../assets/js/report.js?v=2026-09-16.19"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-16.19"></script>
+<script src="../assets/js/config.js?v=2026-09-16.20"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-16.20"></script>
+<script src="../assets/js/report.js?v=2026-09-16.20"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-16.20"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
