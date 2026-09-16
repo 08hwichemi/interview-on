@@ -1,20 +1,48 @@
-// 로그인 / 가입 / 비밀번호 변경
+// 로그인 / 비밀번호 변경
 //
-// 학생은 이메일이 없으므로 학번을 내부 주소로 바꿔서 로그인합니다.
-// (Edge Function 의 studentEmail() 과 같은 규칙이어야 합니다 — 한쪽만 고치면 로그인이 깨집니다)
-function studentEmail(studentNo) {
-  return 's' + String(studentNo).trim() + '@' + SCHOOL_ID.slice(0, 8) + '.students.invalid';
+// 계정은 관리자가 전부 만듭니다. 스스로 가입하는 길은 없습니다.
+// 로그인은 두 갈래입니다.
+//   학생   : 학번 + 비밀번호  ->  모바일 앱 화면
+//   선생님 : 이름 + 비밀번호  ->  PC용 교사 페이지
+//
+// ── 아이디를 내부 주소로 바꾸는 이유 ──
+// 서버(Supabase Auth)는 계정을 이메일 형태로만 구분하는데, 이메일 주소에는
+// 한글을 쓸 수 없습니다. 그래서 아이디를 16진수로 바꿔 내부 주소를 만듭니다.
+//   이용휘(교사) -> tec9db4ec9aa9ed9c98@9bf9d65d.interview-on.local
+//   20301(학생)  -> s3230333031@9bf9d65d.interview-on.local
+// 앞의 t / s 가 교사와 학생의 공간을 갈라 놓기 때문에, 교사 이름과 학번이
+// 어쩌다 같아도 서로 부딪히지 않습니다.
+//
+// 이 주소는 화면에 절대 보이지 않습니다. 선생님은 이름만, 학생은 학번만 칩니다.
+//
+// ⚠️ 이 규칙은 계정을 만드는 쪽(관리자 기능 / 부트스트랩 SQL)과 반드시 같아야
+//    합니다. 한쪽만 고치면 모든 로그인이 깨집니다.
+function toInternalEmail(loginId, role) {
+  const prefix = (role === 'student') ? 's' : 't';
+  const bytes = new TextEncoder().encode(String(loginId).trim());
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  return prefix + hex + '@' + SCHOOL_ID.slice(0, 8) + '.interview-on.local';
 }
 
-// --- 화면 전환 ---
+// 로그인 화면의 학생 / 선생님 탭
+var loginMode = 'student';
+
 function showLoginTab(which) {
-  document.getElementById('login-student-form').style.display = which === 'student' ? 'block' : 'none';
-  document.getElementById('login-teacher-form').style.display = which === 'teacher' ? 'block' : 'none';
-  document.getElementById('signup-teacher-form').style.display = which === 'signup' ? 'block' : 'none';
+  loginMode = which;
 
   document.getElementById('tab-student').classList.toggle('active', which === 'student');
-  document.getElementById('tab-teacher').classList.toggle('active', which !== 'student');
-  hideLoginError();
+  document.getElementById('tab-teacher').classList.toggle('active', which === 'teacher');
+
+  var input = document.getElementById('login-id-input');
+  input.placeholder = (which === 'student') ? '학번' : '이름';
+  input.setAttribute('inputmode', which === 'student' ? 'numeric' : 'text');
+  input.value = '';
+  document.getElementById('login-pw-input').value = '';
+
+  document.getElementById('login-help-student').style.display = which === 'student' ? 'block' : 'none';
+  document.getElementById('login-help-teacher').style.display = which === 'teacher' ? 'block' : 'none';
+  document.getElementById('login-error-msg').style.display = 'none';
+  input.focus();
 }
 
 function showLoginError(msg) {
@@ -25,109 +53,33 @@ function showLoginError(msg) {
   setTimeout(function() { el.style.animation = 'shake 0.3s'; }, 10);
 }
 
-function hideLoginError() {
-  document.getElementById('login-error-msg').style.display = 'none';
-}
-
 function setBusy(on) {
   document.getElementById('loading').style.display = on ? 'flex' : 'none';
 }
 
-// --- 학생 로그인 (학번 + 비밀번호) ---
-async function loginStudent() {
-  var studentNo = document.getElementById('student-no-input').value.trim();
-  var password = document.getElementById('student-pw-input').value;
+// --- 로그인 ---
+async function login() {
+  var loginId = document.getElementById('login-id-input').value.trim();
+  var password = document.getElementById('login-pw-input').value;
 
-  if (!studentNo || !password) {
-    showLoginError('학번과 비밀번호를 모두 입력해 주세요.');
+  if (!loginId || !password) {
+    showLoginError((loginMode === 'student' ? '학번' : '이름') + '과 비밀번호를 모두 입력해 주세요.');
     return;
   }
 
   setBusy(true);
   const { error } = await sb.auth.signInWithPassword({
-    email: studentEmail(studentNo),
+    email: toInternalEmail(loginId, loginMode),
     password: password
   });
   setBusy(false);
 
   if (error) {
-    showLoginError('학번 또는 비밀번호가 올바르지 않습니다.');
+    showLoginError(loginMode === 'student'
+      ? '학번 또는 비밀번호가 올바르지 않습니다.'
+      : '이름 또는 비밀번호가 올바르지 않습니다.');
     return;
   }
-  await afterLogin();
-}
-
-// --- 교사 로그인 (이메일 + 비밀번호) ---
-async function loginTeacher() {
-  var email = document.getElementById('teacher-email-input').value.trim();
-  var password = document.getElementById('teacher-pw-input').value;
-
-  if (!email || !password) {
-    showLoginError('이메일과 비밀번호를 모두 입력해 주세요.');
-    return;
-  }
-
-  setBusy(true);
-  const { error } = await sb.auth.signInWithPassword({ email: email, password: password });
-  setBusy(false);
-
-  if (error) {
-    showLoginError('이메일 또는 비밀번호가 올바르지 않습니다.');
-    return;
-  }
-  await afterLogin();
-}
-
-// --- 교사 가입 (초대 코드 필요) ---
-async function signupTeacher() {
-  var code = document.getElementById('signup-code-input').value.trim();
-  var name = document.getElementById('signup-name-input').value.trim();
-  var email = document.getElementById('signup-email-input').value.trim();
-  var password = document.getElementById('signup-pw-input').value;
-
-  if (!code || !name || !email || !password) {
-    showLoginError('모든 항목을 입력해 주세요.');
-    return;
-  }
-  if (password.length < 8) {
-    showLoginError('비밀번호는 8자 이상이어야 합니다.');
-    return;
-  }
-
-  setBusy(true);
-
-  const { error: signUpErr } = await sb.auth.signUp({ email: email, password: password });
-  if (signUpErr) {
-    setBusy(false);
-    showLoginError(signUpErr.message.indexOf('already') >= 0
-      ? '이미 가입된 이메일입니다. 로그인해 주세요.'
-      : '가입에 실패했습니다: ' + signUpErr.message);
-    return;
-  }
-
-  // 메일 확인이 켜져 있으면 이 시점에 세션이 없습니다.
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) {
-    setBusy(false);
-    showToast('가입 확인 메일을 보냈습니다.\n메일을 열어 확인한 뒤 로그인해 주세요.', 'info');
-    showLoginTab('teacher');
-    return;
-  }
-
-  // 초대 코드로 학교에 소속시킵니다
-  const { error: claimErr } = await sb.rpc('claim_teacher_profile', {
-    invite_code: code,
-    teacher_name: name
-  });
-  setBusy(false);
-
-  if (claimErr) {
-    showLoginError(claimErr.message || '초대 코드가 올바르지 않습니다.');
-    await sb.auth.signOut();
-    return;
-  }
-
-  showToast('가입이 완료되었습니다.', 'success');
   await afterLogin();
 }
 
@@ -157,7 +109,7 @@ async function submitPasswordChange() {
 
   currentUser.must_change_password = false;
   showToast('비밀번호가 변경되었습니다.', 'success');
-  enterApp();
+  await enterApp();
 }
 
 // --- 로그아웃 ---
@@ -179,20 +131,20 @@ async function afterLogin() {
 
   const { data: profile, error } = await sb
     .from('profiles')
-    .select('id, role, name, school_id, must_change_password')
+    .select('id, role, name, login_id, school_id, must_change_password')
     .eq('id', user.id)
     .maybeSingle();
 
   if (error || !profile) {
     setBusy(false);
     await sb.auth.signOut();
-    showLoginError('계정에 학교 정보가 없습니다.<br>선생님께 문의해 주세요.');
+    showLoginError('계정 정보를 찾을 수 없습니다.<br>선생님께 문의해 주세요.');
     return;
   }
 
   currentUser = profile;
 
-  // 초기 비밀번호를 쓰고 있으면 먼저 바꾸게 합니다
+  // 관리자가 준 초기 비밀번호를 쓰고 있으면 먼저 바꾸게 합니다
   if (profile.must_change_password) {
     setBusy(false);
     navigateTo('change-password');
@@ -204,7 +156,18 @@ async function afterLogin() {
 
 // --- 앱 본 화면으로 ---
 async function enterApp() {
+  // 선생님과 학생은 쓰는 화면이 아예 다릅니다.
+  // 학생은 이 모바일 앱, 선생님은 PC용 교사 페이지로 보냅니다.
+  if (currentUser.role !== 'student') {
+    location.replace('teacher/');
+    return;
+  }
+
   setBusy(true);
+
+  var nameEl = document.getElementById('header-user-name');
+  if (nameEl) nameEl.innerText = currentUser.name || currentUser.login_id || '';
+
   try {
     const [revData, qData] = await Promise.all([
       supabaseRequest('reviews'),
@@ -216,6 +179,7 @@ async function enterApp() {
     console.error('데이터를 불러오지 못했습니다:', e);
     showToast('자료를 불러오지 못했습니다.\n인터넷 연결을 확인해 주세요.', 'error');
   }
+
   setBusy(false);
   navigateTo('home');
 }

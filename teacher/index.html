@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>면접ON 교사</title>
+  <link rel="icon" href="../assets/icon-192.png">
+  <link rel="stylesheet" href="../assets/css/teacher.css">
+</head>
+<body>
+
+<div id="gate">
+  <div class="spinner"></div>
+  <p>확인 중...</p>
+</div>
+
+<div id="app" hidden>
+  <header class="t-header">
+    <div class="t-brand">면접ON <span>교사</span></div>
+    <div class="t-user">
+      <span id="t-user-name"></span>
+      <span id="t-user-role" class="t-role"></span>
+      <button class="t-logout" onclick="teacherLogout()">로그아웃</button>
+    </div>
+  </header>
+
+  <main class="t-main">
+    <section class="t-card">
+      <h1>준비 중입니다</h1>
+      <p>
+        로그인은 정상적으로 작동합니다. 이 자리에 아래 기능이 순서대로 들어갑니다.
+      </p>
+      <ol class="t-todo">
+        <li><b>명단 관리</b> — 교사·학생 계정 만들기, 초기 비밀번호 발급</li>
+        <li><b>면접 준비</b> — 학생 고르고 질문 정하기 (생기부 PDF에서 추출)</li>
+        <li><b>면접 진행</b> — 질문 한 장씩, 타이머, 들으면서 평가</li>
+        <li><b>리포트</b> — 채점표 확인하고 학생에게 공개</li>
+      </ol>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
+<script src="../assets/js/config.js"></script>
+<script>
+  // 이 페이지는 선생님·관리자 전용입니다.
+  // 로그인하지 않았거나 학생이면 학생 앱으로 돌려보냅니다.
+  // (서버의 RLS 가 진짜 방어선이고, 이건 화면을 잘못 연 사람을 안내하는 용도입니다)
+  (async function guard() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { location.replace('../'); return; }
+
+    const { data: profile } = await sb
+      .from('profiles')
+      .select('name, login_id, role')
+      .eq('id', session.user.id)
+      .maybeSingle();
+
+    if (!profile || profile.role === 'student') { location.replace('../'); return; }
+
+    document.getElementById('t-user-name').textContent = profile.name || profile.login_id || '';
+    document.getElementById('t-user-role').textContent = profile.role === 'admin' ? '관리자' : '교사';
+    document.getElementById('gate').hidden = true;
+    document.getElementById('app').hidden = false;
+  })();
+
+  async function teacherLogout() {
+    await sb.auth.signOut();
+    location.replace('../');
+  }
+</script>
+</body>
+</html>

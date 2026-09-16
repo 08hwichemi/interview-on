@@ -43,50 +43,28 @@
     <div class="login-container">
       <div class="login-logo">🏫</div>
       <div class="login-title">스마트 면접 대비</div>
-      <div class="login-subtitle">우리 학교 학생들만을 위한 공간입니다.</div>
+      <div class="login-subtitle">우리 학교 구성원만을 위한 공간입니다.</div>
 
       <div class="login-tabs">
         <button id="tab-student" class="login-tab active" onclick="showLoginTab('student')">학생</button>
-        <button id="tab-teacher" class="login-tab" onclick="showLoginTab('teacher')">선생님</button>
+        <button id="tab-teacher"  class="login-tab"        onclick="showLoginTab('teacher')">선생님</button>
       </div>
 
       <div class="login-input-group">
+        <input type="text" id="login-id-input" class="login-input"
+               placeholder="학번" inputmode="numeric" autocomplete="username">
+        <input type="password" id="login-pw-input" class="login-input"
+               placeholder="비밀번호" autocomplete="current-password"
+               onkeypress="if(event.keyCode==13) login()">
+        <button class="login-btn" onclick="login()">로그인</button>
 
-        <!-- 학생: 학번 + 비밀번호 -->
-        <div id="login-student-form">
-          <input type="text" id="student-no-input" class="login-input" placeholder="학번"
-                 inputmode="numeric" autocomplete="username">
-          <input type="password" id="student-pw-input" class="login-input" placeholder="비밀번호"
-                 autocomplete="current-password" onkeypress="if(event.keyCode==13) loginStudent()">
-          <button class="login-btn" onclick="loginStudent()">로그인</button>
-          <div class="login-help">처음이신가요? 선생님께 받은 비밀번호로 로그인하세요.</div>
+        <div class="login-help" id="login-help-student">
+          아이디는 <b>학번</b>입니다.<br>
+          비밀번호는 선생님께 문의하세요.
         </div>
-
-        <!-- 교사: 이메일 + 비밀번호 -->
-        <div id="login-teacher-form" style="display:none;">
-          <input type="email" id="teacher-email-input" class="login-input" placeholder="이메일"
-                 autocomplete="username">
-          <input type="password" id="teacher-pw-input" class="login-input" placeholder="비밀번호"
-                 autocomplete="current-password" onkeypress="if(event.keyCode==13) loginTeacher()">
-          <button class="login-btn" onclick="loginTeacher()">로그인</button>
-          <div class="login-help">
-            계정이 없으신가요?
-            <a href="javascript:void(0)" onclick="showLoginTab('signup')">초대 코드로 가입</a>
-          </div>
-        </div>
-
-        <!-- 교사 가입 -->
-        <div id="signup-teacher-form" style="display:none;">
-          <input type="text" id="signup-code-input" class="login-input" placeholder="초대 코드">
-          <input type="text" id="signup-name-input" class="login-input" placeholder="이름">
-          <input type="email" id="signup-email-input" class="login-input" placeholder="이메일"
-                 autocomplete="username">
-          <input type="password" id="signup-pw-input" class="login-input" placeholder="비밀번호 (8자 이상)"
-                 autocomplete="new-password" onkeypress="if(event.keyCode==13) signupTeacher()">
-          <button class="login-btn" onclick="signupTeacher()">가입하기</button>
-          <div class="login-help">
-            <a href="javascript:void(0)" onclick="showLoginTab('teacher')">← 로그인으로 돌아가기</a>
-          </div>
+        <div class="login-help" id="login-help-teacher" style="display:none;">
+          아이디는 <b>이름</b>입니다.<br>
+          계정은 관리자 선생님이 만들어 드립니다.
         </div>
 
         <div id="login-error-msg" class="login-error"></div>
