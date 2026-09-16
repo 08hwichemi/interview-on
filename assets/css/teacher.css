@@ -272,6 +272,10 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   font-variant-numeric:tabular-nums;line-height:1;
 }
 .timer.total{color:var(--ink-2)}
+/* 멈춰 있을 때는 숫자를 흐리게 — 멈춘 줄 모르고 면접을 보면 안 됩니다 */
+.timerbox[data-running="no"] .timer{opacity:.4}
+.timerbox[data-running="no"] .tlabel{opacity:.6}
+.timerbox .btn{min-width:120px}
 
 /* 평가 단추 */
 .tagrow{display:flex;gap:14px;align-items:flex-start;margin-bottom:14px;

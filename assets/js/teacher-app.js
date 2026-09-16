@@ -126,15 +126,20 @@ var qIndex = 0;
 var answers = [];         // [{ seconds, good, bad, rating, memo }]
 var grades = {};          // { 평가항목: 'A'~'E' }
 
-// 시간을 두 개 잽니다.
-//   질문별 — 선생님이 «답변 시작» 으로 재고 멈춥니다
-//   전체   — 면접을 시작한 순간부터 마무리까지 저 혼자 흐릅니다
-//            (질문 사이에 오가는 시간이 있어서 질문별 시간을 더한 값과 다릅니다)
-var timerId = null;
-var seconds = 0;
-var running = false;
-var totalTimerId = null;
-var totalSeconds = 0;
+// 시간을 두 개 보여주지만, 시계는 하나입니다.
+//   면접 전체   — 「면접 시작」을 누른 순간부터
+//   이 질문 답변 — 지금 보고 있는 질문에 머문 시간
+// 한 시계가 둘을 같이 올리므로 「일시정지」 한 번이면 둘 다 멈춥니다.
+// 단추를 둘로 나눠 두면 하나만 멈춰 놓고 면접을 보다가 시간이 어긋납니다.
+//
+// 「면접 준비」의 «면접 시작» 은 화면만 넘깁니다. 시계는 진행 화면에서
+// 선생님이 «면접 시작» 을 한 번 더 눌러야 흐릅니다. 학생을 앉히고
+// 자리를 잡는 동안 시간이 가면 안 되기 때문입니다.
+var tickId = null;
+var ticking = false;      // 지금 시계가 흐르는 중인가
+var startedOnce = false;  // 이 면접에서 「면접 시작」을 한 번이라도 눌렀는가
+var seconds = 0;          // 지금 질문에 머문 시간
+var totalSeconds = 0;     // 면접 전체
 // 지금 이 면접이 «오늘 진행 중인 새 면접» 인지.
 // 지난 회차를 열어 고칠 때는 시간이 더 흘러서는 안 됩니다.
 // 이게 없어서, 옛 면접을 열고 «질문으로» 를 누르면 그 면접의 전체 시간이
@@ -317,8 +322,7 @@ function backToList() {
   if (liveInterview && interviewId) {
     if (!confirm('면접을 접고 학생 목록으로 갈까요?\n지금까지 기록은 남아 있고, 나중에 다시 열 수 있습니다.')) return;
   }
-  stopTimer();
-  stopTotalTimer();
+  stopTicking();
   liveInterview = false;
   interviewId = null;
   viewing = null;
@@ -461,20 +465,52 @@ async function startInterview() {
   });
   grades = {};
   liveInterview = true;
-  startTotalTimer();
+
+  // 시계는 아직 멈춰 있습니다. 진행 화면에서 «면접 시작» 을 눌러야 흐릅니다.
+  stopTicking();
+  startedOnce = false;
+  totalSeconds = 0;
+  paintTotal();
+
   show('run');
   showQuestion();
 }
 
-function startTotalTimer() {
-  stopTotalTimer();
-  totalSeconds = 0;
-  paintTotal();
-  totalTimerId = setInterval(function () { totalSeconds++; paintTotal(); }, 1000);
+// ── 시계 하나로 둘을 같이 ──
+function startTicking() {
+  if (tickId) return;
+  ticking = true;
+  tickId = setInterval(function () {
+    totalSeconds++;
+    seconds++;
+    if (answers[qIndex]) answers[qIndex].seconds = seconds;
+    paintTotal();
+    paintTimer();
+  }, 1000);
+  paintTimerButton();
 }
 
-function stopTotalTimer() {
-  if (totalTimerId) { clearInterval(totalTimerId); totalTimerId = null; }
+function stopTicking() {
+  ticking = false;
+  if (tickId) { clearInterval(tickId); tickId = null; }
+  paintTimerButton();
+}
+
+function toggleTimer() {
+  if (ticking) { stopTicking(); return; }
+  startedOnce = true;
+  startTicking();
+}
+
+function paintTimerButton() {
+  var b = document.getElementById('btn-timer');
+  if (!b) return;
+  // 지난 회차를 열어 고치는 중이면 시간이 더 흘러서는 안 됩니다.
+  b.hidden = !liveInterview;
+  b.textContent = ticking ? '일시정지' : (startedOnce ? '이어서' : '면접 시작');
+  b.className = ticking ? 'btn' : 'btn solid';
+  var box = document.getElementById('timerbox');
+  if (box) box.setAttribute('data-running', ticking ? 'yes' : 'no');
 }
 
 function paintTotal() {
@@ -488,10 +524,12 @@ function showQuestion() {
   document.getElementById('run-comp').textContent = q.competency;
   document.getElementById('run-question').textContent = q.text;
 
-  stopTimer();
+  // 시계는 그대로 둡니다. 질문을 넘겼다고 면접이 멈추는 건 아니니까요.
+  // 「이 질문 답변」만 새 질문의 시간으로 갈아 끼웁니다.
   seconds = answers[qIndex].seconds;
   paintTimer();
-  document.getElementById('btn-timer').textContent = seconds ? '이어서 재기' : '답변 시작';
+  paintTotal();
+  paintTimerButton();
   document.getElementById('btn-prev').disabled = (qIndex === 0);
   document.getElementById('btn-next').textContent =
     (qIndex === questions.length - 1) ? '면접 마무리 →' : '다음 질문 →';
@@ -554,20 +592,6 @@ function toggleTag(kind, btn) {
 
 function paintTimer() { document.getElementById('timer').textContent = mmss(seconds); }
 
-function toggleTimer() {
-  if (running) { stopTimer(); document.getElementById('btn-timer').textContent = '이어서 재기'; return; }
-  running = true;
-  document.getElementById('btn-timer').textContent = '멈추기';
-  timerId = setInterval(function () {
-    seconds++; answers[qIndex].seconds = seconds; paintTimer();
-  }, 1000);
-}
-
-function stopTimer() {
-  running = false;
-  if (timerId) { clearInterval(timerId); timerId = null; }
-}
-
 // 질문 하나가 끝날 때마다 서버에 남깁니다. 마지막에 한꺼번에 저장하면
 // 도중에 창이 닫혔을 때 면접 전체가 날아갑니다.
 // 같은 자리로 돌아와 다시 저장하면 덮어씁니다 (interview_id + seq 가 짝).
@@ -589,7 +613,6 @@ async function saveAnswer(i) {
 
 async function goToQuestion(i) {
   if (i === qIndex) return;
-  stopTimer();
   await saveAnswer(qIndex);
   qIndex = i;
   showQuestion();
@@ -597,14 +620,12 @@ async function goToQuestion(i) {
 
 async function prevQuestion() {
   if (qIndex === 0) return;
-  stopTimer();
   await saveAnswer(qIndex);
   qIndex--;
   showQuestion();
 }
 
 async function nextQuestion() {
-  stopTimer();
   var btn = document.getElementById('btn-next');
   btn.disabled = true;
   await saveAnswer(qIndex);
@@ -618,8 +639,7 @@ async function nextQuestion() {
 // ══════════════ 마무리 ══════════════
 
 function openFinish() {
-  stopTimer();
-  stopTotalTimer();   // 마무리 화면에서는 전체 시간도 멈춥니다
+  stopTicking();   // 마무리 화면에서는 시계가 멈춥니다
   document.getElementById('finish-who').textContent = target.student_no + ' ' + target.name;
 
   var spoken = answers.reduce(function (n, a) { return n + a.seconds; }, 0);
@@ -681,10 +701,9 @@ function pickGrade(rowIndex, g, btn) {
 // 질문으로 돌아가면 면접이 아직 안 끝난 것이므로 전체 시간도 다시 흐릅니다.
 // 단, 지난 회차를 열어 고치는 중이라면 시간은 그대로 두어야 합니다.
 // 그러지 않으면 옛 면접의 «면접 전체» 가 실시간으로 불어납니다.
+// 고치러 돌아올 때 시계를 저절로 켜지 않습니다.
+// 면접이 이어지는 거라면 선생님이 «이어서» 를 누르면 됩니다.
 function backToRun() {
-  if (liveInterview && !totalTimerId) {
-    totalTimerId = setInterval(function () { totalSeconds++; paintTotal(); }, 1000);
-  }
   show('run');
   showQuestion();
 }
@@ -800,8 +819,7 @@ async function deleteReport() {
   if (error) { toast('지우지 못했습니다: ' + error.message, 'bad'); return; }
 
   var back = target;
-  stopTimer();
-  stopTotalTimer();
+  stopTicking();
   liveInterview = false;
   interviewId = null;
   viewing = null;
@@ -843,7 +861,8 @@ async function openPast(id, round) {
   totalSeconds = r.interview.total_seconds || 0;
   qIndex = 0;
   liveInterview = false;   // 지난 회차입니다. 시간이 더 흐르면 안 됩니다
-  stopTotalTimer();
+  startedOnce = false;
+  stopTicking();
   paintTotal();
 
   openReport(id);
