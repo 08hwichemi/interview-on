@@ -108,18 +108,29 @@
         <div class="panel pad">
           <div class="headline">
             <span class="pill teacher" id="run-comp"></span>
+            <span class="totalbox">면접 전체 <b id="total-timer">00:00</b></span>
             <span class="step-no" id="run-step"></span>
           </div>
 
           <div class="qcard" id="run-question"></div>
 
           <div class="timerbox">
-            <div class="timer" id="timer">00:00</div>
+            <div>
+              <span class="sec" style="display:block;text-align:center">이 질문 답변 시간</span>
+              <div class="timer" id="timer">00:00</div>
+            </div>
             <button class="btn solid" id="btn-timer" onclick="toggleTimer()">답변 시작</button>
           </div>
 
-          <p class="sec" style="margin-top:22px">들으면서 누르세요</p>
+          <p class="sec" style="margin-top:22px">이 답변은</p>
+          <div class="ratingrow" id="rating-area"></div>
+
+          <p class="sec" style="margin-top:20px">들으면서 누르세요</p>
           <div id="tag-area"></div>
+
+          <p class="sec" style="margin-top:20px">답변 요지 <span class="opt">(안 적어도 됩니다)</span></p>
+          <textarea id="answer-memo" oninput="setMemo(this)" style="min-height:60px"
+            placeholder="한두 줄이면 충분합니다. 학생 리포트에 그대로 들어갑니다."></textarea>
 
           <div class="btnrow" style="margin:16px 0 0">
             <button class="ghost" id="btn-prev" onclick="prevQuestion()">← 이전</button>
@@ -138,9 +149,14 @@
             </div>
             <button class="ghost" onclick="backToRun()">← 질문으로</button>
           </div>
-          <p class="hint">전체 답변 시간 <b id="finish-total"></b></p>
+          <p class="hint">
+            면접 전체 <b id="finish-total"></b> · 답변한 시간만 더하면 <b id="finish-spoken"></b>
+          </p>
 
-          <p class="sec" style="margin-top:20px">채점표</p>
+          <p class="sec" style="margin-top:20px">질문별 기록</p>
+          <div id="answer-summary"></div>
+
+          <p class="sec" style="margin-top:22px">채점표</p>
           <div class="scorehead">
             <span class="area">평가요소</span><span class="item">평가항목</span>
             <span class="picks">A · B · C · D · E</span>

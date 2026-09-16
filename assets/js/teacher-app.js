@@ -11,14 +11,25 @@
 
 // ── 평가 단추 ──
 // 면접을 보시면서 "이 말이 자주 나온다" 싶은 게 있으면 여기만 고치면 됩니다.
+//
+// 축이 넷입니다. 앞의 둘(내용·근거)이 «무엇을 말했나», 뒤의 둘(말하기·태도)이 «어떻게 말했나».
+// 처음에는 뒤의 둘만 있어서 답변의 알맹이를 평가할 자리가 없었습니다.
 var TAGS = {
-  '내용':   { good: ['근거가 구체적', '경험이 드러남', '질문에 정확히 답함', '배운 점까지 연결'],
-             bad:  ['두루뭉술함', '질문에서 벗어남', '외운 티가 남', '사실만 나열'] },
+  '내용':   { good: ['개념을 정확히 씀', '동기가 분명함', '과정을 순서대로 설명',
+                    '배운 점까지 연결', '전공과 이어짐', '아쉬운 점도 스스로 짚음'],
+             bad:  ['개념이 부정확', '활동 나열에 그침', '결과만 말하고 과정이 없음',
+                    '질문을 빗나감', '외운 느낌'] },
+  '근거':   { good: ['생기부 기록과 맞음', '구체적 사례를 듦', '숫자·이름까지 말함'],
+             bad:  ['사례가 없음', '생기부 기록과 어긋남', '근거 없이 단정'] },
   '말하기': { good: ['결론부터 말함', '또렷하고 알맞은 속도', '문장이 간결함'],
-             bad:  ['목소리가 작음', '말이 빠름', '군더더기(음, 그)', '문장이 길어져 흐림'] },
-  '태도':   { good: ['눈을 맞춤', '자세가 바름', '끝까지 침착함'],
-             bad:  ['시선을 피함', '자세가 흐트러짐', '당황하면 말이 끊김'] }
+             bad:  ['목소리가 작음', '말이 빠름', '군더더기(음, 그)',
+                    '문장이 길어져 흐림', '결론이 없음'] },
+  '태도':   { good: ['눈을 맞춤', '자세가 바름', '끝까지 침착함', '모르는 건 솔직히 말함'],
+             bad:  ['시선을 피함', '자세가 흐트러짐', '당황하면 말이 끊김', '긴장이 심함'] }
 };
+
+// 태그를 다 누르지 못해도 이것 하나면 흐름이 읽힙니다.
+var RATINGS = ['우수', '보통', '미흡'];
 
 // ── 채점표 ──
 // 대학이 쓰는 공통 평가요소(학업·진로·공동체)에 면접에서만 볼 수 있는 두 가지를 더했습니다.
@@ -45,11 +56,18 @@ var target = null;
 var questions = [];       // [{ text, competency }]
 var interviewId = null;
 var qIndex = 0;
-var answers = [];         // [{ seconds, good, bad }]
+var answers = [];         // [{ seconds, good, bad, rating, memo }]
 var grades = {};          // { 평가항목: 'A'~'E' }
+
+// 시간을 두 개 잽니다.
+//   질문별 — 선생님이 «답변 시작» 으로 재고 멈춥니다
+//   전체   — 면접을 시작한 순간부터 마무리까지 저 혼자 흐릅니다
+//            (질문 사이에 오가는 시간이 있어서 질문별 시간을 더한 값과 다릅니다)
 var timerId = null;
 var seconds = 0;
 var running = false;
+var totalTimerId = null;
+var totalSeconds = 0;
 
 // ── 공통 ──
 function esc(s) {
@@ -160,11 +178,11 @@ function renderRailProgress() {
 
   document.getElementById('progress-list').innerHTML = questions.map(function (q, i) {
     var a = answers[i] || { seconds: 0, good: [], bad: [] };
-    var touched = a.seconds > 0 || a.good.length || a.bad.length;
+    var touched = a.seconds > 0 || a.good.length || a.bad.length || a.rating || a.memo;
     return '<button class="railrow q" aria-current="' + (i === qIndex) + '" onclick="goToQuestion(' + i + ')">' +
       '<span class="qn">' + (i + 1) + '</span>' +
       '<span class="qt">' + esc(q.text) + '</span>' +
-      (touched ? '<span class="done">' + mmss(a.seconds) + '</span>' : '') +
+      (touched ? '<span class="done">' + (a.rating ? esc(a.rating) + ' ' : '') + mmss(a.seconds) + '</span>' : '') +
       '</button>';
   }).join('');
 }
@@ -278,10 +296,29 @@ async function startInterview() {
 
   interviewId = data.id;
   qIndex = 0;
-  answers = questions.map(function () { return { seconds: 0, good: [], bad: [] }; });
+  answers = questions.map(function () {
+    return { seconds: 0, good: [], bad: [], rating: null, memo: '' };
+  });
   grades = {};
+  startTotalTimer();
   show('run');
   showQuestion();
+}
+
+function startTotalTimer() {
+  stopTotalTimer();
+  totalSeconds = 0;
+  paintTotal();
+  totalTimerId = setInterval(function () { totalSeconds++; paintTotal(); }, 1000);
+}
+
+function stopTotalTimer() {
+  if (totalTimerId) { clearInterval(totalTimerId); totalTimerId = null; }
+}
+
+function paintTotal() {
+  var el = document.getElementById('total-timer');
+  if (el) el.textContent = mmss(totalSeconds);
 }
 
 function showQuestion() {
@@ -298,9 +335,32 @@ function showQuestion() {
   document.getElementById('btn-next').textContent =
     (qIndex === questions.length - 1) ? '면접 마무리 →' : '다음 질문 →';
 
+  renderRating();
   renderTagButtons();
+  document.getElementById('answer-memo').value = answers[qIndex].memo || '';
   renderRailProgress();
 }
+
+// 한 줄 판정 — 우수 · 보통 · 미흡
+function renderRating() {
+  var cur = answers[qIndex].rating;
+  document.getElementById('rating-area').innerHTML = RATINGS.map(function (r) {
+    return '<button class="rbtn" aria-pressed="' + (cur === r) + '"' +
+           ' onclick="pickRating(\'' + r + '\', this)">' + r + '</button>';
+  }).join('');
+}
+
+function pickRating(r, btn) {
+  // 같은 것을 다시 누르면 지웁니다. 잘못 눌렀을 때 되돌릴 길이 있어야 합니다.
+  var same = answers[qIndex].rating === r;
+  answers[qIndex].rating = same ? null : r;
+  Array.prototype.forEach.call(btn.parentNode.children, function (b) {
+    b.setAttribute('aria-pressed', !same && b === btn);
+  });
+  renderRailProgress();
+}
+
+function setMemo(el) { answers[qIndex].memo = el.value; }
 
 // 좋았던 것과 아쉬운 것을 갈라 놓습니다.
 // 한 줄에 섞어 놓으면 면접 중에 급히 누를 때 잘못 누릅니다.
@@ -359,7 +419,9 @@ async function saveAnswer(i) {
     question: q.text,
     seconds: a.seconds,
     good_tags: a.good,
-    bad_tags: a.bad
+    bad_tags: a.bad,
+    rating: a.rating,
+    memo: a.memo || ''
   }, { onConflict: 'interview_id,seq' });
   if (error) toast('이 질문을 저장하지 못했습니다: ' + error.message, 'bad');
 }
@@ -395,11 +457,41 @@ async function nextQuestion() {
 // ══════════════ 마무리 ══════════════
 
 function openFinish() {
+  stopTimer();
+  stopTotalTimer();   // 마무리 화면에서는 전체 시간도 멈춥니다
   document.getElementById('finish-who').textContent = target.student_no + ' ' + target.name;
-  var total = answers.reduce(function (n, a) { return n + a.seconds; }, 0);
-  document.getElementById('finish-total').textContent = mmss(total);
+
+  var spoken = answers.reduce(function (n, a) { return n + a.seconds; }, 0);
+  document.getElementById('finish-total').textContent = mmss(totalSeconds);
+  document.getElementById('finish-spoken').textContent = mmss(spoken);
+
   renderScoresheet();
+  renderAnswerSummary();
   show('finish');
+}
+
+// 질문마다 «무슨 질문 / 얼마나 / 어땠는지» 를 한 덩어리로 훑어봅니다.
+// 학생 리포트에도 이 모양 그대로 들어갑니다.
+function renderAnswerSummary() {
+  document.getElementById('answer-summary').innerHTML = questions.map(function (q, i) {
+    var a = answers[i];
+    var tags = a.good.concat(a.bad);
+    return '<div class="ansrow">' +
+      '<div class="anshead">' +
+        '<span class="qno">' + (i + 1) + '</span>' +
+        '<span class="qt">' + esc(q.text) + '</span>' +
+        (a.rating ? '<span class="pill rate">' + esc(a.rating) + '</span>' : '') +
+        '<span class="secs">' + mmss(a.seconds) + '</span>' +
+      '</div>' +
+      (tags.length
+        ? '<div class="anstags">' +
+            a.good.map(function (t) { return '<span class="minitag good">' + esc(t) + '</span>'; }).join('') +
+            a.bad.map(function (t) { return '<span class="minitag bad">' + esc(t) + '</span>'; }).join('') +
+          '</div>'
+        : '') +
+      (a.memo ? '<p class="ansmemo">' + esc(a.memo) + '</p>' : '') +
+      '</div>';
+  }).join('');
 }
 
 function renderScoresheet() {
@@ -421,7 +513,12 @@ function pickGrade(rowIndex, g, btn) {
   });
 }
 
-function backToRun() { show('run'); showQuestion(); }
+// 질문으로 돌아가면 면접이 아직 안 끝난 것이므로 전체 시간도 다시 흐릅니다.
+function backToRun() {
+  if (!totalTimerId) totalTimerId = setInterval(function () { totalSeconds++; paintTotal(); }, 1000);
+  show('run');
+  showQuestion();
+}
 
 async function finishInterview() {
   var btn = document.getElementById('btn-finish');
@@ -431,6 +528,7 @@ async function finishInterview() {
   const { error } = await sb.from('interviews').update({
     status: '끝남',
     finished_at: new Date().toISOString(),
+    total_seconds: totalSeconds,
     grades: grades,
     overall_note: document.getElementById('finish-note').value.trim()
   }).eq('id', interviewId);

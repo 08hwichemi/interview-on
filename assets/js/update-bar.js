@@ -10,7 +10,7 @@
 //
 // ※ 새 판을 올릴 때는 아래 BUILD_ID 와 version.txt 를 같은 값으로 고쳐야 합니다.
 
-var BUILD_ID = '2026-09-16.5';
+var BUILD_ID = '2026-09-16.6';
 var UPDATE_SHOWN = false;
 
 // version.txt 는 저장소 맨 위에 하나만 둡니다.
