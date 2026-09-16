@@ -158,12 +158,10 @@ async function afterLogin() {
 
 // --- 앱 본 화면으로 ---
 async function enterApp() {
-  // 세 사람이 쓰는 화면이 아예 다릅니다.
-  //   학생   → 이 모바일 앱
-  //   교사   → teacher/  면접 준비·진행·리포트
-  //   관리자 → admin/    명단·계정 관리 (교사 화면으로 건너갈 수 있습니다)
-  if (currentUser.role === 'admin')   { location.replace('admin/');   return; }
-  if (currentUser.role === 'teacher') { location.replace('teacher/'); return; }
+  // 학생은 이 모바일 앱, 선생님은 면접 화면으로 갑니다.
+  // 관리자도 면접을 보므로 똑같이 면접 화면으로 보냅니다.
+  // 명단 관리(admin/)는 거기서 «명단 관리» 를 눌러 들어갑니다 — 관리자에게만 보입니다.
+  if (currentUser.role !== 'student') { location.replace('teacher/'); return; }
 
   setBusy(true);
 

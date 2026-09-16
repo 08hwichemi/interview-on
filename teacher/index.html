@@ -31,38 +31,107 @@
   <header class="top">
     <div class="top-in">
       <div class="brand">면접<em>ON</em></div>
-      <span class="yr">교사</span>
       <span class="grow"></span>
       <span class="ub-name" id="t-user-name"></span>
       <span class="ub-role" id="t-user-role"></span>
-      <a class="ghost" id="admin-link" href="../admin/" style="text-decoration:none" hidden>관리자 화면으로</a>
+      <a class="ghost" id="admin-link" href="../admin/" style="text-decoration:none" hidden>명단 관리</a>
       <button class="ghost" onclick="teacherLogout()">로그아웃</button>
     </div>
   </header>
 
   <main class="wrap">
 
-    <section class="panel pad">
-      <p class="sec">면접할 학생 고르기</p>
-      <p class="hint">
-        반을 고르거나 <b>학번·이름</b>으로 찾으세요. 전교생이 다 보입니다.
-      </p>
+    <!-- ══ 1. 학생 고르기 ══ -->
+    <section id="view-pick">
+      <div class="panel pad">
+        <p class="sec">면접할 학생 고르기</p>
+        <p class="hint">반을 고르거나 <b>학번·이름</b>으로 찾아 <b>줄을 누르세요</b>. 전교생이 다 보입니다.</p>
 
-      <input type="text" id="search" placeholder="학번이나 이름으로 찾기" oninput="onSearch(this)">
+        <input type="text" id="search" placeholder="학번이나 이름으로 찾기" oninput="onSearch(this)">
+        <div class="chips" id="class-chips" style="margin-top:14px" hidden></div>
 
-      <div class="chips" id="class-chips" style="margin-top:14px" hidden></div>
-
-      <p class="sec" style="margin-top:4px">찾은 학생 <span id="found-count"></span></p>
-      <div id="student-list"></div>
+        <p class="sec" style="margin-top:4px">찾은 학생 <span id="found-count"></span></p>
+        <div id="student-list"></div>
+      </div>
     </section>
 
-    <section class="panel pad">
-      <p class="sec">다음에 들어올 것</p>
-      <p class="hint" style="margin:0">
-        학생을 고르면 <b>생기부에서 뽑은 질문</b>을 정하고, <b>질문을 한 장씩 넘기며</b>
-        타이머와 함께 평가하고, 끝나면 <b>리포트</b>가 학생 폰으로 갑니다.
-        평가 기준을 확정하는 대로 이어서 만듭니다.
-      </p>
+    <!-- ══ 2. 질문 정하기 ══ -->
+    <section id="view-setup" hidden>
+      <div class="panel pad">
+        <div class="headline">
+          <div>
+            <p class="sec" style="margin:0">면접 준비</p>
+            <h2 id="target-name"></h2>
+          </div>
+          <button class="ghost" onclick="backToPick()">← 다른 학생</button>
+        </div>
+
+        <p class="sec" style="margin-top:20px">지난 면접</p>
+        <div id="history"></div>
+
+        <p class="sec" style="margin-top:22px">낼 질문</p>
+        <p class="hint">
+          질문마다 <b>무엇을 보는 질문인지</b> 골라 두세요. 면접이 끝나면 역량별로 모아 보여줍니다.
+        </p>
+        <div id="q-list"></div>
+
+        <div class="btnrow" style="margin-top:12px">
+          <button class="btn" onclick="addQuestion('', '기타')">＋ 직접 적기</button>
+          <button class="ghost" onclick="loadCommon('changche', '공동체역량')">창체 질문 3개</button>
+          <button class="ghost" onclick="loadCommon('major', '진로역량')">전공 질문 3개</button>
+        </div>
+
+        <button class="btn solid wide" id="btn-start" onclick="startInterview()" disabled>면접 시작</button>
+      </div>
+    </section>
+
+    <!-- ══ 3. 면접 진행 ══ -->
+    <section id="view-run" hidden>
+      <div class="panel pad">
+        <div class="headline">
+          <div>
+            <p class="sec" style="margin:0"><span id="run-who"></span></p>
+            <span class="pill teacher" id="run-comp"></span>
+          </div>
+          <span class="step-no" id="run-step"></span>
+        </div>
+
+        <div class="qcard" id="run-question"></div>
+
+        <div class="timerbox">
+          <div class="timer" id="timer">00:00</div>
+          <button class="btn solid" id="btn-timer" onclick="toggleTimer()">답변 시작</button>
+        </div>
+
+        <p class="sec" style="margin-top:22px">들으면서 누르세요</p>
+        <div id="tag-area"></div>
+
+        <button class="btn solid wide" id="btn-next" onclick="nextQuestion()">다음 질문 →</button>
+      </div>
+    </section>
+
+    <!-- ══ 4. 끝내기 ══ -->
+    <section id="view-finish" hidden>
+      <div class="panel pad">
+        <p class="sec">면접 마무리</p>
+        <h2 id="finish-who"></h2>
+        <p class="hint">전체 답변 시간 <b id="finish-total"></b></p>
+
+        <p class="sec" style="margin-top:20px">학업역량</p>
+        <div class="chips" id="grade-academic"></div>
+        <p class="sec">진로역량</p>
+        <div class="chips" id="grade-career"></div>
+        <p class="sec">공동체역량</p>
+        <div class="chips" id="grade-community"></div>
+
+        <p class="sec" style="margin-top:20px">한 줄 총평 <span class="opt">(안 써도 됩니다)</span></p>
+        <textarea id="finish-note" style="min-height:70px" placeholder="예: 경험은 풍부한데 결론을 먼저 말하는 연습이 필요합니다."></textarea>
+
+        <div class="note info">
+          <b>면접 끝내기</b>를 누르면 그 자리에서 학생 폰에 리포트가 보입니다.
+        </div>
+        <button class="btn solid wide" id="btn-finish" onclick="finishInterview()">면접 끝내기 (학생에게 공개)</button>
+      </div>
     </section>
 
   </main>
@@ -75,8 +144,6 @@
 <script src="../assets/js/update-bar.js"></script>
 <script src="../assets/js/teacher-app.js"></script>
 <script>
-  // 확인이 끝나지 않으면 "확인 중..." 이 영영 돌기만 합니다.
-  // 왜 멈췄는지 화면에 보여줍니다.
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
     document.getElementById('gate-spinner').hidden = true;
@@ -132,9 +199,10 @@
 
     clearTimeout(gateTimer);
 
-    document.getElementById('t-user-name').textContent = profile.name || profile.login_id || '';
+    me = { id: session.user.id, name: profile.name || profile.login_id || '', role: profile.role };
+    document.getElementById('t-user-name').textContent = me.name;
     document.getElementById('t-user-role').textContent = profile.role === 'admin' ? '관리자' : '교사';
-    // 관리자는 명단 관리도 하므로 건너갈 길을 열어 둡니다
+    // 명단 관리는 관리자만 합니다. 교사에게는 이 길이 아예 없습니다.
     if (profile.role === 'admin') document.getElementById('admin-link').hidden = false;
 
     document.getElementById('gate').hidden = true;
@@ -145,7 +213,7 @@
     console.error(e);
     var detail = String((e && e.message) || e);
     if (document.getElementById('app').hidden) gateFail('확인 중 문제가 생겼습니다.', detail);
-    else if (typeof toast === 'function') toast('명단을 불러오지 못했습니다: ' + detail, 'bad');
+    else if (typeof toast === 'function') toast('문제가 생겼습니다: ' + detail, 'bad');
   });
 
   async function teacherLogout() {
