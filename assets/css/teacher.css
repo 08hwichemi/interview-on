@@ -8,9 +8,15 @@
   --muted:  #64748b;
   --line:   #e2e8f0;
   --bg:     #f4f6f9;
+  --ok:     #0f8a5f;
+  --warn:   #b45309;
+  --bad:    #c0392b;
 }
 
 * { box-sizing: border-box; }
+
+/* display 를 지정한 요소에도 hidden 이 먹도록 */
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -18,6 +24,9 @@ body {
   background: var(--bg);
   color: var(--ink);
 }
+
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .95em; }
+.muted { color: var(--muted); }
 
 /* 로그인 확인 중 화면 */
 #gate {
@@ -56,22 +65,167 @@ body {
 .t-logout:hover { background: rgba(255,255,255,.28); }
 
 /* 본문 */
-.t-main { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+.t-main {
+  max-width: 1100px; margin: 0 auto; padding: 32px 24px;
+  display: flex; flex-direction: column; gap: 20px;
+}
 
 .t-card {
   background: #fff; border: 1px solid var(--line); border-radius: 16px;
-  padding: 32px; box-shadow: 0 6px 16px rgba(0,0,0,.04);
+  padding: 28px 32px; box-shadow: 0 6px 16px rgba(0,0,0,.04);
 }
 .t-card h1 { margin: 0 0 12px; font-size: 22px; font-weight: 800; }
+.t-card h2 {
+  margin: 0 0 16px; font-size: 17px; font-weight: 800;
+  display: flex; align-items: center; gap: 8px;
+}
 .t-card p  { margin: 0 0 20px; color: var(--muted); line-height: 1.6; }
+.t-card.next { background: transparent; box-shadow: none; border-style: dashed; }
 
-.t-todo { margin: 0; padding-left: 20px; color: var(--ink); line-height: 2; }
+.t-todo { margin: 0; padding-left: 20px; color: var(--ink); line-height: 2.1; }
 .t-todo b { color: var(--navy); }
+
+.t-count {
+  background: var(--navy); color: #fff;
+  font-size: 12px; font-weight: 700;
+  padding: 3px 9px; border-radius: 999px;
+}
+
+/* 학생 / 선생님 탭 */
+.rm-tabs {
+  display: flex; gap: 6px; margin-bottom: 16px;
+  background: var(--bg); padding: 5px; border-radius: 12px;
+  width: fit-content;
+}
+.rm-tab {
+  border: none; background: transparent; color: var(--muted);
+  padding: 9px 26px; border-radius: 9px;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  font-family: inherit;
+}
+.rm-tab:hover { color: var(--ink); }
+.rm-tab.on {
+  background: #fff; color: var(--navy);
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+}
+
+/* 붙여넣는 형식 안내 */
+.rm-format {
+  background: #eef4ff; border: 1px solid #d6e4ff; border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 14px;
+  font-size: 13px; line-height: 1.7; color: #24427c;
+}
+.rm-format b { color: var(--navy-d); }
+
+/* 붙여넣기 칸 */
+.t-paste {
+  width: 100%; min-height: 160px; resize: vertical;
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px; line-height: 1.8; color: var(--ink);
+  background: #fcfdff;
+  tab-size: 12;
+}
+.t-paste:focus {
+  outline: none; border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(26,79,160,.12);
+}
+.t-paste::placeholder { color: #a8b4c4; }
+
+/* 버튼 */
+.t-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.t-btn {
+  border: none; background: var(--navy); color: #fff;
+  padding: 12px 24px; border-radius: 10px;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  font-family: inherit;
+}
+.t-btn:hover { background: var(--navy-d); }
+.t-btn:disabled { background: #b6c2d4; cursor: not-allowed; }
+.t-btn.ghost {
+  background: #fff; color: var(--muted); border: 1px solid var(--line);
+}
+.t-btn.ghost:hover { background: var(--bg); color: var(--ink); }
+
+/* 표 */
+.t-scroll { max-height: 420px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+.t-table {
+  width: 100%; border-collapse: collapse; font-size: 14px; background: #fff;
+}
+.t-table th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--bg); color: var(--muted);
+  font-size: 12px; font-weight: 700; text-align: left;
+  padding: 10px 14px; border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.t-table td {
+  padding: 10px 14px; border-bottom: 1px solid #f1f4f8;
+}
+.t-table tr:last-child td { border-bottom: none; }
+.t-table tbody tr:hover td { background: #fafbfd; }
+.t-table .pw {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 16px; font-weight: 700; letter-spacing: 2px; color: var(--navy);
+}
+
+/* "등록된 명단" 안의 표는 카드가 감싸므로 테두리를 한 번 더 두릅니다 */
+#roster-list > .t-table {
+  border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+}
+#roster-list > p { margin: 0; }
+
+/* 상태 표시 */
+.chip {
+  display: inline-block;
+  background: var(--bg); color: var(--muted);
+  padding: 3px 9px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+.chip.ok   { background: #e3f6ed; color: var(--ok); }
+.chip.warn { background: #fdf1de; color: var(--warn); }
+
+/* 경고 상자 (건너뛴 줄, 비밀번호 주의) */
+.t-warnbox {
+  background: #fdf1de; border: 1px solid #f3dcb5; border-radius: 10px;
+  padding: 12px 16px; margin-bottom: 16px;
+  font-size: 13px; line-height: 1.7; color: #7a4a06;
+}
+.t-warnbox.danger { background: #fdeceb; border-color: #f5cdc9; color: #8c2b21; }
+.t-warnbox ul { margin: 6px 0 0; padding-left: 18px; }
+.t-warnbox li { margin: 2px 0; }
+
+.t-note {
+  margin: 14px 0 0 !important;
+  font-size: 13px; color: var(--muted);
+}
+
+/* 알림 (화면 아래에 잠깐 떴다 사라짐) */
+.t-toast {
+  position: fixed; left: 50%; bottom: 28px;
+  transform: translate(-50%, 16px);
+  background: var(--ink); color: #fff;
+  padding: 13px 22px; border-radius: 10px;
+  font-size: 14px; font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s, transform .2s;
+  max-width: 90vw; text-align: center;
+  z-index: 50;
+}
+.t-toast.show { opacity: 1; transform: translate(-50%, 0); }
+.t-toast.ok  { background: #14663f; }
+.t-toast.bad { background: var(--bad); }
 
 /* 노트북보다 좁은 화면에서도 깨지지 않게 */
 @media (max-width: 720px) {
   .t-header { padding: 0 14px; height: 56px; }
   .t-brand  { font-size: 16px; }
-  .t-main   { padding: 20px 14px; }
-  .t-card   { padding: 20px; }
+  .t-user   { font-size: 13px; gap: 6px; }
+  .t-main   { padding: 20px 14px; gap: 16px; }
+  .t-card   { padding: 20px 16px; }
+  .rm-tabs  { width: 100%; }
+  .rm-tab   { flex: 1; padding: 9px 0; }
+  .t-actions .t-btn { flex: 1; }
 }

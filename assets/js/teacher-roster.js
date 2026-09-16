@@ -32,11 +32,23 @@ function clearPreview() {
   document.getElementById('result-area').hidden = true;
 }
 
+// 붙여넣은 칸만 비웁니다. 아래 "등록된 명단"은 그대로 둡니다.
+function clearPaste() {
+  document.getElementById('paste-box').value = '';
+  document.getElementById('paste-box').focus();
+  clearPreview();
+}
+
 function toast(msg, kind) {
   var el = document.getElementById('t-toast');
   el.textContent = msg;
   el.className = 't-toast show ' + (kind || '');
   setTimeout(function () { el.className = 't-toast ' + (kind || ''); }, 3000);
+}
+
+// 이름이라고 볼 수 있는지. 숫자뿐이면 이름이 아닙니다.
+function isName(s) {
+  return /[^\d\s]/.test(s);
 }
 
 // ── 붙여넣은 글자를 표로 ──
@@ -61,6 +73,10 @@ function parsePaste() {
       // 교사는 이름만 (이름이 곧 아이디)
       row = { name: cells[0] };
       if (!row.name) { problems.push((idx + 1) + '번째 줄: 이름이 없습니다'); return; }
+      if (!isName(row.name)) {
+        problems.push((idx + 1) + '번째 줄: 이름 자리에 숫자만 있습니다 (' + row.name + ')');
+        return;
+      }
     } else {
       // 학생: 4칸이면 학년/반/학번/이름, 2칸이면 학번/이름
       if (cells.length >= 4) {
@@ -76,6 +92,12 @@ function parsePaste() {
         return;
       }
       if (!row.name) { problems.push((idx + 1) + '번째 줄: 이름이 없습니다'); return; }
+      // "3<탭>1" 처럼 뒷칸이 잘린 줄은 학번 3, 이름 1 로 읽혀 엉뚱한 계정이 생깁니다.
+      // 이름이 숫자뿐이면 명단이 아니라 잘린 줄로 봅니다.
+      if (!isName(row.name)) {
+        problems.push((idx + 1) + '번째 줄: 이름 자리에 숫자만 있습니다 (' + line + ')');
+        return;
+      }
     }
     rows.push(row);
   });
