@@ -15,7 +15,11 @@
 
 * { box-sizing: border-box; }
 
-/* display 를 지정한 요소에도 hidden 이 먹도록 */
+/* display 를 지정한 요소에도 hidden 이 먹도록.
+   이 규칙이 없으면 아래 #gate 처럼 display 를 정해 둔 요소는
+   hidden 을 붙여도 그대로 보입니다. 우리가 정한 규칙이 브라우저
+   기본값(hidden -> display:none)을 이기기 때문입니다.
+   실제로 "확인 중..." 화면이 앱 위에 계속 남아 있던 원인이었습니다. */
 [hidden] { display: none !important; }
 
 body {
@@ -29,6 +33,7 @@ body {
 .muted { color: var(--muted); }
 
 /* 로그인 확인 중 화면 */
+#gate[hidden] { display: none; }   /* 위 규칙이 지워져도 이건 남도록 */
 #gate {
   min-height: 100dvh;
   display: flex; flex-direction: column;
