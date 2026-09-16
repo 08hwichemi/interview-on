@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.8">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-16.9">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.8">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-16.9">
 </head>
 <body>
 
@@ -109,15 +109,18 @@
         <div class="panel pad">
           <div class="headline">
             <span class="pill teacher" id="run-comp"></span>
-            <span class="totalbox">면접 전체 <b id="total-timer">00:00</b></span>
             <span class="step-no" id="run-step"></span>
           </div>
 
           <div class="qcard" id="run-question"></div>
 
           <div class="timerbox">
-            <div>
-              <span class="sec" style="display:block;text-align:center">이 질문 답변 시간</span>
+            <div class="tslot">
+              <span class="tlabel">면접 전체</span>
+              <div class="timer total" id="total-timer">00:00</div>
+            </div>
+            <div class="tslot">
+              <span class="tlabel">이 질문 답변</span>
               <div class="timer" id="timer">00:00</div>
             </div>
             <button class="btn solid" id="btn-timer" onclick="toggleTimer()">답변 시작</button>
@@ -182,9 +185,9 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-16.8"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-16.8"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-16.8"></script>
+<script src="../assets/js/config.js?v=2026-09-16.9"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-16.9"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-16.9"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
