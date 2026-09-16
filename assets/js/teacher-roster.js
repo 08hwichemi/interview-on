@@ -1,152 +1,59 @@
 // 교사 화면 — 명단 관리
 //
-// 엑셀에서 복사한 명단을 붙여넣으면 계정을 만듭니다.
-// 실제 계정 생성과 비밀번호 초기화는 Edge Function(create-student-accounts)이 합니다.
+// 붙여넣거나 엑셀 파일을 고르면 곧바로 계정을 만듭니다.
+// 실제 계정 생성·초기화·삭제는 Edge Function(create-student-accounts)이 합니다.
 //
-// 초기 비밀번호는 모두 같은 값(INITIAL_PASSWORD)입니다. 서버가 정하고 응답으로 알려줍니다.
-// 첫 로그인 때 본인 비밀번호로 반드시 바꾸게 되어 있습니다.
+// 초기 비밀번호는 모두 같은 값입니다. 첫 로그인 때 본인 비밀번호로 반드시 바꾸게 되어 있고,
+// 잊은 사람은 명단 오른쪽 «비번초기화» 로 되돌립니다.
+
+// ⚠️ Edge Function 의 INITIAL_PASSWORD 와 같아야 합니다.
+//    여기는 단추에 적어 보여주기만 하는 값이고, 실제로 정하는 곳은 서버입니다.
+var INITIAL_PW = '123456';
 
 var rosterMode = 'student';   // 'student' | 'teacher'
-var parsedRows = [];          // 미리보기에 뜬 줄
-var initialPassword = '';     // 서버가 알려준 초기 비밀번호
+var isAdmin = false;          // 로그인 확인이 끝나면 teacher/index.html 이 채웁니다
+var pickedClass = '';         // 학생 명단에서 고른 반 ('' 이면 전체)
+var rosterCache = [];         // 방금 불러온 명단
 
 // ── 화면 전환 ──
 function setRosterMode(mode) {
   rosterMode = mode;
-  document.getElementById('rm-tab-student').classList.toggle('on', mode === 'student');
-  document.getElementById('rm-tab-teacher').classList.toggle('on', mode === 'teacher');
+  pickedClass = '';
 
-  document.getElementById('paste-box').value = '';
-  document.getElementById('paste-box').placeholder = mode === 'student'
-    ? '학년\t반\t학번\t이름\n3\t1\t20301\t홍길동\n3\t1\t20302\t김철수'
-    : '이름\n이용휘\n박영희';
+  document.getElementById('tab-student').setAttribute('aria-selected', mode === 'student');
+  document.getElementById('tab-teacher').setAttribute('aria-selected', mode === 'teacher');
 
-  document.getElementById('format-student').style.display = mode === 'student' ? 'block' : 'none';
-  document.getElementById('format-teacher').style.display = mode === 'teacher' ? 'block' : 'none';
+  var student = mode === 'student';
+  document.getElementById('add-title').textContent = student ? '학생 추가 등록' : '교사 추가 등록';
+  document.getElementById('roster-title').textContent = student ? '등록된 학생 명단' : '교직원 계정';
+  document.getElementById('excel-box').hidden = !student;
 
-  clearPreview();
+  document.getElementById('add-hint').innerHTML = student
+    ? '엑셀 파일을 고르거나, 아래 칸에 <b>한 줄에 한 명씩</b> 붙여넣으세요. ' +
+      '<b>학번 이름</b> / <b>반 번호 이름</b> / <b>학년 반 번호 이름</b> 다 됩니다. ' +
+      '학번이 없으면 <b>학년+반(2자리)+번호(2자리)</b> 로 만듭니다 (3학년 2반 15번 → <b>30215</b>).'
+    : '<b>이름만</b> 한 줄에 한 명씩 적으세요. 이름이 곧 아이디입니다. ' +
+      '같은 이름이 두 분이면 <b>김영수2</b> 처럼 구분해 주세요.';
+
+  var box = document.getElementById('paste-box');
+  box.value = '';
+  box.placeholder = student
+    ? '30201 홍길동\n30202 김철수\n30203 이영희'
+    : '이용휘\n박영희\n최수진';
+
+  document.getElementById('btn-create').textContent = '등록하기 (초기비번 ' + INITIAL_PW + ')';
+  document.getElementById('excel-name').textContent = '';
+  document.getElementById('add-problems').hidden = true;
+  document.getElementById('add-result').hidden = true;
+
   loadRoster();
 }
 
-function clearPreview() {
-  parsedRows = [];
-  document.getElementById('preview-area').hidden = true;
-  document.getElementById('result-area').hidden = true;
-}
-
-// 붙여넣은 칸만 비웁니다. 아래 "등록된 명단"은 그대로 둡니다.
-function clearPaste() {
-  document.getElementById('paste-box').value = '';
-  document.getElementById('paste-box').focus();
-  clearPreview();
-}
-
 function toast(msg, kind) {
-  var el = document.getElementById('t-toast');
+  var el = document.getElementById('toast');
   el.textContent = msg;
-  el.className = 't-toast show ' + (kind || '');
-  setTimeout(function () { el.className = 't-toast ' + (kind || ''); }, 3000);
-}
-
-// 이름이라고 볼 수 있는지. 숫자뿐이면 이름이 아닙니다.
-function isName(s) {
-  return /[^\d\s]/.test(s);
-}
-
-// ── 붙여넣은 글자를 표로 ──
-// 엑셀에서 복사하면 탭으로 나뉩니다. 쉼표도 받아줍니다.
-function parsePaste() {
-  var raw = document.getElementById('paste-box').value;
-  var lines = raw.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
-
-  if (!lines.length) { toast('붙여넣은 내용이 없습니다.', 'bad'); return; }
-
-  var rows = [];
-  var problems = [];
-
-  lines.forEach(function (line, idx) {
-    var cells = line.split(/\t|,/).map(function (c) { return c.trim(); });
-
-    // 머리글 줄은 건너뜁니다
-    if (idx === 0 && /학번|이름|학년|성명/.test(line) && !/^\d/.test(cells[0])) return;
-
-    var row;
-    if (rosterMode === 'teacher') {
-      // 교사는 이름만 (이름이 곧 아이디)
-      row = { name: cells[0] };
-      if (!row.name) { problems.push((idx + 1) + '번째 줄: 이름이 없습니다'); return; }
-      if (!isName(row.name)) {
-        problems.push((idx + 1) + '번째 줄: 이름 자리에 숫자만 있습니다 (' + row.name + ')');
-        return;
-      }
-    } else {
-      // 학생: 4칸이면 학년/반/학번/이름, 2칸이면 학번/이름
-      if (cells.length >= 4) {
-        row = { grade: cells[0], class_no: cells[1], student_no: cells[2], name: cells[3] };
-      } else if (cells.length >= 2) {
-        row = { grade: '', class_no: '', student_no: cells[0], name: cells[1] };
-      } else {
-        problems.push((idx + 1) + '번째 줄: 칸이 모자랍니다 (' + line + ')');
-        return;
-      }
-      if (!/^\d+$/.test(row.student_no)) {
-        problems.push((idx + 1) + '번째 줄: 학번은 숫자여야 합니다 (' + row.student_no + ')');
-        return;
-      }
-      if (!row.name) { problems.push((idx + 1) + '번째 줄: 이름이 없습니다'); return; }
-      // "3<탭>1" 처럼 뒷칸이 잘린 줄은 학번 3, 이름 1 로 읽혀 엉뚱한 계정이 생깁니다.
-      // 이름이 숫자뿐이면 명단이 아니라 잘린 줄로 봅니다.
-      if (!isName(row.name)) {
-        problems.push((idx + 1) + '번째 줄: 이름 자리에 숫자만 있습니다 (' + line + ')');
-        return;
-      }
-    }
-    rows.push(row);
-  });
-
-  // 붙여넣은 것 안에서의 중복도 미리 잡아줍니다
-  var seen = {};
-  var dups = [];
-  rows = rows.filter(function (r) {
-    var key = rosterMode === 'teacher' ? r.name : r.student_no;
-    if (seen[key]) { dups.push(key); return false; }
-    seen[key] = true;
-    return true;
-  });
-  if (dups.length) problems.push('중복된 ' + (rosterMode === 'teacher' ? '이름' : '학번') + ': ' + dups.join(', '));
-
-  parsedRows = rows;
-  renderPreview(problems);
-}
-
-function renderPreview(problems) {
-  var area = document.getElementById('preview-area');
-  var head = rosterMode === 'teacher'
-    ? '<tr><th>이름 (=아이디)</th></tr>'
-    : '<tr><th>학년</th><th>반</th><th>학번 (=아이디)</th><th>이름</th></tr>';
-
-  var body = parsedRows.map(function (r) {
-    return rosterMode === 'teacher'
-      ? '<tr><td>' + esc(r.name) + '</td></tr>'
-      : '<tr><td>' + esc(r.grade) + '</td><td>' + esc(r.class_no) + '</td>' +
-        '<td><b>' + esc(r.student_no) + '</b></td><td>' + esc(r.name) + '</td></tr>';
-  }).join('');
-
-  document.getElementById('preview-count').textContent = parsedRows.length + '명';
-  document.getElementById('preview-table').innerHTML = head + body;
-
-  var pb = document.getElementById('preview-problems');
-  if (problems.length) {
-    pb.hidden = false;
-    pb.innerHTML = '<b>건너뛴 줄 ' + problems.length + '개</b><ul><li>' +
-      problems.map(esc).join('</li><li>') + '</li></ul>';
-  } else {
-    pb.hidden = true;
-  }
-
-  document.getElementById('btn-create').disabled = parsedRows.length === 0;
-  area.hidden = false;
-  document.getElementById('result-area').hidden = true;
+  el.className = 'toast show ' + (kind || '');
+  setTimeout(function () { el.className = 'toast ' + (kind || ''); }, 3000);
 }
 
 // 이름이 그대로 화면에 들어가므로 특수문자를 막습니다.
@@ -157,9 +64,127 @@ function esc(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function pad2(n) { return String(n).length < 2 ? '0' + n : String(n); }
+
+// 이름이라고 볼 수 있는지. 숫자뿐이면 이름이 아닙니다.
+function isName(s) { return /[^\d\s]/.test(s); }
+
+// ── 엑셀 파일 읽기 ──
+// 읽은 내용을 아래 칸에 글자로 풀어 넣습니다. 그래야 선생님이 눈으로 확인하고
+// 틀린 줄을 고친 뒤 등록할 수 있습니다. 붙여넣기와 등록 경로가 하나로 합쳐집니다.
+function readExcelFile(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  document.getElementById('excel-name').textContent = file.name + ' 읽는 중...';
+
+  if (!window.XLSX) {
+    document.getElementById('excel-name').textContent = '';
+    toast('엑셀을 읽는 기능을 불러오지 못했습니다. 붙여넣기를 써 주세요.', 'bad');
+    return;
+  }
+
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      var sheet = wb.Sheets[wb.SheetNames[0]];
+      if (!sheet) throw new Error('엑셀 안에서 시트를 찾지 못했습니다.');
+
+      // header:1 → 칸을 그대로 2차원 배열로. 머리글 이름을 짐작하지 않습니다.
+      var grid = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false, defval: '' });
+      var lines = grid
+        .map(function (row) {
+          return row.map(function (c) { return String(c == null ? '' : c).trim(); })
+                    .filter(function (c) { return c !== ''; })
+                    .join('\t');
+        })
+        .filter(Boolean);
+
+      if (!lines.length) throw new Error('내용이 있는 줄을 찾지 못했습니다.');
+
+      document.getElementById('paste-box').value = lines.join('\n');
+      document.getElementById('excel-name').textContent = file.name + ' — ' + lines.length + '줄';
+      toast('엑셀을 읽었습니다. 내용을 확인하고 등록하세요.', 'ok');
+    } catch (err) {
+      document.getElementById('excel-name').textContent = '';
+      toast('엑셀을 읽지 못했습니다: ' + (err.message || '') , 'bad');
+    }
+    event.target.value = '';   // 같은 파일을 다시 골라도 열리도록
+  };
+  reader.onerror = function () {
+    document.getElementById('excel-name').textContent = '';
+    toast('파일을 여는 데 실패했습니다.', 'bad');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── 적어 넣은 것을 사람 목록으로 ──
+function parsePeople() {
+  var raw = document.getElementById('paste-box').value;
+  var grade = document.getElementById('grade-pick').value;
+  var lines = raw.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+
+  var people = [];
+  var problems = [];
+
+  lines.forEach(function (line, idx) {
+    var no = idx + 1;
+    // 엑셀은 탭, 손으로 친 것은 빈칸이나 쉼표로 나뉩니다. 다 받아줍니다.
+    var cells = line.split(/[\t,]|\s{1,}/).map(function (c) { return c.trim(); }).filter(Boolean);
+    if (!cells.length) return;
+
+    // 머리글 줄은 건너뜁니다
+    if (/^(학년|학번|번호|반|이름|성명)$/.test(cells[0])) return;
+
+    if (rosterMode === 'teacher') {
+      var tname = cells[0];
+      if (!isName(tname)) { problems.push(no + '번째 줄: 이름 자리에 숫자만 있습니다 (' + line + ')'); return; }
+      people.push({ name: tname });
+      return;
+    }
+
+    // 학생 — 맨 뒤가 이름, 앞이 숫자들
+    var name = cells[cells.length - 1];
+    var nums = cells.slice(0, -1);
+
+    if (!isName(name)) { problems.push(no + '번째 줄: 이름을 찾지 못했습니다 (' + line + ')'); return; }
+    if (!nums.length)  { problems.push(no + '번째 줄: 학번이나 반·번호가 없습니다 (' + line + ')'); return; }
+    if (!nums.every(function (n) { return /^\d+$/.test(n); })) {
+      problems.push(no + '번째 줄: 이름 앞은 숫자여야 합니다 (' + line + ')'); return;
+    }
+
+    var g, cls, num, studentNo;
+    if (nums.length === 1) {
+      // 학번을 그대로 적어준 경우
+      studentNo = nums[0];
+      g   = studentNo.length === 5 ? studentNo.slice(0, 1) : '';
+      cls = studentNo.length === 5 ? String(Number(studentNo.slice(1, 3))) : '';
+    } else {
+      if (nums.length === 2) { g = grade;   cls = nums[0]; num = nums[1]; }
+      else                   { g = nums[0]; cls = nums[1]; num = nums[2]; }
+      studentNo = String(g) + pad2(cls) + pad2(num);
+    }
+
+    people.push({ student_no: studentNo, name: name, grade: g || null, class_no: cls || null });
+  });
+
+  // 같은 아이디가 여러 줄 들어왔으면 하나만 남깁니다
+  var seen = {};
+  var dups = [];
+  people = people.filter(function (p) {
+    var key = rosterMode === 'teacher' ? p.name : p.student_no;
+    if (seen[key]) { dups.push(key); return false; }
+    seen[key] = true;
+    return true;
+  });
+  if (dups.length) problems.push('같은 것이 두 번 들어와 하나만 남겼습니다: ' + dups.join(', '));
+
+  return { people: people, problems: problems };
+}
+
 // ── 서버 부르기 ──
 // Edge Function 이 4xx 를 주면 본문에 이유가 들어 있습니다.
-// 그냥 res.error.message 만 보면 "non-2xx status code" 같은 쓸모없는 말만 나옵니다.
+// res.error.message 만 보면 "non-2xx status code" 같은 쓸모없는 말만 나옵니다.
 async function callAccountFn(body) {
   var res = await sb.functions.invoke('create-student-accounts', { body: body });
   if (!res.error) return { data: res.data };
@@ -175,96 +200,103 @@ async function callAccountFn(body) {
   return { error: reason };
 }
 
-// ── 계정 만들기 ──
+// ── 등록하기 ──
 async function createAccounts() {
-  if (!parsedRows.length) return;
+  var parsed = parsePeople();
+  var pb = document.getElementById('add-problems');
 
-  var btn = document.getElementById('btn-create');
-  btn.disabled = true;
-  btn.textContent = '만드는 중...';
-
-  var res = await callAccountFn({ role: rosterMode, people: parsedRows });
-
-  btn.disabled = false;
-  btn.textContent = '계정 만들기';
-
-  if (res.error) { toast('실패: ' + res.error, 'bad'); return; }
-
-  renderResult(res.data);
-  loadRoster();
-}
-
-function renderResult(data) {
-  var created = data.created || [];
-  var skipped = data.skipped || [];
-  initialPassword = data.initial_password || initialPassword;
-
-  document.getElementById('result-summary').innerHTML =
-    '<b>' + created.length + '명</b> 계정을 만들었습니다.' +
-    (skipped.length ? ' <span class="muted">(' + skipped.length + '명 건너뜀)</span>' : '');
-
-  // 초기 비밀번호가 모두 같으므로 한 줄이면 충분합니다.
-  // 예전처럼 사람마다 다른 비밀번호를 표로 뽑아 나눠줄 일이 없습니다.
-  document.getElementById('result-password').innerHTML =
-    '초기 비밀번호는 모두 <b class="pw">' + esc(initialPassword) + '</b> 입니다. ' +
-    '첫 로그인 때 본인 비밀번호로 바꾸게 되어 있습니다.';
-
-  document.getElementById('result-table').innerHTML =
-    '<tr><th>아이디</th><th>이름</th></tr>' +
-    created.map(function (c) {
-      return '<tr><td><b>' + esc(c.login_id) + '</b></td><td>' + esc(c.name) + '</td></tr>';
-    }).join('');
-
-  var sk = document.getElementById('result-skipped');
-  if (skipped.length) {
-    sk.hidden = false;
-    sk.innerHTML = '<b>건너뛴 사람</b><ul><li>' + skipped.map(function (s) {
-      return esc(s.login_id || s.name) + ' — ' + esc(s.reason);
-    }).join('</li><li>') + '</li></ul>';
+  if (parsed.problems.length) {
+    pb.hidden = false;
+    pb.innerHTML = '<b>건너뛴 줄 ' + parsed.problems.length + '개</b><ul><li>' +
+      parsed.problems.map(esc).join('</li><li>') + '</li></ul>';
   } else {
-    sk.hidden = true;
+    pb.hidden = true;
   }
 
-  document.getElementById('preview-area').hidden = true;
-  document.getElementById('result-area').hidden = false;
-  document.getElementById('paste-box').value = '';
-  window.scrollTo({ top: document.getElementById('result-area').offsetTop - 80, behavior: 'smooth' });
-}
+  if (!parsed.people.length) { toast('등록할 사람이 없습니다.', 'bad'); return; }
 
-// ── 비밀번호 초기화 ──
-// 비밀번호를 잊은 사람을 초기 비밀번호로 되돌립니다.
-// 되돌린 뒤에는 다음 로그인 때 다시 바꾸게 됩니다.
-async function resetPassword(loginId, name, btn) {
-  if (!confirm(name + '(' + loginId + ') 님의 비밀번호를 초기 비밀번호로 되돌릴까요?')) return;
-
+  var btn = document.getElementById('btn-create');
   var label = btn.textContent;
   btn.disabled = true;
-  btn.textContent = '되돌리는 중...';
+  btn.textContent = '등록하는 중...';
 
-  var res = await callAccountFn({ action: 'reset', login_ids: [loginId] });
+  var res = await callAccountFn({ role: rosterMode, people: parsed.people });
 
   btn.disabled = false;
   btn.textContent = label;
 
   if (res.error) { toast('실패: ' + res.error, 'bad'); return; }
 
-  var failed = res.data.failed || [];
-  if (failed.length) { toast('실패: ' + failed[0].reason, 'bad'); return; }
+  var created = res.data.created || [];
+  var skipped = res.data.skipped || [];
+  if (res.data.initial_password) {
+    INITIAL_PW = res.data.initial_password;
+    btn.textContent = '등록하기 (초기비번 ' + INITIAL_PW + ')';
+  }
 
-  initialPassword = res.data.initial_password || initialPassword;
-  toast(name + ' 님의 비밀번호를 ' + initialPassword + ' 으로 되돌렸습니다.', 'ok');
+  var box = document.getElementById('add-result');
+  box.hidden = false;
+  box.innerHTML =
+    '<b>' + created.length + '명</b> 등록했습니다. 초기 비밀번호는 <b class="pw">' + esc(INITIAL_PW) + '</b> 입니다.' +
+    (skipped.length
+      ? '<ul><li>' + skipped.map(function (s) {
+          return esc(s.login_id || s.name) + ' — ' + esc(s.reason);
+        }).join('</li><li>') + '</li></ul>'
+      : '');
+
+  document.getElementById('paste-box').value = '';
+  document.getElementById('excel-name').textContent = '';
   loadRoster();
 }
 
-// 표의 버튼에서 부릅니다. 이름에 따옴표가 들어가도 깨지지 않게 data- 속성으로 넘깁니다.
-function onResetClick(btn) {
-  resetPassword(btn.dataset.loginId, btn.dataset.name, btn);
+// ── 비밀번호 초기화 ──
+async function onResetClick(btn) {
+  var loginId = btn.dataset.loginId, name = btn.dataset.name;
+  if (!confirm(name + '(' + loginId + ') 님의 비밀번호를 ' + INITIAL_PW + ' 로 되돌릴까요?')) return;
+
+  btn.disabled = true;
+  var res = await callAccountFn({ action: 'reset', login_ids: [loginId] });
+  btn.disabled = false;
+
+  if (res.error) { toast('실패: ' + res.error, 'bad'); return; }
+  var failed = res.data.failed || [];
+  if (failed.length) { toast('실패: ' + failed[0].reason, 'bad'); return; }
+
+  if (res.data.initial_password) INITIAL_PW = res.data.initial_password;
+  toast(name + ' 님의 비밀번호를 ' + INITIAL_PW + ' 로 되돌렸습니다.', 'ok');
+  loadRoster();
+}
+
+// ── 삭제 ──
+async function onDeleteClick(btn) {
+  var loginId = btn.dataset.loginId, name = btn.dataset.name;
+  if (!confirm(name + '(' + loginId + ') 님의 계정을 지울까요?\n지우면 되돌릴 수 없습니다.')) return;
+
+  btn.disabled = true;
+  var res = await callAccountFn({ action: 'delete', login_ids: [loginId] });
+  btn.disabled = false;
+
+  if (res.error) { toast('실패: ' + res.error, 'bad'); return; }
+  var failed = res.data.failed || [];
+  if (failed.length) { toast('실패: ' + failed[0].reason, 'bad'); return; }
+
+  toast(name + ' 님의 계정을 지웠습니다.', 'ok');
+  loadRoster();
+}
+
+function rowActions(loginId, name, canTouch) {
+  if (!canTouch) return '';
+  var d = ' data-login-id="' + esc(loginId) + '" data-name="' + esc(name) + '"';
+  return '<button class="linkbtn" onclick="onResetClick(this)"' + d + '>비번초기화</button>' +
+         '<button class="linkbtn danger" onclick="onDeleteClick(this)"' + d + '>삭제</button>';
 }
 
 // ── 등록된 명단 보기 ──
 async function loadRoster() {
   var box = document.getElementById('roster-list');
-  box.innerHTML = '<p class="muted">불러오는 중...</p>';
+  var chips = document.getElementById('class-chips');
+  box.innerHTML = '<p class="empty">불러오는 중...</p>';
+  chips.hidden = true;
 
   if (rosterMode === 'teacher') {
     const { data, error } = await sb
@@ -273,43 +305,80 @@ async function loadRoster() {
       .in('role', ['teacher', 'admin'])
       .order('name');
 
-    if (error) { box.innerHTML = '<p class="muted">불러오지 못했습니다: ' + esc(error.message) + '</p>'; return; }
-    if (!data.length) { box.innerHTML = '<p class="muted">등록된 선생님이 없습니다.</p>'; return; }
+    if (error) { box.innerHTML = '<p class="empty">불러오지 못했습니다: ' + esc(error.message) + '</p>'; return; }
+    if (!data.length) { box.innerHTML = '<p class="empty">등록된 선생님이 없습니다.</p>'; return; }
 
-    box.innerHTML = '<table class="t-table"><tr><th>아이디</th><th>이름</th><th>역할</th><th>비밀번호</th><th></th></tr>' +
-      data.map(function (p) {
-        return '<tr><td><b>' + esc(p.login_id) + '</b></td><td>' + esc(p.name) + '</td>' +
-               '<td>' + (p.role === 'admin' ? '관리자' : '교사') + '</td>' +
-               '<td>' + (p.must_change_password
-                 ? '<span class="chip warn">초기 비밀번호</span>'
-                 : '<span class="chip ok">변경 완료</span>') + '</td>' +
-               '<td>' + resetButton(p.login_id, p.name) + '</td></tr>';
-      }).join('') + '</table>';
+    box.innerHTML = '<div class="rows">' + data.map(function (p) {
+      return '<div class="row"><div class="who">' +
+        '<span class="nm">' + esc(p.name) + '</span> ' +
+        '<span class="pill ' + (p.role === 'admin' ? 'admin' : 'teacher') + '">' +
+          (p.role === 'admin' ? '관리자' : '교사') + '</span> ' +
+        '<span class="pill ' + (p.must_change_password ? 'warn' : 'ok') + '">' +
+          (p.must_change_password ? '초기 비밀번호' : '변경 완료') + '</span>' +
+        '</div><div class="acts">' + rowActions(p.login_id, p.name, isAdmin) + '</div></div>';
+    }).join('') + '</div>';
     return;
   }
 
   const { data, error } = await sb
     .from('students')
     .select('student_no, name, grade, class_no, auth_user_id')
-    .order('grade').order('class_no').order('student_no');
+    .order('student_no');
 
-  if (error) { box.innerHTML = '<p class="muted">불러오지 못했습니다: ' + esc(error.message) + '</p>'; return; }
-  if (!data.length) { box.innerHTML = '<p class="muted">등록된 학생이 없습니다.</p>'; return; }
+  if (error) { box.innerHTML = '<p class="empty">불러오지 못했습니다: ' + esc(error.message) + '</p>'; return; }
+  if (!data.length) { box.innerHTML = '<p class="empty">등록된 학생이 없습니다.</p>'; return; }
 
-  box.innerHTML = '<table class="t-table"><tr><th>학년</th><th>반</th><th>학번</th><th>이름</th><th>계정</th><th></th></tr>' +
-    data.map(function (s) {
-      return '<tr><td>' + esc(s.grade) + '</td><td>' + esc(s.class_no) + '</td>' +
-             '<td><b>' + esc(s.student_no) + '</b></td><td>' + esc(s.name) + '</td>' +
-             '<td>' + (s.auth_user_id
-               ? '<span class="chip ok">있음</span>'
-               : '<span class="chip">없음</span>') + '</td>' +
-             // 계정이 없는 학생은 되돌릴 비밀번호도 없습니다
-             '<td>' + (s.auth_user_id ? resetButton(s.student_no, s.name) : '') + '</td></tr>';
-    }).join('') + '</table>';
+  rosterCache = data;
+  renderClassChips();
+  renderStudents();
 }
 
-// 명단 각 줄 오른쪽에 붙는 "비밀번호 초기화" 버튼
-function resetButton(loginId, name) {
-  return '<button class="t-mini" onclick="onResetClick(this)"' +
-         ' data-login-id="' + esc(loginId) + '" data-name="' + esc(name) + '">비밀번호 초기화</button>';
+// 학번 앞 3자리(학년+반)로 묶어 고를 수 있게 합니다. 학생이 많아지면 전체 나열은 못 봅니다.
+function classKey(s) { return String(s.student_no).slice(0, 3); }
+
+function renderClassChips() {
+  var counts = {};
+  rosterCache.forEach(function (s) {
+    var k = classKey(s);
+    counts[k] = (counts[k] || 0) + 1;
+  });
+  var keys = Object.keys(counts).sort();
+  if (keys.length < 2) { document.getElementById('class-chips').hidden = true; return; }
+
+  var html = '<button class="chip" aria-pressed="' + (pickedClass === '') + '" onclick="pickClass(\'\')">' +
+             '전체<span class="n">' + rosterCache.length + '</span></button>';
+  html += keys.map(function (k) {
+    return '<button class="chip" aria-pressed="' + (pickedClass === k) + '" onclick="pickClass(\'' + k + '\')">' +
+           k.slice(0, 1) + '학년 ' + Number(k.slice(1)) + '반<span class="n">' + counts[k] + '</span></button>';
+  }).join('');
+
+  var chips = document.getElementById('class-chips');
+  chips.innerHTML = html;
+  chips.hidden = false;
+}
+
+function pickClass(k) {
+  pickedClass = k;
+  renderClassChips();
+  renderStudents();
+}
+
+function renderStudents() {
+  var list = pickedClass
+    ? rosterCache.filter(function (s) { return classKey(s) === pickedClass; })
+    : rosterCache;
+
+  var box = document.getElementById('roster-list');
+  if (!list.length) { box.innerHTML = '<p class="empty">이 반에는 등록된 학생이 없습니다.</p>'; return; }
+
+  box.innerHTML = '<div class="rows">' + list.map(function (s) {
+    return '<div class="row"><div class="who">' +
+      '<span class="id">' + esc(s.student_no) + '</span>' +
+      '<span class="nm">' + esc(s.name) + '</span>' +
+      (s.auth_user_id ? '' : ' <span class="pill warn">계정 없음</span>') +
+      '</div><div class="acts">' +
+      // 계정이 없는 학생은 되돌릴 비밀번호도, 지울 계정도 없습니다
+      rowActions(s.student_no, s.name, !!s.auth_user_id) +
+      '</div></div>';
+  }).join('') + '</div>';
 }

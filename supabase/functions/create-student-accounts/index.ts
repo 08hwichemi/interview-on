@@ -1,4 +1,4 @@
-// 계정 만들기 / 비밀번호 초기화 (교사 · 학생)
+// 계정 만들기 / 비밀번호 초기화 / 삭제 (교사 · 학생)
 //
 // 초기 비밀번호는 학교에서 정한 값 하나로 통일합니다(INITIAL_PASSWORD).
 // 선생님이 한 명 한 명 비밀번호를 나눠줄 필요 없이 "처음엔 123456" 한마디면 되고,
@@ -13,6 +13,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 // 학교에서 정한 초기 비밀번호. 여기만 고치면 전체가 따라갑니다.
+// 화면 쪽 assets/js/teacher-roster.js 의 INITIAL_PW 도 같이 고쳐야 단추 글자가 맞습니다.
 const INITIAL_PASSWORD = '123456';
 
 const CORS = {
@@ -132,6 +133,68 @@ Deno.serve(async (req) => {
     return json({
       action: 'reset',
       initial_password: INITIAL_PASSWORD,
+      done,
+      failed,
+      done_count: done.length,
+      failed_count: failed.length,
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  // 계정 삭제
+  // ──────────────────────────────────────────────
+  if (body.action === 'delete') {
+    const ids = Array.isArray(body.login_ids) ? body.login_ids : [];
+    if (!ids.length) return json({ error: '지울 아이디가 없습니다' }, 400);
+    if (ids.length > 500) return json({ error: '한 번에 500명까지만 됩니다' }, 400);
+
+    const done: Array<Record<string, string>> = [];
+    const failed: Array<Record<string, string>> = [];
+
+    for (const raw of ids) {
+      const loginId = String(raw ?? '').trim();
+      if (!loginId) continue;
+
+      const { data: target } = await admin
+        .from('profiles')
+        .select('id, role, name')
+        .eq('school_id', schoolId)
+        .eq('login_id', loginId)
+        .maybeSingle();
+
+      if (!target) {
+        failed.push({ login_id: loginId, reason: '그런 아이디가 없습니다' });
+        continue;
+      }
+
+      // 실수로 자기 계정을 지우고 아무도 관리할 수 없게 되는 것을 막습니다
+      if (target.id === user.id) {
+        failed.push({ login_id: loginId, reason: '지금 로그인한 본인 계정은 지울 수 없습니다' });
+        continue;
+      }
+
+      if (target.role !== 'student' && !callerIsAdmin) {
+        failed.push({ login_id: loginId, reason: '선생님 계정은 관리자만 지울 수 있습니다' });
+        continue;
+      }
+
+      // 명단 -> 프로필 -> 계정 순서. 반대로 하면 남은 줄이 없는 사람을 가리킵니다.
+      if (target.role === 'student') {
+        await admin.from('students').delete().eq('auth_user_id', target.id);
+      }
+      await admin.from('profiles').delete().eq('id', target.id);
+
+      const { error: delErr } = await admin.auth.admin.deleteUser(target.id);
+      if (delErr) {
+        failed.push({ login_id: loginId, reason: delErr.message });
+        continue;
+      }
+
+      done.push({ login_id: loginId, name: target.name });
+    }
+
+    return json({
+      action: 'delete',
       done,
       failed,
       done_count: done.length,
