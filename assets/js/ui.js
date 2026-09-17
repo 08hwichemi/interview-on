@@ -106,9 +106,11 @@ function navigateTo(screenId) {
   if (screenId === 'my-reports') loadMyReports();
   window.scrollTo(0, 0);
 
-  // 단추를 누른 김에 부르는 자리라 «사람의 손» 이 확실합니다.
-  // 여기서 채워 두는 걸음은 브라우저가 건너뛰지 않습니다. (함수는 아래에 있습니다)
-  armBackGuard();
+  // ⚠️ 여기서 걸음을 쌓지 않습니다.
+  //    이 함수는 사람이 단추를 눌러서 올 때도 있지만, 앱이 켜지면서 스스로 부를 때도
+  //    있습니다(로그인이 살아 있으면 곧장 홈으로). 그때 쌓은 걸음은 «사람의 손» 이
+  //    아니라 크롬이 건너뛰는데, 세어 버리면 그 뒤로 진짜 걸음을 한 번도 안 쌓습니다.
+  //    단추를 눌러서 온 경우라면 이미 pointerdown 에서 쌓였습니다.
 }
 
 // 대학 고르기 팝업(openUnivModal · closeUnivModal · selectUniv)은
@@ -153,15 +155,29 @@ var leavingAt = 0;
 function allowLeaving() { leaving = true; leavingAt = Date.now(); }
 function leavingNow() { return leaving && Date.now() - leavingAt < 3000; }
 
+// ── 자취 남기기 ──
+// 휴대폰에서 무슨 일이 일어났는지 «앱이 꺼진 뒤에도» 볼 수 있어야 합니다.
+// 그래서 브라우저에 남겨 둡니다. 다시 열고 판 번호를 세 번 누르면 보입니다.
+function logBack(what) {
+  try {
+    var a = JSON.parse(localStorage.getItem('backlog') || '[]');
+    a.push(new Date().toTimeString().slice(0, 8) + ' ' + what);
+    while (a.length > 10) a.shift();
+    localStorage.setItem('backlog', JSON.stringify(a));
+  } catch (e) { /* 사생활 보호 모드 */ }
+}
+
 // 사람이 만지는 중에 넣는 걸음 — 브라우저가 인정해 줍니다
 function pushCounted() {
-  try { history.pushState({ interviewOn: true }, ''); backGuards += 1; } catch (e) { /* 사생활 보호 모드 */ }
+  try { history.pushState({ interviewOn: true }, ''); backGuards += 1; logBack('걸음+1(손) → ' + backGuards); } catch (e) { /* 사생활 보호 모드 */ }
 }
 // 뒤로가기를 처리하면서 넣는 걸음 — 건너뛰어질 수 있으므로 세지 않습니다
 function pushBestEffort() {
   try { history.pushState({ interviewOn: true }, ''); } catch (e) { /* 사생활 보호 모드 */ }
 }
 
+// ⚠️ 이 함수는 **손가락·자판 이벤트 안에서만** 불러야 합니다.
+//    그 순간이라야 브라우저가 걸음을 «사람이 만든 것» 으로 인정합니다.
 function armBackGuard() {
   if (leavingNow()) return;
   var n = 0;
@@ -203,22 +219,24 @@ function askExit() {
 }
 
 window.addEventListener('popstate', function () {
-  if (leavingNow()) return;
+  if (leavingNow()) { logBack('뒤로(나가는 중이라 넘김)'); return; }
   leaving = false;
   if (backGuards > 0) backGuards -= 1;
 
-  if (closeTopLayer()) { pushBestEffort(); return; }
+  if (closeTopLayer()) { logBack('뒤로 → 창 닫음'); pushBestEffort(); return; }
 
   var cur = document.querySelector('.screen.active');
   var id = cur ? cur.id.replace('screen-', '') : 'home';
 
   // 홈도 로그인도 아니면 홈으로 (훈련 중이면 handleBack() 이 «중단할까요?» 를 먼저 묻습니다)
   if (id !== 'home' && id !== 'login' && id !== 'change-password') {
+    logBack('뒤로 → 홈으로 (' + id + ')');
     handleBack();
     pushBestEffort();
     return;
   }
 
+  logBack('뒤로 → 종료 물음 (' + id + ')');
   pushBestEffort();
   askExit();
 });
@@ -232,13 +250,21 @@ window.addEventListener('popstate', function () {
 // 위의 걸음은 «터치 한 번당 하나» 라서, 만지지 않고 뒤로가기를 연달아 누르면
 // 막지 못합니다. 그 마지막 순간에 브라우저가 직접 묻게 합니다.
 window.addEventListener('beforeunload', function (e) {
-  if (leavingNow()) return;
+  if (leavingNow()) { logBack('나감(일부러)'); return; }
+  logBack('나가려 함 → 브라우저에 물어 달라고 함');
   e.preventDefault();
   e.returnValue = '';
   return '';
 });
 
-pushCounted();   // 첫 진입분
+// 첫 진입분.
+// ⚠️ 여기서 «세면» 안 됩니다. 이때는 사람의 손이 아직 닿지 않아서 크롬이 이 걸음을
+//    건너뜁니다. 그런데 세어 버리면 backGuards 가 1 이 되어, 그 뒤로 사람이
+//    아무리 만져도 armBackGuard() 가 «이미 찼다» 며 **진짜 걸음을 한 번도 안 쌓습니다.**
+//    그래서 뒤로가기가 늘 그냥 나가 버렸습니다 — 걸음은 1칸인데 아무 구실도 못 했습니다.
+//    세지 않고 넣어 두면, 사람이 화면을 처음 만지는 순간 진짜 걸음이 하나 쌓입니다.
+pushBestEffort();
+logBack('── 앱 열림 ' + (typeof BUILD_ID !== 'undefined' ? BUILD_ID : '?') + ' ──');
 
 // ── 화면에서 바로 보는 진단 ──
 // 휴대폰에서만 나는 탈은 여기서 재현할 수가 없습니다(컴퓨터 브라우저는 걸음을
@@ -247,9 +273,14 @@ pushCounted();   // 첫 진입분
 // (꾹 누르기는 안드로이드가 «복사·공유» 메뉴로 가로채 갑니다)
 var verTaps = 0, verTapAt = 0;
 function showBackGuardState() {
-  showToast('판 ' + (typeof BUILD_ID !== 'undefined' ? BUILD_ID : '?') +
-            '<br>걸음 ' + backGuards + '칸 · 히스토리 ' + history.length +
-            '<br>state ' + (history.state && history.state.interviewOn ? 'O' : 'X'));
+  var 자취 = [];
+  try { 자취 = JSON.parse(localStorage.getItem('backlog') || '[]'); } catch (e) {}
+  // 토스트는 2.5초면 사라져서 사진을 못 찍습니다. 닫기 전까지 남는 창으로 보여 줍니다.
+  showConfirm('판 ' + (typeof BUILD_ID !== 'undefined' ? BUILD_ID : '?') +
+              ' · 걸음 ' + backGuards + '칸 · 히스토리 ' + history.length +
+              ' · state ' + (history.state && history.state.interviewOn ? 'O' : 'X') +
+              '<br><br><b>자취</b><br>' + (자취.length ? 자취.join('<br>') : '(없음)'),
+              function () { try { localStorage.removeItem('backlog'); } catch (e) {} });
 }
 document.addEventListener('DOMContentLoaded', function () {
   var el = document.querySelector('.verlabel');
