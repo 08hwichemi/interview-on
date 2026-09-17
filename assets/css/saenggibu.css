@@ -24,7 +24,7 @@
 .sg-item:hover{border-color:var(--line-2);background:var(--surface-2)}
 .sg-item.on{border-color:var(--ink);background:var(--surface-2)}
 .sg-item input{flex:0 0 auto;margin-top:2px;width:16px;height:16px;accent-color:var(--ink)}
-.sg-q{display:flex;flex-direction:column;gap:4px;min-width:0}
+.sg-q{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 auto}
 .sg-qtext{font-size:14px;font-weight:600;line-height:1.55;color:var(--ink);word-break:keep-all}
 .sg-meta{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--ink-3)}
 /* 원문을 같이 보여줍니다. 질문이 이상하면 바로 알아채도록. */
@@ -33,6 +33,24 @@
   font-size:12px;line-height:1.6;color:var(--ink-3);word-break:keep-all;
 }
 .sg-item.on .sg-src{background:var(--surface)}
+
+/* ── 기계가 탐구 제목을 못 찾은 과목 ──
+   과목을 통째로 빼 버리면 선생님은 «3학년 과목이 다 안 나온다» 고 느끼십니다.
+   그래서 기록을 접지 않고 통째로 펼쳐 놓고, 그 자리에서 직접 적게 합니다. */
+.sg-item.blank{cursor:default;border-style:dashed}
+.sg-item.blank input[type="checkbox"]{cursor:pointer}
+.sg-item.blank:hover{border-color:var(--line)}
+.sg-item.blank.on{border-style:solid;border-color:var(--ink)}
+.sg-warn{font-weight:700;color:var(--rose);letter-spacing:0}
+/* ⚠️ 위의 «.sg-item input» (체크칸 16px) 보다 힘이 세야 합니다. 안 그러면 16px 로 쪼그라듭니다 */
+.sg-item input.sg-write{
+  width:100%;height:auto;box-sizing:border-box;margin:2px 0 4px;
+  padding:9px 11px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface);
+  font:inherit;font-size:14px;font-weight:600;line-height:1.55;color:var(--ink);
+}
+.sg-item input.sg-write:focus{outline:none;border-color:var(--ink)}
+/* 기록 전문은 길어서, 여느 원문처럼 흐리게 두면 읽을 수가 없습니다 */
+.sg-src.full{max-height:9.6em;overflow-y:auto;color:var(--ink-2);font-size:12.5px}
 
 .sg-foot{
   flex:0 0 auto;padding:14px 18px;border-top:1px solid var(--line);background:var(--surface);

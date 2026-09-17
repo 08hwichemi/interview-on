@@ -208,15 +208,29 @@ var SG_QUOTES = '「」『』"\'\u201c\u201d\u2018\u2019';
 var SG_TOPIC_RULES = [
   // ⚠️ 길이를 30자로 막아 뒀더니 실제 생기부의 탐구 제목이 줄줄이 버려졌습니다.
   //    「포물선의 반사 성질은 광촉매 반응기의 효율을 어떻게 높일까?」 가 33자입니다.
-  //    생기부의 탐구 제목은 «질문 한 문장» 인 일이 흔해서 60자까지 받습니다.
-  { re: /[「『"'\u2018\u201c]([^」』"'\u2019\u201d]{3,60})[」』"'\u2019\u201d]/g,    kind: '제목' },
-  { re: /([^,.\s][^,.]{2,50}?)(?:을|를)\s*주제로/g,              kind: '주제' },
-  { re: /([^,.\s][^,.]{2,50}?)에\s*(?:대해|관해|대하여)\s*(?:탐구|조사|발표|실험|연구|분석)/g, kind: '탐구' },
-  { re: /([^,.\s][^,.]{2,50}?)\s*(?:탐구|실험|프로젝트|캠페인|동아리|활동)(?:을|를|에)?\s*(?:진행|수행|기획|참여)/g, kind: '활동' },
-  // 세특에 자주 나오는 말투를 더 받습니다
-  { re: /([^,.\s][^,.]{2,50}?)(?:라는|이라는)\s*(?:질문|물음)/g,   kind: '질문' },
-  { re: /([^,.\s][^,.]{2,50}?)(?:을|를)\s*(?:설계|고안|제작|개발|구현)/g, kind: '활동' },
-  { re: /([^,.\s][^,.]{2,50}?)(?:을|를)\s*(?:탐색|고찰|규명|입증)/g, kind: '탐구' }
+  //    길어서 나쁜 게 아니라, 욕심 많은 규칙이 문장을 통째로 삼키는 게 문제였습니다.
+  //    그건 아래 sgLooksJunk() 의 «절 잇는 말» 검사가 막아 주므로 넉넉히 받습니다.
+  { re: /[「『"'\u2018\u201c]([^」』"'\u2019\u201d]{3,80})[」』"'\u2019\u201d]/g,    kind: '제목' },
+  { re: /([^,.\s][^,.]{2,70}?)(?:을|를)\s*주제로/g,              kind: '주제' },
+  { re: /([^,.\s][^,.]{2,70}?)에\s*(?:대해|관해|대하여)\s*(?:탐구|조사|발표|실험|연구|분석)/g, kind: '탐구' },
+  { re: /([^,.\s][^,.]{2,70}?\s*(?:탐구|실험|프로젝트|캠페인|활동))(?:을|를|에)?\s*(?:진행|수행|기획|참여)/g, kind: '활동' },
+  // 「~을 탐구함 / 분석함 / 조사함」 — 사이에 «심화·자발적으로» 같은 말이 끼기도 합니다
+  { re: /([^,.\s][^,.]{3,70}?)(?:을|를)\s*(?:[^,.\s]{1,5}\s*){0,2}(?:탐구|탐색|분석|조사|발표|연구|고찰)(?:함|하여|하고|하며|하였|해)/g, kind: '탐구' },
+
+  // ── 스스로 품은 «물음» ──
+  // 생기부에서 제일 값진 대목인데, 따옴표 없이 적히는 일이 아주 많습니다.
+  //   「…오직 온도만이 평형 상수를 변화시키는 원리」에 의문을 품고
+  //   「…경제적 최적 운전 온도를 결정하는 방법」에 대한 깊이 있는 후속 질문을 도출
+  { re: /([^,.\s][^,.]{3,70}?)에\s*(?:대한\s*)?(?:의문|궁금증)(?:을|를)\s*(?:품|가지|갖)/g, kind: '의문' },
+  { re: /([^,.\s][^,.]{3,70}?)(?:이|가)\s*궁금(?:하여|해서|해져)/g,                        kind: '의문' },
+  { re: /([^,.\s][^,.]{3,70}?)에\s*대한\s*(?:[^,.]{0,12}?\s*)?질문(?:을|를)\s*(?:도출|던지|제기|만들)/g, kind: '의문' },
+  { re: /([^,.\s][^,.]{3,70}?)(?:라는|이라는)\s*(?:후속\s*)?(?:질문|물음)/g,                kind: '물음' },
+
+  // ── 끝까지 파고든 흔적 ──
+  { re: /([^,.\s][^,.]{3,70}?)(?:을|를)\s*(?:설계|고안|제작|개발|구현)/g,  kind: '활동' },
+  { re: /([^,.\s][^,.]{3,70}?)(?:을|를)\s*(?:탐색|고찰|규명|입증)/g,      kind: '탐구' },
+  { re: /([^,.\s][^,.]{3,70}?)(?:와|과)\s*연계하여\s*탐구/g,             kind: '탐구' },
+  { re: /([^,.\s][^,.]{3,70}?(?:음|함))(?:을|를)\s*(?:파악|확인|이해)/g,   kind: '개념' }
 ];
 
 // 창체 갈래 이름·과목 꼬리표가 앞에 붙어 오면 떼어 냅니다.
@@ -226,7 +240,7 @@ function sgCleanTopic(raw) {
   var t = sgNorm(raw);
 
   // 따옴표가 섞여 있으면 그 «안쪽» 만 씁니다. 바깥은 군더더기입니다.
-  var inner = t.match(/[「『"'\u2018\u201c]([^」』"'\u2019\u201d]{3,60})[」』"'\u2019\u201d]/);
+  var inner = t.match(/[「『"'\u2018\u201c]([^」』"'\u2019\u201d]{3,80})[」』"'\u2019\u201d]/);
   if (inner) t = sgNorm(inner[1]);
 
   // 남은 따옴표·괄호 묶음을 떼어 냅니다
@@ -234,6 +248,14 @@ function sgCleanTopic(raw) {
        .replace(new RegExp('[' + SG_QUOTES + '\\s]+$'), '')
        .replace(/^\([^)]*\)\s*/, '')            // (과학탐구부)
        .replace(/^\[[^\]]*\]\s*/, '');         // [생명과학Ⅰ]
+
+  // 앞 절을 떼어 냅니다 (「…을 바탕으로 …」 → 뒤쪽만)
+  t = sgTrimClause(t);
+
+  // 문장을 여는 부사는 제목의 일부가 아닙니다 — 「나아가 수처리 공정 기술」
+  t = t.replace(/^(?:나아가|또한|특히|한편|아울러|그리고|이후|이를|먼저|끝으로|더불어|이에|또)\s+/, '');
+  // 「…탐색하고자 Kerry…」 처럼 앞말의 꼬리 한 글자가 떨어져 나와 붙기도 합니다
+  t = t.replace(/^(?:자|서|고|며|여|면|워|해|돼)\s+/, '');
 
   // 앞에 붙은 갈래 이름 떼기
   SG_AREAS.forEach(function (a) {
@@ -248,10 +270,22 @@ function sgCleanTopic(raw) {
 // 토씨로 시작하는 토막이 잡힙니다. 질문으로 쓸 수 없습니다.
 var SG_JUNK_HEAD = /^(?:라는|이라는|라고|이라고|하는|되는|하여|으로|로서|에서|에게|및|와|과|의|을|를|은|는|이|가|도|만)\s/;
 
-// 「실험을 통해 배우고 느낀점 및 아쉬운 점을 고찰하며」 처럼
-// 탐구 «제목» 이 아니라 그냥 서술인 토막이 규칙에 걸려 들어옵니다.
-// 절을 잇는 말이 들어 있으면 제목이 아닙니다.
-var SG_CLAUSE = /(?:통해|위해|대한|하면서|하며$|하고$|하여$|면서$|보며$|으며$|는데$|지만$)/;
+// 규칙이 넓게 걸리다 보면 앞 절까지 끌고 옵니다.
+//   「식수 환경에 대한 관심을 바탕으로 한국수자원공사의 공공데이터를 활용하여
+//    수도권 정수장의 월별 수질을 분석하고 시각화하는 프로젝트」
+// 여기서 쓸 것은 마지막 절뿐입니다. 통째로 버리면 그 과목이 아예 빠지므로,
+// «절을 잇는 말» 뒤만 잘라 씁니다.
+var SG_JOINERS = /(?:바탕으로|토대로|중심으로|비롯하여|통하여|통해|위하여|위해|활용하여|이용하여|연계하여|접목하여|주목하여|배운\s*후|하고자|하고서)\s+/g;
+
+function sgTrimClause(t) {
+  var last = -1, m;
+  var re = new RegExp(SG_JOINERS.source, 'g');
+  while ((m = re.exec(t)) !== null) last = m.index + m[0].length;
+  return last > -1 ? sgNorm(t.slice(last)) : sgNorm(t);
+}
+
+// 잘라 내고도 서술로 끝나면 제목이 아닙니다.
+var SG_CLAUSE = /(?:하면서|하며$|하고$|하여$|면서$|보며$|으며$|는데$|지만$|고자$)/;
 
 function sgLooksJunk(t) {
   if (SG_JUNK_HEAD.test(t)) return true;
@@ -268,7 +302,7 @@ function sgTopics(sentence) {
     var m;
     while ((m = re.exec(sentence)) !== null) {
       var t = sgCleanTopic(m[1]);
-      if (t.length < 3 || t.length > 60) continue;
+      if (t.length < 3 || t.length > 80) continue;
       // 아직도 따옴표가 남아 있으면 제대로 못 잘린 것입니다. 버립니다.
       if (new RegExp('[' + SG_QUOTES + ']').test(t)) continue;
       if (sgLooksJunk(t)) continue;
@@ -319,6 +353,16 @@ var SG_TEMPLATES = {
 var SG_QUESTION_TEMPLATE =
   { comp: '학업역량',
     make: function (t) { return '「' + t + '」 이 물음을 스스로 던졌군요. 어떤 답을 찾았고, 무엇이 아직 안 풀렸나요?'; } };
+
+// 스스로 품은 물음은 면접에서 제일 좋은 재료입니다. 그대로 되물어 봅니다.
+var SG_WONDER_TEMPLATE =
+  { comp: '학업역량',
+    make: function (t) { return '「' + t + '」에 의문을 품었다고 적혀 있습니다. 무엇이 궁금했고, 어떻게 확인했나요?'; } };
+
+// 「…임을 파악함」 처럼 알아낸 것은 그 자리에서 설명을 시킵니다.
+var SG_CONCEPT_TEMPLATE =
+  { comp: '학업역량',
+    make: function (t) { return '「' + t + '」 — 이것을 어떻게 알게 되었는지, 근거와 함께 설명해 보세요.'; } };
 
 // 세특에서 «탐구·실험» 으로 잡힌 것은 과정을 묻는 편이 낫습니다.
 var SG_SESA_INQUIRY =
@@ -384,6 +428,7 @@ function sgMakeQuestions(sectionKey, grade, sentences) {
   var subject = '';         // 과목은 한 번 나오면 그 뒤 문장까지 이어집니다
   var seenSubjects = [];    // 이 학년에 나온 과목들
   var gotSubjects = {};     // 그 중 질문이 하나라도 나온 과목
+  var subjectText = {};     // 과목마다 적힌 기록 전문 (못 찾은 과목에 보여줍니다)
 
   (sentences || []).forEach(function (sentence) {
     if (sectionKey === 'sesa') {
@@ -392,6 +437,7 @@ function sgMakeQuestions(sectionKey, grade, sentences) {
         subject = found;
         if (seenSubjects.indexOf(found) === -1) seenSubjects.push(found);
       }
+      if (subject) subjectText[subject] = (subjectText[subject] || '') + ' ' + sentence;
     }
     var topics;
     if (sectionKey === 'haengteuk') {
@@ -416,7 +462,9 @@ function sgMakeQuestions(sectionKey, grade, sentences) {
         tpl = (topic.kind === '제목') ? SG_HT_ACT_TEMPLATE : SG_TEMPLATES.haengteuk;
       else if (sectionKey === 'sesa') {
         // 물음이면 답을 묻고, 탐구·실험이면 과정을 묻고, 개념·제목이면 설명을 시킵니다
-        if (topic.kind === '질문' || /[?？]\s*$/.test(topic.text)) tpl = SG_QUESTION_TEMPLATE;
+        if (topic.kind === '물음' || /[?？]\s*$/.test(topic.text)) tpl = SG_QUESTION_TEMPLATE;
+        else if (topic.kind === '의문') tpl = SG_WONDER_TEMPLATE;
+        else if (topic.kind === '개념') tpl = SG_CONCEPT_TEMPLATE;
         else if (topic.kind === '탐구' || topic.kind === '활동') tpl = SG_SESA_INQUIRY;
         else tpl = SG_TEMPLATES.sesa;
       }
@@ -430,6 +478,7 @@ function sgMakeQuestions(sectionKey, grade, sentences) {
         text: text,
         competency: tpl.comp,
         topic: book ? book.title : topic.text,
+        kind: book ? '제목' : topic.kind,
         subject: subject,
         source: sentence,        // 원문을 같이 보여줍니다. 이상하면 바로 알아채도록
         grade: grade,
@@ -441,8 +490,8 @@ function sgMakeQuestions(sectionKey, grade, sentences) {
 
   // ⚠️ 서술만 있고 따옴표도 «주제로» 도 없는 과목은 한 개도 안 나왔습니다.
   //    선생님은 «3학년 과목이 다 안 나온다» 고 느끼십니다.
-  //    그런 과목에는 과목 이름으로 여는 질문을 하나 넣어 둡니다.
-  //    (글자는 담은 뒤에 고치실 수 있습니다)
+  //    그런 과목은 «기록 전문» 을 그대로 보여주고, 선생님이 직접 질문을 적게 합니다.
+  //    기계가 못 읽었다고 그 과목을 통째로 빼 버리면 안 됩니다.
   seenSubjects.forEach(function (subj) {
     if (gotSubjects[subj]) return;
     var text = '「' + subj + '」 수업에서 가장 기억에 남는 탐구나 활동은 무엇이었나요?';
@@ -450,7 +499,8 @@ function sgMakeQuestions(sectionKey, grade, sentences) {
     seen[text] = true;
     made.push({
       text: text, competency: '학업역량', topic: subj, subject: subj,
-      source: '(이 과목 기록에서는 탐구 제목을 찾지 못했습니다. 기록을 보시고 질문을 고쳐 주세요.)',
+      blank: true,                                   // 직접 적는 칸으로 보여줍니다
+      source: sgNorm(subjectText[subj] || ''),       // 기록을 통째로
       grade: grade, area: sectionKey
     });
   });
@@ -458,16 +508,26 @@ function sgMakeQuestions(sectionKey, grade, sentences) {
   return made;
 }
 
-// 「AI 시대, 우리는 왜 여전히 코딩을 배워야 하는가?」 와
-// 「우리는 왜 여전히 코딩을 배워야 하는가?」 처럼 한쪽이 다른 쪽에 통째로
-// 들어 있으면 같은 이야기입니다. 긴 쪽만 남깁니다.
+// 한쪽이 다른 쪽에 통째로 들어 있으면 같은 이야기입니다. 하나만 남깁니다.
+//
+// ⚠️ 무턱대고 «긴 쪽» 을 남기면 안 됩니다.
+//    「…평형 상수를 변화시키는 원리」(의문)  ← 이게 좋은 것인데
+//    「…원리에 의문을 품고 수처리 공정의 친환경 흡착제 최적 조건」(탐구)
+//    이 더 길다고 남으면 질문이 뭉개집니다.
+//    그래서 «더 또렷한 규칙으로 잡힌 쪽» 을 먼저 봅니다.
+//    따옴표·물음·의문은 또렷하고, 「…와 연계하여 탐구」 같은 건 넓게 걸립니다.
+var SG_KIND_RANK = { '제목': 3, '물음': 3, '의문': 3, '주제': 2, '개념': 1, '탐구': 1, '활동': 1 };
+
 function sgDropContained(questions) {
-  var topics = questions.map(function (q) { return q.topic || ''; });
   var buried = {};
-  topics.forEach(function (a, i) {
-    topics.forEach(function (b, j) {
-      if (i === j || buried[a] || !a || !b) return;
-      if (a.length < b.length && b.indexOf(a) > -1) buried[a] = true;
+  questions.forEach(function (a) {
+    questions.forEach(function (b) {
+      if (a === b || !a.topic || !b.topic || a.topic === b.topic) return;
+      if (b.topic.indexOf(a.topic) === -1) return;   // a 가 b 안에 들어 있을 때만
+      var ra = SG_KIND_RANK[a.kind] || 1, rb = SG_KIND_RANK[b.kind] || 1;
+      if (ra > rb) buried[b.topic] = true;           // 또렷한 쪽(a)을 남깁니다
+      else if (rb > ra) buried[a.topic] = true;
+      else buried[a.topic] = true;                   // 같은 급이면 긴 쪽(b)을
     });
   });
   return questions.filter(function (q) { return !buried[q.topic || '']; });
@@ -550,6 +610,7 @@ async function sgReadPdf(file) {
 // ══════════════ 화면 (교사) ══════════════
 
 var sgFound = [];        // 뽑은 질문들
+var sgEdited = {};       // 선생님이 직접 고쳐 쓴 질문 { 번호: 글자 }
 var sgPicked = {};       // { 번호: true } — 담을 것
 // ⚠️ «모든 학년» 을 0 으로 두면 안 됩니다. 0 은 «학년 모름» 의 값입니다.
 //    같은 값이라 「학년 모름」 단추가 늘 눌린 것처럼 보이고, 눌러도
@@ -561,7 +622,7 @@ var SG_NO_SUBJECT = '(과목 모름)';
 var sgMask = true;       // 개인정보 가림
 
 function openSaenggibu() {
-  sgFound = []; sgPicked = {}; sgGrade = null; sgArea = ''; sgSubject = '';
+  sgFound = []; sgPicked = {}; sgEdited = {}; sgGrade = null; sgArea = ''; sgSubject = '';
   document.getElementById('sg-modal').style.display = 'flex';
   document.getElementById('sg-file').value = '';
   renderSaenggibu();
@@ -594,6 +655,7 @@ async function onSaenggibuFile(input) {
     var r = sgBuild(lines);
     sgFound = r.questions;
     sgPicked = {};
+    sgEdited = {};
 
     if (!sgFound.length) {
       body.innerHTML = '<p class="sg-note bad">질문을 만들 만한 대목을 못 찾았습니다.<br>' +
@@ -619,6 +681,25 @@ function toggleSgMask() { sgMask = !sgMask; renderSaenggibu(); }
 function pickSgGrade(g) { sgGrade = (sgGrade === g) ? null : g; renderSaenggibu(); }
 function pickSgArea(a) { sgArea = (sgArea === a) ? '' : a; sgSubject = ''; renderSaenggibu(); }
 function pickSgSubject(x) { sgSubject = (sgSubject === x) ? '' : x; renderSaenggibu(); }
+
+// 못 찾은 과목은 선생님이 직접 적습니다. 적기 시작하면 저절로 담깁니다.
+// ⚠️ 여기서 목록을 다시 그리면 글자 한 자 칠 때마다 커서가 맨 뒤로 튑니다.
+//    그래서 아래 단추와 이 줄의 겉모습만 손으로 고칩니다.
+function setSgText(i, v) {
+  sgEdited[i] = v;
+  if (v.trim()) sgPicked[i] = true; else delete sgPicked[i];
+  var row = document.querySelector('.sg-item[data-i="' + i + '"]');
+  if (row) {
+    row.classList.toggle('on', !!sgPicked[i]);
+    var box = row.querySelector('input[type="checkbox"]');
+    if (box) box.checked = !!sgPicked[i];
+  }
+  paintSgFoot();
+}
+
+function sgTextOf(i) {
+  return (sgEdited[i] !== undefined) ? sgEdited[i] : sgFound[i].text;
+}
 
 function toggleSgPick(i) {
   if (sgPicked[i]) delete sgPicked[i]; else sgPicked[i] = true;
@@ -689,23 +770,46 @@ function renderSaenggibu() {
   var list = sgVisible();
   body.innerHTML = chips + (list.length
     ? '<div class="sg-list">' + list.map(function (x) {
+        var meta = (x.q.grade ? x.q.grade + '학년 · ' : '') +
+                   (x.q.subject ? esc(x.q.subject) + ' · ' : '') + esc(x.q.competency);
+
+        // 탐구 제목을 못 찾은 과목 — 기록을 통째로 보여주고 직접 적게 합니다
+        if (x.q.blank) {
+          return '<div class="sg-item blank' + (sgPicked[x.i] ? ' on' : '') +
+                 '" data-i="' + x.i + '">' +
+            '<input type="checkbox"' + (sgPicked[x.i] ? ' checked' : '') +
+              ' onchange="toggleSgPick(' + x.i + ')" title="이 질문 담기">' +
+            '<span class="sg-q">' +
+              '<span class="sg-meta">' + meta +
+                ' <b class="sg-warn">탐구 제목을 못 찾았습니다 — 아래 기록을 보고 직접 적어 주세요</b></span>' +
+              '<input class="sg-write" type="text" value="' + esc(sgTextOf(x.i)) + '"' +
+                ' oninput="setSgText(' + x.i + ', this.value)" placeholder="이 과목에 낼 질문을 적으세요">' +
+              '<span class="sg-src full">' + esc(sgMaskText(x.q.source)) + '</span>' +
+            '</span></div>';
+        }
+
         return '<label class="sg-item' + (sgPicked[x.i] ? ' on' : '') + '">' +
           '<input type="checkbox"' + (sgPicked[x.i] ? ' checked' : '') +
             ' onchange="toggleSgPick(' + x.i + ')">' +
           '<span class="sg-q">' +
             '<span class="sg-qtext">' + esc(x.q.text) + '</span>' +
-            '<span class="sg-meta">' +
-              (x.q.grade ? x.q.grade + '학년 · ' : '') +
-              (x.q.subject ? esc(x.q.subject) + ' · ' : '') + esc(x.q.competency) +
-            '</span>' +
+            '<span class="sg-meta">' + meta + '</span>' +
             '<span class="sg-src">' + esc(sgMaskText(x.q.source)) + '</span>' +
           '</span></label>';
       }).join('') + '</div>'
     : '<p class="sg-note">그 조건에 맞는 질문이 없습니다.</p>');
 
-  var n = Object.keys(sgPicked).length;
-  foot.hidden = false;
+  paintSgFoot();
+}
+
+// 글자를 고칠 때마다 목록을 통째로 다시 그리면 커서가 튑니다.
+// 아래 단추만 고쳐 그립니다.
+function paintSgFoot() {
+  var foot = document.getElementById('sg-foot');
   var btn = document.getElementById('sg-add');
+  if (!foot || !btn) return;
+  var n = Object.keys(sgPicked).length;
+  foot.hidden = !sgFound.length;
   btn.disabled = (n === 0);
   btn.textContent = n ? n + '개를 「낼 질문」에 담기' : '담을 질문을 고르세요';
 }
@@ -718,7 +822,9 @@ function addSaenggibuPicks() {
 
   picked.forEach(function (i) {
     var q = sgFound[i];
-    midQuestions.push({ text: q.text, competency: q.competency });
+    var text = sgTextOf(i).trim();
+    if (!text) return;
+    midQuestions.push({ text: text, competency: q.competency });
   });
   renderQuestions();
   closeSaenggibu();
