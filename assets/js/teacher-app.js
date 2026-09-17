@@ -714,6 +714,9 @@ function paintTotal() {
 }
 
 function showQuestion() {
+  // 질문이 없으면 그릴 것이 없습니다. 준비 화면에서 질문부터 만들어야 합니다.
+  if (!questions.length) { editQuestions(); return; }
+  if (qIndex >= questions.length) qIndex = questions.length - 1;
   var q = questions[qIndex];
   document.getElementById('run-step').textContent = (qIndex + 1) + ' / ' + questions.length;
   document.getElementById('run-comp').textContent = q.competency;
@@ -813,6 +816,9 @@ function paintTimer() { document.getElementById('timer').textContent = mmss(seco
 // 같은 자리로 돌아와 다시 저장하면 덮어씁니다 (interview_id + seq 가 짝).
 async function saveAnswer(i) {
   var q = questions[i], a = answers[i];
+  // ⚠️ 질문이 하나도 없는 면접(시작만 하고 질문을 안 낸 것)을 다시 열면
+  //    여기가 빈칸을 집어 터졌고, 그 뒤 «질문 고치기» 가 통째로 멎었습니다.
+  if (!q || !a) return;
   const { error } = await sb.from('interview_answers').upsert({
     interview_id: interviewId,
     seq: i + 1,
@@ -922,6 +928,9 @@ function pickGrade(rowIndex, g, btn) {
 // 고치러 돌아올 때 시계를 저절로 켜지 않습니다.
 // 면접이 이어지는 거라면 선생님이 «이어서» 를 누르면 됩니다.
 function backToRun() {
+  // 질문이 하나도 없는 면접이면 진행 화면에 보여줄 것이 없습니다.
+  // 곧바로 준비 화면으로 보내 질문부터 만들게 합니다.
+  if (!questions.length) { editQuestions(); return; }
   show('run');
   showQuestion();
 }
@@ -1071,7 +1080,16 @@ async function openPast(id, round) {
   // 고치기로 들어갈 수 있도록 화면 상태를 그 면접으로 되돌립니다.
   interviewId = id;
   viewing = { interview: r.interview, answers: r.answers, round: round };
+  // ⚠️ 표에는 «첫인사/끝인사» 라는 칸이 없습니다(질문 글자만 남습니다).
+  //    그대로 읽으면 자기소개와 「마지막으로 하고 싶은 말」이 가운데 질문에 섞이고
+  //    준비 화면의 첫인사·끝인사 스위치가 꺼진 채로 뜹니다.
+  //    맨 앞·맨 뒤의 글자를 아는 인사말과 견주어 제자리를 찾아 줍니다.
+  //    (선생님이 글자를 고쳤으면 그냥 가운데 질문이 됩니다 — 예전과 같습니다)
   questions = r.answers.map(function (a) { return { text: a.question, competency: a.competency }; });
+  var 인사말 = OPENINGS.map(function (o) { return o.text; });
+  if (questions.length && 인사말.indexOf(questions[0].text) > -1) questions[0].slot = 'opening';
+  var 끝 = questions.length - 1;
+  if (끝 >= 0 && questions[끝].text === CLOSING_TEXT) questions[끝].slot = 'closing';
   answers = r.answers.map(function (a) {
     return { seconds: a.seconds || 0, good: a.good_tags || [], bad: a.bad_tags || [],
              rating: a.rating || null, memo: a.memo || '' };
