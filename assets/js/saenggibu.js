@@ -168,7 +168,7 @@ function sgSplitSections(lines) {
       sesaAll.push(line);
       if (sgIsScoreHead(line)) { sesaOpen = false; return; }
       // 학년 표시는 문이 닫혀 있어도 흘려보내야 합니다. 안 그러면 학년이 안 갈립니다.
-      if (sesaOpen || sgGradeOf(line, false)) out.sesa.push(line);
+      if (sesaOpen || sgGradeMarkOf(line, false)) out.sesa.push(line);
       return;
     }
     if (cur) out[cur].push(line);
@@ -182,14 +182,42 @@ function sgSplitSections(lines) {
 // 줄 안에서 학년 표시를 찾습니다.
 // 나이스 PDF 는 세 가지로 적습니다 — 「[1학년]」, 「1학년」, 그리고 표 안에서는
 // 숫자 하나만 덩그러니 「1」. 마지막 것 때문에 애를 먹었습니다.
-function sgGradeOf(line, bareOk) {
+// 이 줄이 «학년 표시» 인가. 표시면 { grade, rest } 를, 아니면 null 을 돌려줍니다.
+//
+// ⚠️ 글 안에 학년이 나오는 일이 아주 흔합니다 —
+//      「설문조사를 … 분석한 결과 1학년은 음의, 3학년은 양의 상관관계를 확인함」
+//    예전에는 줄 «어디에든» 「N학년」 이 있으면 표시로 봤습니다. 그래서 3학년
+//    자율활동의 이 한 줄이 1학년으로 건너가고, 다음 줄에 「3학년」 이 나오자
+//    다시 3학년으로 돌아갔습니다 — 딱 한 줄만, 「음」 에서 잘린 채로.
+//
+//    학년 표시는 «표의 칸» 입니다. 줄에 그것만 있거나 줄 맨 앞에 옵니다.
+function sgGradeMarkOf(line, bareOk) {
   var t = sgNorm(line);
-  // 「[1학년]」 「1학년」 — 어디서나 믿을 수 있습니다
-  var m = t.match(/(?:^|[^0-9])([1-3])\s*학\s*년/);
-  if (m) return Number(m[1]);
-  // 숫자 한 자 — 창체·행특 표에서만 학년입니다
-  if (bareOk && /^\[?\s*[1-3]\s*\]?$/.test(t)) return Number(t.replace(/[^0-9]/g, ''));
+
+  // 「[1학년] …」 — 대괄호로 묶였으면 뒤에 글이 따라와도 표시입니다
+  var b = t.match(/^\[\s*(?:제)?\s*([1-3])\s*학\s*년\s*\]\s*/);
+  if (b) return { grade: Number(b[1]), rest: sgNorm(t.slice(b[0].length)) };
+
+  // 「1학년」 — 괄호가 없으면 그 줄에 그것만 있을 때입니다.
+  //   「1학년은 음의…」 는 조사가 붙어 있으니 표시가 아닙니다.
+  var m = t.match(/^(?:제)?\s*([1-3])\s*학\s*년\s*$/);
+  if (m) return { grade: Number(m[1]), rest: '' };
+
+  if (bareOk) {
+    // 표의 맨 왼쪽 학년 칸 — 숫자 한 자
+    var d = t.match(/^\[?\s*([1-3])\s*\]?\s*$/);
+    if (d) return { grade: Number(d[1]), rest: '' };
+    // 「1 자율활동 (34시간) 다양한…」 — 칸이 한 줄로 합쳐져 나올 때
+    var l = t.match(/^\[?\s*([1-3])\s*\]?\s+(?=[가-힣])/);
+    if (l) return { grade: Number(l[1]), rest: sgNorm(t.slice(l[0].length)) };
+  }
   return null;
+}
+
+// 옛 이름 — 학년 숫자만 돌려줍니다
+function sgGradeOf(line, bareOk) {
+  var m = sgGradeMarkOf(line, bareOk);
+  return m ? m.grade : null;
 }
 
 // 성적표 줄인가 — 「국어 국어 4 91/73.8(15.5) A(190) 2」 같은 것.
@@ -263,23 +291,11 @@ function sgSplitGrades(lines, sectionKey) {
     var line = sgNorm(raw);
     if (line === SG_CELL_BREAK) { (cur ? byGrade[cur] : pending).push(line); return; }
 
-    // ⚠️ 표의 맨 왼쪽 «학년» 칸이 줄 앞에 붙어 나오기도 합니다.
-    //      「1 자율활동 (34시간) 다양한 활동을…」
-    //    칸이 따로 떨어져 나올 때(「1」 한 줄)만 보다가 이걸 놓쳐서,
-    //    창체가 통째로 «학년 모름» 으로 갔습니다.
-    //    세특 표에서는 맨 왼쪽이 «학기» 라 여기서는 보지 않습니다.
-    if (bareOk) {
-      var lead = line.match(/^\[?\s*([1-3])\s*\]?\s+(?=[가-힣])/);
-      if (lead) { cur = Number(lead[1]); line = sgNorm(line.slice(lead[0].length)); }
-    }
-
-    var g = sgGradeOf(line, bareOk);
-    if (g) {
-      cur = g;
-      if (pending.length) { byGrade[g] = byGrade[g].concat(pending); pending = []; }
-      // 「2학년」 「[2학년]」 「2」 처럼 표시만 있는 줄이면 버립니다.
-      if (line.replace(/(?:제)?[1-3]\s*학\s*년/, '')
-              .replace(/[0-9()\[\]|:\s]/g, '') === '') return;
+    var mark = sgGradeMarkOf(line, bareOk);
+    if (mark) {
+      cur = mark.grade;
+      if (pending.length) { byGrade[cur] = byGrade[cur].concat(pending); pending = []; }
+      line = mark.rest;                 // 표시를 떼고 남은 글만 담습니다
     }
     if (!line) return;
     if (cur) byGrade[cur].push(line); else pending.push(line);
@@ -1135,7 +1151,7 @@ function sgBuild(lines) {
 // 브라우저 밖(시험)에서도 쓸 수 있게 내보냅니다.
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { sgSplitSections: sgSplitSections, sgItemsToLines: sgItemsToLines, sgCleanTopic: sgCleanTopic,
-                     sgIsTableRow: sgIsTableRow, sgBookOf: sgBookOf, sgSubjectOf: sgSubjectOf, sgIsNoise: sgIsNoise, sgGradeOf: sgGradeOf, sgSplitGrades: sgSplitGrades,
+                     sgIsTableRow: sgIsTableRow, sgBookOf: sgBookOf, sgSubjectOf: sgSubjectOf, sgIsNoise: sgIsNoise, sgGradeOf: sgGradeOf, sgGradeMarkOf: sgGradeMarkOf, sgSplitGrades: sgSplitGrades,
                      sgSentences: sgSentences, sgTopics: sgTopics, sgTraits: sgTraits,
                      sgSplitAreas: sgSplitAreas, sgSplitSubjects: sgSplitSubjects,
                      sgChunks: sgChunks, sgRecordText: sgRecordText, sgBlankItem: sgBlankItem,
