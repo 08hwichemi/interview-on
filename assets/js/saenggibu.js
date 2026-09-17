@@ -175,7 +175,11 @@ function sgIsNoise(line) {
 // 이걸 과목으로 잡는 바람에 「3학년 · 진로 선택 과목」 같은 칸이 생겼습니다.
 function sgIsCourseTable(line) {
   var t = sgNorm(line).replace(/\s/g, '');
-  return /이수학점|이수단위|학점합계|단위합계|이수단위합계/.test(t);
+  if (/이수학점|이수단위|학점합계|단위합계/.test(t)) return true;
+  // ⚠️ 표가 칸칸이 흩어져 오면 「이수학점 합계」 가 다른 줄로 가 버립니다.
+  //    남은 조각이 세특 끝에 들러붙어 「<진로 선택 과목>사회(역사/도…」 가 됐습니다.
+  //    교과 «구분» 이름이 보이면 그것도 이수 현황 표입니다.
+  return /진로선택과목|일반선택과목|공통과목|융합선택과목|전문교과/.test(t);
 }
 
 // 「진로 선택」 「일반 선택」 「공통」 은 과목 이름이 아니라 «교과 구분» 입니다.
@@ -283,6 +287,38 @@ function sgSentences(lines) {
 //    그래서 조각 사이의 «가로 틈» 을 봅니다.
 //    앞 조각이 끝난 자리와 다음 조각이 시작하는 자리가 거의 붙어 있으면
 //    한 낱말이니 그냥 붙이고, 뚝 떨어져 있을 때만 띄웁니다.
+// 이 칸이 «글» 칸인가 — 이름표 칸인가.
+//
+// ⚠️ 가로 위치만 보면 안 됩니다. 칸 나누기가 빗나가 「64 에 관심을 가지게…」 처럼
+//    시간 칸과 글이 한 덩이가 되면, 왼쪽에 있다는 이유로 이름표로 오해받아
+//    글까지 통째로 맨 위로 끌려 올라갑니다.
+//    이름표는 짧습니다. 길면 글로 봅니다.
+// 표 «머리글» 칸 — 「학년」 「영역」 「시간」 「특기사항」 같은 한 낱말.
+//
+// ⚠️ 예전에는 「학년 영역 시간 특기사항」 이 한 줄이라 sgIsNoise() 가 걸렀습니다.
+//    칸을 나누기 시작하면서 낱낱이 흩어졌고, 그러면 「특기사항」 이 글 칸에 있어서
+//    표의 «맨 위» 로 잡힙니다. 그 한 줄 때문에 칸 경계가 통째로 한 줄씩 밀립니다.
+//    글자가 똑같을 때만 버립니다 (「1학년」 같은 글은 건드리지 않습니다).
+var SG_HEAD_CELLS = [
+  '학년', '영역', '시간', '특기사항', '과목', '학기', '교과', '구분', '단위', '학점',
+  '비고', '이수시간', '활동내용', '수상명', '등급'
+];
+function sgIsHeadCell(text) {
+  return SG_HEAD_CELLS.indexOf(sgNorm(text).replace(/\s/g, '')) > -1;
+}
+
+// 옮겨도 되는 «아는 이름표» 인가 — 창체 갈래 이름이나 한 자리 학년.
+function sgIsCellLabel(text) {
+  var t = sgNorm(text).replace(/\s/g, '');
+  if (/^[1-3]$/.test(t)) return true;
+  return SG_AREAS.some(function (a) { return t === a.replace(/\s/g, ''); });
+}
+
+function sgIsProseCell(cell, proseX) {
+  if (cell.x >= proseX - 6) return true;
+  return sgNorm(cell.text).length > 14;
+}
+
 function sgItemsToLines(items) {
   var rows = [];
   (items || []).forEach(function (it) {
@@ -316,14 +352,17 @@ function sgItemsToLines(items) {
       if (i > 0 && cur) {
         var prev = parts[i - 1];
         var gap = p.x - (prev.x + prev.w);
-        if (gap > p.size * 2.2 && cur.text.length <= 14) { cells.push(cur); cur = null; }
+        // ⚠️ 문턱을 2.2로 잡았더니 «시간» 칸(64·41)이 좁아서 글과 안 떨어졌습니다.
+        //    그러면 「64 에 관심을 가지게 되었으며…」 한 덩이가 되고,
+        //    그게 왼쪽 칸이라 이름표로 오해받아 글까지 맨 위로 끌려 올라갔습니다.
+        if (gap > p.size * 1.5 && cur.text.length <= 14) { cells.push(cur); cur = null; }
         else if (gap > p.size * 0.25) cur.text += ' ';   // 글자 크기의 1/4 넘게 벌어지면 띄어쓰기
       }
       if (!cur) cur = { x: p.x, text: '' };
       cur.text += p.text;
     });
     if (cur) cells.push(cur);
-    return { y: line.y, cells: cells };
+    return { y: line.y, cells: cells.filter(function (c) { return !sgIsHeadCell(c.text); }) };
   });
 
   // ── 글이 실린 세로줄(특기사항 칸)이 어디인지 찾습니다 ──
@@ -355,6 +394,9 @@ function sgItemsToLines(items) {
   //
   //    이름표가 «칸 한가운데» 라는 것을 되짚으면 칸의 시작을 알 수 있습니다.
   //      칸이 [위 … 아래] 이고 이름표가 가운데면   아래 = 2 × 이름표 − 위
+  // ⚠️ «표가 시작하는 자리» 를 찾는 것이라, 글 칸에 «딱» 맞는 줄만 셉니다.
+  //    쪽 제목(「6. 창의적 체험활동상황」)이나 표 머리글까지 세면 표 위쪽이
+  //    실제보다 높게 잡혀서, 되짚은 칸 경계가 통째로 어긋납니다.
   var proseYs = [];
   grid.forEach(function (L) {
     if (L.cells.some(function (c) { return Math.abs(c.x - proseX) <= 6; })) proseYs.push(L.y);
@@ -372,32 +414,41 @@ function sgItemsToLines(items) {
   var lineH = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 12;
   var top = proseYs.length ? proseYs[0] + lineH / 2 : null;
 
-  var byCol = {};
+  // ⚠️ 아는 이름표만 옮깁니다.
+  //    표 머리글(「학년」 「영역」 「시간」)이나 시간 숫자까지 옮기면
+  //    줄 순서가 뒤엉킵니다. 저것들은 어차피 뒤에서 걸러집니다.
+  var byCol = {}, stay = [];
   grid.forEach(function (L) {
     L.cells.forEach(function (c) {
-      if (c.x >= proseX - 6) return;             // 글 칸은 이름표가 아닙니다
-      var k = Math.round(c.x / 8) * 8;           // 비슷한 가로 위치는 같은 세로줄
+      if (sgIsProseCell(c, proseX)) return;       // 글 칸은 이름표가 아닙니다
+      if (!sgIsCellLabel(c.text)) { stay.push({ y: L.y, text: c.text }); return; }
+      var k = Math.round(c.x / 8) * 8;            // 비슷한 가로 위치는 같은 세로줄
       (byCol[k] = byCol[k] || []).push({ y: L.y, text: c.text });
     });
   });
 
-  var moved = [];
-  Object.keys(byCol).forEach(function (k) {
+  // ⚠️ 한 세로줄이라도 셈이 어긋나면 그 줄은 통째로 제자리에 둡니다.
+  //    반만 옮기면 줄 순서가 뒤엉켜서, 글이 통째로 앞으로 튀어나옵니다.
+  var moved = stay;
+  Object.keys(byCol).sort(function (a, b) { return Number(a) - Number(b); }).forEach(function (k) {
     var col = byCol[k].sort(function (a, b) { return b.y - a.y; });
-    var edge = top;
+    var edge = top, plan = [], okay = (top !== null);
     col.forEach(function (m) {
+      if (!okay) return;
       var bottom = 2 * m.y - edge;
-      // 되짚은 칸이 이름표를 품지 못하면 셈이 어긋난 것입니다. 그때는 제자리에 둡니다.
-      var okay = (edge !== null && bottom < m.y && m.y <= edge);
-      moved.push({ y: okay ? edge + 0.5 : m.y, text: m.text });
-      if (okay) edge = bottom;
+      // 되짚은 칸이 이름표를 품어야 하고, 칸은 아래로만 자라야 합니다
+      if (!(bottom < m.y && m.y <= edge)) { okay = false; return; }
+      plan.push({ y: edge + 0.5, text: m.text });
+      edge = bottom;
     });
+    if (okay && plan.length === col.length) moved = moved.concat(plan);
+    else col.forEach(function (m) { moved.push({ y: m.y, text: m.text }); });
   });
 
   // 글 줄과 옮긴 이름표를 세로 순서대로 다시 늘어놓습니다
   var out = [];
   grid.forEach(function (L) {
-    var prose = L.cells.filter(function (c) { return c.x >= proseX - 6; })
+    var prose = L.cells.filter(function (c) { return sgIsProseCell(c, proseX); })
                        .map(function (c) { return c.text; }).join(' ');
     if (sgNorm(prose)) out.push({ y: L.y, text: prose });
   });
@@ -846,6 +897,11 @@ function sgSplitSubjects(lines) {
     var line = sgNorm(raw);
     if (!line) return;
 
+    // ⚠️ 칸을 나누기 시작하면서 「개인별」 과 「세부능력 및 특기사항」 이 따로 떨어져
+    //    나옵니다. 그러면 뒤엣것은 영역 제목으로 먹히고 「개인별」 만 남아,
+    //    개인별 기록이 통째로 앞 과목(영어 독해와 작문)에 붙어 버렸습니다.
+    if (/^개인별$/.test(line.replace(/\s/g, ''))) { cur = into(SG_PERSONAL); return; }
+
     // 「개인별 세부능력 및 특기사항」 은 과목이 아니라 따로 적는 칸입니다
     var pi = line.replace(/\s/g, '').indexOf(SG_PERSONAL.replace(/\s/g, ''));
     if (pi > -1) {
@@ -938,6 +994,7 @@ if (typeof module !== 'undefined' && module.exports) {
                      sgChunks: sgChunks, sgRecordText: sgRecordText, sgBlankItem: sgBlankItem,
                      sgIsPageFurniture: sgIsPageFurniture, sgIsHeading: sgIsHeading,
                      sgIsCourseTable: sgIsCourseTable, sgScrubFurniture: sgScrubFurniture,
+                     sgIsHeadCell: sgIsHeadCell, sgIsCellLabel: sgIsCellLabel,
                      sgMakeQuestions: sgMakeQuestions, sgBuild: sgBuild,
                      SG_SECTIONS: SG_SECTIONS };
 }
