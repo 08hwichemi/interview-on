@@ -106,11 +106,13 @@ function navigateTo(screenId) {
   if (screenId === 'my-reports') loadMyReports();
   window.scrollTo(0, 0);
 
-  // ⚠️ 여기서 걸음을 쌓지 않습니다.
-  //    이 함수는 사람이 단추를 눌러서 올 때도 있지만, 앱이 켜지면서 스스로 부를 때도
-  //    있습니다(로그인이 살아 있으면 곧장 홈으로). 그때 쌓은 걸음은 «사람의 손» 이
-  //    아니라 크롬이 건너뛰는데, 세어 버리면 그 뒤로 진짜 걸음을 한 번도 안 쌓습니다.
-  //    단추를 눌러서 온 경우라면 이미 pointerdown 에서 쌓였습니다.
+  // 화면을 하나 들어갈 때마다 걸음도 한 칸 씁니다. 그래야 뒤로가기가
+  // «들어온 만큼» 되돌아 나갈 수 있습니다.
+  // ⚠️ 다만 이 함수는 앱이 켜지면서 스스로 부를 때도 있습니다(로그인이 살아 있으면
+  //    곧장 홈으로). 그때 쌓은 걸음은 사람의 손이 아니라 크롬이 건너뛰는데,
+  //    세어 버리면 그 뒤로 진짜 걸음을 한 번도 안 쌓게 됩니다.
+  //    그래서 «지금 사람이 누르는 중인가» 를 브라우저에게 물어보고 그때만 쌓습니다.
+  armBackGuard(false);
 }
 
 // 대학 고르기 팝업(openUnivModal · closeUnivModal · selectUniv)은
@@ -186,14 +188,27 @@ function pushBestEffort() {
   try { history.pushState({ interviewOn: true }, ''); } catch (e) { /* 사생활 보호 모드 */ }
 }
 
-// ⚠️ 이 함수는 **손가락·자판 이벤트 안에서만** 불러야 합니다.
-//    그 순간이라야 브라우저가 걸음을 «사람이 만든 것» 으로 인정합니다.
+// 지금 이 순간이 «사람이 누르는 중» 인가를 브라우저에게 직접 물어봅니다.
+// 이걸 물어보면 «단추를 눌러서 온 것» 과 «앱이 스스로 부른 것» 을 가를 수 있습니다.
+// 모르는 브라우저에서는 안 쌓습니다 — 허깨비를 세는 것보다 안 세는 편이 낫습니다.
+function inUserGesture() {
+  try {
+    var ua = navigator.userActivation;
+    if (ua && typeof ua.isActive === 'boolean') return ua.isActive;
+  } catch (e) { /* 아래로 */ }
+  return false;
+}
+
+// ⚠️ 걸음은 **사람이 누르는 순간에만** 쌓아야 합니다.
+//    그 순간이라야 브라우저가 «사람이 만든 걸음» 으로 인정하고 건너뛰지 않습니다.
+//    sure = true 는 손가락·자판 이벤트 «안» 이라 따져 볼 것도 없는 자리입니다.
 // ⚠️ 그리고 **한 번에 한 칸만** 쌓습니다. 크롬은 터치 한 번당 걸음 하나만
 //    인정하므로, 한 번에 여러 칸을 밀어 넣으면 첫 칸만 진짜이고 나머지는
 //    허깨비인데 개수만 늘어납니다. 그러면 또 «이미 찼다» 며 안 쌓게 됩니다.
-function armBackGuard() {
+function armBackGuard(sure) {
   if (leavingNow()) return;
   if (backGuards >= GUARD_TARGET) return;
+  if (!sure && !inUserGesture()) return;
   pushCounted();
 }
 
@@ -256,7 +271,7 @@ window.addEventListener('popstate', function () {
 
 // 사람이 만질 때마다 걸음을 채웁니다. 이 걸음만 브라우저가 인정해 줍니다.
 ['pointerdown', 'touchstart', 'keydown'].forEach(function (t) {
-  window.addEventListener(t, armBackGuard, true);
+  window.addEventListener(t, function () { armBackGuard(true); }, true);
 });
 
 // 보조 안전망 (컴퓨터 브라우저용).
