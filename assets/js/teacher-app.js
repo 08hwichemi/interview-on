@@ -526,14 +526,9 @@ async function loadSheet() {
   paintSheetNote();
 }
 
-// 「질문지 저장」 — 면접은 시작하지 않고 질문만 남겨 둡니다.
-async function saveSheet() {
-  var list = composeQuestions();
-  if (!list.length) { toast('저장할 질문이 없습니다.', 'bad'); return; }
-
-  var btn = document.getElementById('btn-save-sheet');
-  btn.disabled = true; btn.textContent = '저장하는 중...';
-
+// 질문지 줄('준비중')을 챙기고 질문을 통째로 다시 씁니다.
+// 「질문지 저장」과 「면접 화면으로」가 같이 씁니다. 실패하면 false.
+async function keepSheet(list) {
   if (!sheetId) {
     const ins = await sb.from('interviews').insert({
       school_id: SCHOOL_ID,
@@ -543,7 +538,6 @@ async function saveSheet() {
       status: '준비중'
     }).select('id, started_at').single();
     if (ins.error) {
-      btn.disabled = false; btn.textContent = '질문지 저장';
       // 표가 아직 '준비중' 을 막고 있는 경우입니다. 무엇을 해야 하는지 알려 줍니다.
       if (/status_check/.test(ins.error.message || '')) {
         alert('질문지 기능을 쓰려면 Supabase 에서 아래 SQL 을 한 번 돌려야 합니다.\n' +
@@ -553,30 +547,39 @@ async function saveSheet() {
               "  add constraint interviews_status_check\n" +
               "    check (status in ('준비중','진행중','작성완료','전달됨'));");
         toast('표에 «준비중» 을 아직 허락하지 않았습니다.', 'bad');
-        return;
+        return false;
       }
       toast('질문지를 저장하지 못했습니다: ' + ins.error.message, 'bad');
-      return;
+      return false;
     }
     sheetId = ins.data.id; sheetSavedAt = ins.data.started_at;
   }
 
   // 뺀 질문이 남지 않게 통째로 다시 씁니다.
-  var del = await sb.from('interview_answers').delete().eq('interview_id', sheetId);
-  if (!del.error) {
+  var res = await sb.from('interview_answers').delete().eq('interview_id', sheetId);
+  if (!res.error) {
     var rows = list.map(function (q, i) {
       return { interview_id: sheetId, seq: i + 1,
                competency: q.competency, question: q.text,
                seconds: 0, good_tags: [], bad_tags: [], memo: '' };
     });
-    del = await sb.from('interview_answers').insert(rows);
+    res = await sb.from('interview_answers').insert(rows);
   }
-
-  btn.disabled = false; btn.textContent = '질문지 저장';
-  if (del.error) { toast('질문지를 저장하지 못했습니다: ' + del.error.message, 'bad'); return; }
-
+  if (res.error) { toast('질문지를 저장하지 못했습니다: ' + res.error.message, 'bad'); return false; }
   paintSheetNote();
-  toast('질문지를 저장했습니다. 면접 날 이 학생을 고르면 그대로 뜹니다.');
+  return true;
+}
+
+// 「질문지 저장」 — 면접은 시작하지 않고 질문만 남겨 둡니다.
+async function saveSheet() {
+  var list = composeQuestions();
+  if (!list.length) { toast('저장할 질문이 없습니다.', 'bad'); return; }
+
+  var btn = document.getElementById('btn-save-sheet');
+  btn.disabled = true; btn.textContent = '저장하는 중...';
+  var ok = await keepSheet(list);
+  btn.disabled = false; btn.textContent = '질문지 저장';
+  if (ok) toast('질문지를 저장했습니다. 면접 날 이 학생을 고르면 그대로 뜹니다.');
 }
 
 // 저장해 둔 질문지를 버립니다 (화면의 질문은 그대로 둡니다).
@@ -713,6 +716,14 @@ function paintStartButton() {
   if (save) save.hidden = editingMid;
 }
 
+// 「질문 완료 · 면접 화면으로 →」
+//
+// ⚠️ 이 단추는 **면접을 시작하지 않습니다.** 화면만 넘깁니다.
+//    예전에는 여기서 status 를 '진행중' 으로 바꿨는데, 그러면 시계를 한 번도
+//    안 눌렀는데도 «면접을 한 번 본 것» 이 되어 버렸습니다. 나갔다 들어오면
+//    지난 면접 목록에 회차가 하나 서 있고 리포트까지 나왔습니다.
+//    면접이 시작되는 때는 **진행 화면의 «면접 시작» 을 누른 순간**입니다 (toggleTimer).
+//    그때까지는 계속 '준비중' — 질문을 고치는 중입니다.
 async function startInterview() {
   // 첫인사 → 가운데 질문들 → 끝인사 순서로 한 줄로 폅니다.
   var list = composeQuestions();
@@ -725,38 +736,17 @@ async function startInterview() {
 
   var btn = document.getElementById('btn-start');
   btn.disabled = true;
-  btn.textContent = '시작하는 중...';
+  btn.textContent = '넘어가는 중...';
 
-  var newId = null, error = null;
-
-  if (sheetId) {
-    // 미리 만들어 둔 질문지가 있습니다. 그 줄을 그대로 면접으로 씁니다.
-    // (새로 만들면 빈 «준비중» 줄이 남습니다)
-    const up = await sb.from('interviews')
-      .update({ status: '진행중', started_at: new Date().toISOString() })
-      .eq('id', sheetId).select('id').single();
-    newId = up.data && up.data.id; error = up.error;
-  } else {
-    // 면접을 먼저 만들어 둡니다. 도중에 브라우저가 꺼져도 기록이 남습니다.
-    // 이때는 status 가 '진행중' 이라 학생에게 보이지 않습니다.
-    const ins = await sb.from('interviews').insert({
-      school_id: SCHOOL_ID,
-      student_id: target.id,
-      teacher_id: me.id,
-      teacher_name: me.name || '',
-      status: '진행중'
-    }).select('id').single();
-    newId = ins.data && ins.data.id; error = ins.error;
-  }
+  // 아직 '준비중' 인 줄을 만듭니다(없으면). 질문도 같이 남깁니다 —
+  // 진행 화면에서 창이 닫혀도 질문지는 살아 있어야 합니다.
+  var ok = await keepSheet(list);
 
   btn.disabled = false;
   btn.textContent = '질문 완료 · 면접 화면으로 →';
+  if (!ok) return;
 
-  if (error) { toast('면접을 시작하지 못했습니다: ' + error.message, 'bad'); return; }
-
-  interviewId = newId;
-  sheetId = null;            // 이제 질문지가 아니라 면접입니다
-  paintSheetNote();
+  interviewId = sheetId;     // 이 줄에 답을 적어 갑니다 (아직 '준비중' 입니다)
   qIndex = 0;
   answers = questions.map(function () {
     return { seconds: 0, good: [], bad: [], rating: null, memo: '' };
@@ -764,7 +754,8 @@ async function startInterview() {
   grades = {};
   liveInterview = true;
 
-  // 시계는 아직 멈춰 있습니다. 진행 화면에서 «면접 시작» 을 눌러야 흐릅니다.
+  // 시계는 아직 멈춰 있습니다. 진행 화면에서 «면접 시작» 을 눌러야 흐르고,
+  // 그때 비로소 면접이 «진행중» 이 됩니다.
   stopTicking();
   startedOnce = false;
   totalSeconds = 0;
@@ -772,6 +763,18 @@ async function startInterview() {
 
   show('run');
   showQuestion();
+}
+
+// 진행 화면의 «면접 시작» 을 처음 누른 순간 — 여기서부터가 진짜 면접입니다.
+async function markInterviewStarted() {
+  if (!interviewId || !sheetId) return;    // 이미 시작한 면접이거나 지난 회차입니다
+  const { error } = await sb.from('interviews')
+    .update({ status: '진행중', started_at: new Date().toISOString() })
+    .eq('id', interviewId);
+  if (error) { toast('면접을 시작하지 못했습니다: ' + error.message, 'bad'); return; }
+  sheetId = null;            // 이제 질문지가 아니라 면접입니다
+  sheetSavedAt = null;
+  paintSheetNote();
 }
 
 // 질문을 고친 뒤 하던 면접으로 돌아갑니다.
@@ -854,6 +857,8 @@ function stopTicking() {
 
 function toggleTimer() {
   if (ticking) { stopTicking(); return; }
+  // 처음 누르는 순간이 «면접 시작» 입니다. 이때 비로소 '진행중' 이 됩니다.
+  if (!startedOnce) markInterviewStarted();
   startedOnce = true;
   startTicking();
 }
@@ -1118,12 +1123,16 @@ async function finishInterview() {
     patch.edited_at = new Date().toISOString();
   } else {
     patch.status = '작성완료';
+    // 시계를 한 번도 안 누르고 곧장 마무리한 경우에도 시작한 때는 남겨 둡니다.
+    if (sheetId) patch.started_at = new Date().toISOString();
   }
 
   const { error } = await sb.from('interviews').update(patch).eq('id', interviewId);
 
   btn.disabled = false;
   btn.textContent = label;
+  // 마무리했으면 더는 «질문지» 가 아닙니다.
+  if (!error) { sheetId = null; sheetSavedAt = null; paintSheetNote(); }
 
   if (error) { toast('저장하지 못했습니다: ' + error.message, 'bad'); return; }
   liveInterview = false;   // 시간은 여기서 멈춥니다. 뒤에 고쳐도 더 흐르지 않습니다
