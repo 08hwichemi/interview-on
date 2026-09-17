@@ -154,6 +154,19 @@ function composeQuestions() {
   return list;
 }
 
+// ⚠️ 표에는 «첫인사/끝인사» 라는 칸이 없습니다 — 질문 글자만 남습니다.
+//    그대로 읽으면 자기소개와 「마지막으로 하고 싶은 말」이 가운데 질문에 섞이고
+//    준비 화면의 첫인사·끝인사 스위치가 꺼진 채로 뜹니다.
+//    맨 앞·맨 뒤 글자를 아는 인사말과 견주어 제자리를 찾아 줍니다.
+//    (선생님이 글자를 고쳤으면 그냥 가운데 질문이 됩니다 — 예전과 같습니다)
+function putBackSlots(list) {
+  var 인사말 = OPENINGS.map(function (o) { return o.text; });
+  if (list.length && 인사말.indexOf(list[0].text) > -1) list[0].slot = 'opening';
+  var 끝 = list.length - 1;
+  if (끝 >= 0 && list[끝].text === CLOSING_TEXT) list[끝].slot = 'closing';
+  return list;
+}
+
 // composeQuestions() 의 반대입니다. 준비 화면의 칸들을 지금 질문으로 채웁니다.
 //
 // ⚠️ 지난 회차를 열었을 때는 slot 이 없습니다 (표에 안 적습니다).
@@ -451,11 +464,124 @@ async function pickStudent(id) {
   };
   midQuestions = [];
   questions = [];
+  interviewId = null;
   resetGreetings();
   renderGreetings();
   renderQuestions();
   show('setup');
+  loadSheet();      // 미리 만들어 둔 질문지가 있으면 그대로 펴 놓습니다
   loadHistory();
+}
+
+// ══════════════ 미리 만들어 두는 질문지 ══════════════
+//
+// 선생님은 학생이 배정되면 생기부를 보고 **면접 전에 미리** 질문을 만들어 둡니다.
+// 그래서 학생마다 질문지를 하나 저장해 두고, 면접 날에는 학생을 고르기만 하면
+// 그 질문지가 그대로 뜨게 했습니다.
+//
+// 표를 새로 만들지 않고 interviews 를 씁니다 — **status 가 '준비중' 인 줄이 질문지**입니다.
+//   · 질문 글자는 이미 interview_answers 에 넣게 되어 있습니다 (점수·시간만 비워 둡니다)
+//   · 학생은 '전달됨' 만 볼 수 있으므로 (RLS) 질문지는 학생에게 안 보입니다
+//   · 「면접 시작」을 누르면 **그 줄이 그대로 '진행중'** 이 됩니다. 새로 만들지 않습니다
+//   · 지난 면접 목록에서는 빼 둡니다 — 회차가 아니니까요
+//
+// ⚠️ 표에 '준비중' 을 허락해 두어야 합니다 (docs/할-일.md 의 SQL 한 줄).
+var sheetId = null;        // 지금 학생의 «준비중» 줄 id
+var sheetSavedAt = null;
+
+function paintSheetNote() {
+  var box = document.getElementById('sheet-note');
+  if (!box) return;
+  box.hidden = !sheetId;
+  if (!sheetId) return;
+  var when = sheetSavedAt ? new Date(sheetSavedAt) : null;
+  document.getElementById('sheet-when').textContent = when
+    ? (when.getMonth() + 1) + '월 ' + when.getDate() + '일에 저장' : '';
+}
+
+// 학생을 고르면 저장해 둔 질문지를 그대로 펴 놓습니다.
+async function loadSheet() {
+  sheetId = null; sheetSavedAt = null;
+  paintSheetNote();
+  if (!target || !me) return;
+
+  const { data, error } = await sb.from('interviews')
+    .select('id, started_at')
+    .eq('student_id', target.id).eq('teacher_id', me.id).eq('status', '준비중')
+    .order('started_at', { ascending: false }).limit(1);
+  if (error || !data || !data.length) return;
+
+  const rows = await sb.from('interview_answers')
+    .select('seq, question, competency')
+    .eq('interview_id', data[0].id).order('seq', { ascending: true });
+  if (rows.error) return;
+
+  sheetId = data[0].id;
+  sheetSavedAt = data[0].started_at;
+  decomposeQuestions(putBackSlots((rows.data || []).map(function (a) {
+    return { text: a.question, competency: a.competency || '기타' };
+  })));
+  renderGreetings();
+  renderQuestions();
+  paintSheetNote();
+}
+
+// 「질문지 저장」 — 면접은 시작하지 않고 질문만 남겨 둡니다.
+async function saveSheet() {
+  var list = composeQuestions();
+  if (!list.length) { toast('저장할 질문이 없습니다.', 'bad'); return; }
+
+  var btn = document.getElementById('btn-save-sheet');
+  btn.disabled = true; btn.textContent = '저장하는 중...';
+
+  if (!sheetId) {
+    const ins = await sb.from('interviews').insert({
+      school_id: SCHOOL_ID,
+      student_id: target.id,
+      teacher_id: me.id,
+      teacher_name: me.name || '',
+      status: '준비중'
+    }).select('id, started_at').single();
+    if (ins.error) {
+      btn.disabled = false; btn.textContent = '질문지 저장';
+      toast('질문지를 저장하지 못했습니다: ' + ins.error.message, 'bad');
+      return;
+    }
+    sheetId = ins.data.id; sheetSavedAt = ins.data.started_at;
+  }
+
+  // 뺀 질문이 남지 않게 통째로 다시 씁니다.
+  var del = await sb.from('interview_answers').delete().eq('interview_id', sheetId);
+  if (!del.error) {
+    var rows = list.map(function (q, i) {
+      return { interview_id: sheetId, seq: i + 1,
+               competency: q.competency, question: q.text,
+               seconds: 0, good_tags: [], bad_tags: [], memo: '' };
+    });
+    del = await sb.from('interview_answers').insert(rows);
+  }
+
+  btn.disabled = false; btn.textContent = '질문지 저장';
+  if (del.error) { toast('질문지를 저장하지 못했습니다: ' + del.error.message, 'bad'); return; }
+
+  paintSheetNote();
+  toast('질문지를 저장했습니다. 면접 날 이 학생을 고르면 그대로 뜹니다.');
+}
+
+// 저장해 둔 질문지를 버립니다 (화면의 질문은 그대로 둡니다).
+// ⚠️ 교사 화면에는 showConfirm() 이 없습니다 — 그건 학생 앱(ui.js) 것입니다.
+//    여기서는 다른 지우기들과 같이 브라우저 confirm 을 씁니다.
+async function deleteSheet() {
+  if (!sheetId) return;
+  if (!confirm('저장해 둔 질문지를 지울까요?\n화면에 있는 질문은 그대로 둡니다.')) return;
+
+  var id = sheetId;
+  sheetId = null; sheetSavedAt = null;
+  paintSheetNote();
+  await sb.from('interview_answers').delete().eq('interview_id', id);
+  const { error } = await sb.from('interviews').delete().eq('id', id);
+  if (error) { toast('질문지를 지우지 못했습니다: ' + error.message, 'bad'); return; }
+  toast('질문지를 지웠습니다.');
 }
 
 async function loadHistory() {
@@ -466,6 +592,7 @@ async function loadHistory() {
     .from('interviews')
     .select('id, started_at, status, teacher_name, grades')
     .eq('student_id', target.id)
+    .neq('status', '준비중')        // 미리 만들어 둔 질문지는 회차가 아닙니다
     .order('started_at', { ascending: false });
 
   if (error) { box.innerHTML = '<p class="empty">지난 기록을 못 읽었습니다: ' + esc(error.message) + '</p>'; return; }
@@ -522,7 +649,14 @@ function renderQuestions() {
     }).join('');
   }
   renderGreetings();
-  document.getElementById('btn-start').disabled = (composeQuestions().length === 0);
+  var 빔 = composeQuestions().length === 0;
+  document.getElementById('btn-start').disabled = 빔;
+  var save = document.getElementById('btn-save-sheet');
+  if (save) {
+    save.disabled = 빔;
+    // 면접을 하다가 질문을 고치러 온 중이면 «질문지» 가 아니라 «지금 면접» 입니다.
+    save.hidden = editingMid;
+  }
   paintStartButton();
 }
 
@@ -564,6 +698,8 @@ function paintStartButton() {
   // 면접 도중에는 지난 회차를 눌러 열면 지금 면접이 날아갑니다. 접어 둡니다.
   var hist = document.getElementById('history-box');
   if (hist) hist.hidden = editingMid;
+  var save = document.getElementById('btn-save-sheet');
+  if (save) save.hidden = editingMid;
 }
 
 async function startInterview() {
@@ -580,22 +716,36 @@ async function startInterview() {
   btn.disabled = true;
   btn.textContent = '시작하는 중...';
 
-  // 면접을 먼저 만들어 둡니다. 도중에 브라우저가 꺼져도 기록이 남습니다.
-  // 이때는 status 가 '진행중' 이라 학생에게 보이지 않습니다.
-  const { data, error } = await sb.from('interviews').insert({
-    school_id: SCHOOL_ID,
-    student_id: target.id,
-    teacher_id: me.id,
-    teacher_name: me.name || '',
-    status: '진행중'
-  }).select('id').single();
+  var newId = null, error = null;
+
+  if (sheetId) {
+    // 미리 만들어 둔 질문지가 있습니다. 그 줄을 그대로 면접으로 씁니다.
+    // (새로 만들면 빈 «준비중» 줄이 남습니다)
+    const up = await sb.from('interviews')
+      .update({ status: '진행중', started_at: new Date().toISOString() })
+      .eq('id', sheetId).select('id').single();
+    newId = up.data && up.data.id; error = up.error;
+  } else {
+    // 면접을 먼저 만들어 둡니다. 도중에 브라우저가 꺼져도 기록이 남습니다.
+    // 이때는 status 가 '진행중' 이라 학생에게 보이지 않습니다.
+    const ins = await sb.from('interviews').insert({
+      school_id: SCHOOL_ID,
+      student_id: target.id,
+      teacher_id: me.id,
+      teacher_name: me.name || '',
+      status: '진행중'
+    }).select('id').single();
+    newId = ins.data && ins.data.id; error = ins.error;
+  }
 
   btn.disabled = false;
   btn.textContent = '질문 완료 · 면접 화면으로 →';
 
   if (error) { toast('면접을 시작하지 못했습니다: ' + error.message, 'bad'); return; }
 
-  interviewId = data.id;
+  interviewId = newId;
+  sheetId = null;            // 이제 질문지가 아니라 면접입니다
+  paintSheetNote();
   qIndex = 0;
   answers = questions.map(function () {
     return { seconds: 0, good: [], bad: [], rating: null, memo: '' };
@@ -1080,16 +1230,9 @@ async function openPast(id, round) {
   // 고치기로 들어갈 수 있도록 화면 상태를 그 면접으로 되돌립니다.
   interviewId = id;
   viewing = { interview: r.interview, answers: r.answers, round: round };
-  // ⚠️ 표에는 «첫인사/끝인사» 라는 칸이 없습니다(질문 글자만 남습니다).
-  //    그대로 읽으면 자기소개와 「마지막으로 하고 싶은 말」이 가운데 질문에 섞이고
-  //    준비 화면의 첫인사·끝인사 스위치가 꺼진 채로 뜹니다.
-  //    맨 앞·맨 뒤의 글자를 아는 인사말과 견주어 제자리를 찾아 줍니다.
-  //    (선생님이 글자를 고쳤으면 그냥 가운데 질문이 됩니다 — 예전과 같습니다)
-  questions = r.answers.map(function (a) { return { text: a.question, competency: a.competency }; });
-  var 인사말 = OPENINGS.map(function (o) { return o.text; });
-  if (questions.length && 인사말.indexOf(questions[0].text) > -1) questions[0].slot = 'opening';
-  var 끝 = questions.length - 1;
-  if (끝 >= 0 && questions[끝].text === CLOSING_TEXT) questions[끝].slot = 'closing';
+  questions = putBackSlots(r.answers.map(function (a) {
+    return { text: a.question, competency: a.competency };
+  }));
   answers = r.answers.map(function (a) {
     return { seconds: a.seconds || 0, good: a.good_tags || [], bad: a.bad_tags || [],
              rating: a.rating || null, memo: a.memo || '' };

@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-17.26">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-17.27">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-17.26">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-17.26">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-17.26">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-17.26">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-17.26">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-17.27">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-17.27">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-17.27">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-17.27">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-17.27">
 </head>
 <body>
 
@@ -113,6 +113,13 @@
             이미 매긴 평가는 그대로 있습니다. 시계는 잠깐 멈춰 두었습니다.
           </p>
 
+          <!-- 미리 저장해 둔 질문지를 불러왔을 때만 뜹니다 -->
+          <p class="note info" id="sheet-note" hidden style="margin-top:16px">
+            <b>미리 만들어 둔 질문지입니다.</b> <span id="sheet-when"></span> ·
+            고치고 다시 저장하시면 됩니다.
+            <button class="linkbtn danger" onclick="deleteSheet()" style="margin-left:6px">질문지 지우기</button>
+          </p>
+
           <div id="history-box">
             <p class="sec" style="margin-top:22px">지난 면접</p>
             <div id="history"></div>
@@ -138,7 +145,16 @@
           <p class="sec" style="margin-top:22px">끝인사 <span class="opt">(면접을 닫는 질문)</span></p>
           <div id="closing-box"></div>
 
-          <div class="actionbar"><button class="btn solid main" id="btn-start" onclick="startInterview()" disabled>질문 완료 · 면접 화면으로 →</button></div>
+          <!-- 면접은 학생이 오기 전에 미리 준비합니다.
+               «질문지 저장» 은 면접을 시작하지 않고 질문만 남겨 둡니다. -->
+          <p class="hint" style="margin-top:22px">
+            면접 날 전에 만들어 두시려면 <b>질문지 저장</b>을 누르세요.
+            나중에 이 학생을 고르기만 하면 이 질문지가 그대로 뜹니다.
+          </p>
+          <div class="actionbar">
+            <button class="ghost" id="btn-save-sheet" onclick="saveSheet()">질문지 저장</button>
+            <button class="btn solid main" id="btn-start" onclick="startInterview()" disabled>질문 완료 · 면접 화면으로 →</button>
+          </div>
         </div>
       </section>
 
@@ -384,17 +400,17 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-17.26"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-17.26"></script>
-<script src="../assets/js/utils.js?v=2026-09-17.26"></script>
-<script src="../assets/js/api.js?v=2026-09-17.26"></script>
-<script src="../assets/js/browse.js?v=2026-09-17.26"></script>
-<script src="../assets/js/reviews.js?v=2026-09-17.26"></script>
-<script src="../assets/js/questions.js?v=2026-09-17.26"></script>
-<script src="../assets/js/report.js?v=2026-09-17.26"></script>
-<script src="../assets/js/chat.js?v=2026-09-17.26"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-17.26"></script>
-<script src="../assets/js/saenggibu.js?v=2026-09-17.26"></script>
+<script src="../assets/js/config.js?v=2026-09-17.27"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-17.27"></script>
+<script src="../assets/js/utils.js?v=2026-09-17.27"></script>
+<script src="../assets/js/api.js?v=2026-09-17.27"></script>
+<script src="../assets/js/browse.js?v=2026-09-17.27"></script>
+<script src="../assets/js/reviews.js?v=2026-09-17.27"></script>
+<script src="../assets/js/questions.js?v=2026-09-17.27"></script>
+<script src="../assets/js/report.js?v=2026-09-17.27"></script>
+<script src="../assets/js/chat.js?v=2026-09-17.27"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-17.27"></script>
+<script src="../assets/js/saenggibu.js?v=2026-09-17.27"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
