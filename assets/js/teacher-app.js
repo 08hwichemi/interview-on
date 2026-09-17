@@ -544,6 +544,17 @@ async function saveSheet() {
     }).select('id, started_at').single();
     if (ins.error) {
       btn.disabled = false; btn.textContent = '질문지 저장';
+      // 표가 아직 '준비중' 을 막고 있는 경우입니다. 무엇을 해야 하는지 알려 줍니다.
+      if (/status_check/.test(ins.error.message || '')) {
+        alert('질문지 기능을 쓰려면 Supabase 에서 아래 SQL 을 한 번 돌려야 합니다.\n' +
+              '(Supabase → SQL Editor → 붙여넣고 Run)\n\n' +
+              "alter table public.interviews\n" +
+              "  drop constraint if exists interviews_status_check,\n" +
+              "  add constraint interviews_status_check\n" +
+              "    check (status in ('준비중','진행중','작성완료','전달됨'));");
+        toast('표에 «준비중» 을 아직 허락하지 않았습니다.', 'bad');
+        return;
+      }
       toast('질문지를 저장하지 못했습니다: ' + ins.error.message, 'bad');
       return;
     }
