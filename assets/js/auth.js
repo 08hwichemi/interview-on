@@ -120,6 +120,8 @@ async function logout() {
     await sb.auth.signOut();
     currentUser = null;
     appMeta = { rev: [], q: [] };
+    // 일부러 나가는 길입니다 — 뒤로가기 막음이 «나가시겠습니까?» 를 묻지 않게 합니다
+    if (typeof allowLeaving === 'function') allowLeaving();
     location.reload();
   });
 }
@@ -161,8 +163,9 @@ async function enterApp() {
   // 학생은 이 모바일 앱, 선생님은 면접 화면으로 갑니다.
   // 관리자는 «명단 관리» 가 본업이라 곧바로 그 화면으로 보냅니다.
   // (면접도 보시므로 거기 머리말에서 면접 화면으로 건너갈 수 있습니다)
-  if (currentUser.role === 'admin')   { location.replace('admin/');   return; }
-  if (currentUser.role !== 'student') { location.replace('teacher/'); return; }
+  // 다른 화면으로 옮겨 가는 길입니다 — 뒤로가기 막음이 가로막지 않게 합니다
+  if (currentUser.role === 'admin')   { if (typeof allowLeaving === 'function') allowLeaving(); location.replace('admin/');   return; }
+  if (currentUser.role !== 'student') { if (typeof allowLeaving === 'function') allowLeaving(); location.replace('teacher/'); return; }
 
   setBusy(true);
 

@@ -253,8 +253,14 @@ html { overflow-y: auto; scrollbar-gutter: stable; }
 body.has-update #app-container { padding-top: var(--updatebar-h, 44px); }
 body.has-update .header { top: var(--updatebar-h, 44px); }
 
-/* 지금 보고 있는 판 번호 */
-.verlabel { font-size: 10px; color: var(--ink-3); opacity: .8; }
+/* 지금 보고 있는 판 번호.
+   연달아 세 번 누르면 뒤로가기 막음 상태를 보여 줍니다(ui.js).
+   글자가 잡혀서 «복사·공유» 메뉴가 뜨지 않도록 선택을 막아 둡니다. */
+.verlabel {
+  font-size: 10px; color: var(--ink-3); opacity: .8;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  cursor: pointer;
+}
 
 /* --- 안 읽은 리포트 개수 (빨간 숫자) --- */
 .newbadge {

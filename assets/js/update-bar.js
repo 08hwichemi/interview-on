@@ -20,7 +20,7 @@
 // ※ 새 판을 올릴 때는 손으로 고치지 말고 `python3 tools/판올리기.py` 를 쓰세요.
 //    version.txt · BUILD_ID · 파일 주소 세 곳을 한꺼번에 맞춥니다.
 
-var BUILD_ID = '2026-09-17.17';
+var BUILD_ID = '2026-09-17.18';
 var UPDATE_SHOWN = false;
 var SERVER_VERSION = null;   // 서버에 올라와 있는 판 번호
 
@@ -100,6 +100,8 @@ function paintVersion() {
 // 그냥 location.reload() 를 하면 브라우저가 쥐고 있던 옛 js·css 를 그대로 다시 씁니다.
 // 주소를 바꿔야 새 파일을 받습니다.
 function reloadFresh() {
+  // 일부러 다시 여는 길입니다 — 뒤로가기 막음(ui.js)이 «나가시겠습니까?» 를 묻지 않게 합니다
+  if (typeof allowLeaving === 'function') allowLeaving();
   var base = location.href.split('?')[0].split('#')[0];
   location.replace(base + '?v=' + encodeURIComponent(SERVER_VERSION || String(Date.now())));
 }
