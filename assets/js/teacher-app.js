@@ -102,14 +102,34 @@ function renderGreetings() {
 }
 
 // 실제로 면접에 낼 질문 — 첫인사 + 가운데 질문들 + 끝인사
+//
+// slot 을 같이 달아 둡니다. 면접 도중에 «질문 고치기» 로 돌아올 때
+// 이걸 보고 첫인사·가운데·끝인사로 도로 풀어 놓습니다 (decomposeQuestions).
 function composeQuestions() {
   var list = [];
-  if (hasOpening()) list.push({ text: opening.text.trim(), competency: opening.comp });
+  if (hasOpening()) list.push({ text: opening.text.trim(), competency: opening.comp, slot: 'opening' });
   midQuestions.forEach(function (q) {
-    if (q.text.trim()) list.push({ text: q.text.trim(), competency: q.competency });
+    if (q.text.trim()) list.push({ text: q.text.trim(), competency: q.competency, slot: 'mid' });
   });
-  if (hasClosing()) list.push({ text: closing.text.trim(), competency: '기타' });
+  if (hasClosing()) list.push({ text: closing.text.trim(), competency: '기타', slot: 'closing' });
   return list;
+}
+
+// composeQuestions() 의 반대입니다. 준비 화면의 칸들을 지금 질문으로 채웁니다.
+//
+// ⚠️ 지난 회차를 열었을 때는 slot 이 없습니다 (표에 안 적습니다).
+//    그때는 전부 «가운데 질문» 으로 폅니다. 첫인사·끝인사 칸을 억지로
+//    맞히려다 엉뚱한 질문이 첫인사로 올라가는 것보다 낫습니다.
+function decomposeQuestions(list) {
+  midQuestions = [];
+  opening = { on: false, key: opening.key, text: opening.text, comp: opening.comp };
+  closing = { on: false, text: closing.text };
+
+  (list || []).forEach(function (q) {
+    if (q.slot === 'opening') { opening = { on: true, key: opening.key, text: q.text, comp: q.competency }; return; }
+    if (q.slot === 'closing') { closing = { on: true, text: q.text }; return; }
+    midQuestions.push({ text: q.text, competency: q.competency });
+  });
 }
 
 // ── 상태 ──
@@ -145,6 +165,10 @@ var totalSeconds = 0;     // 면접 전체
 // 이게 없어서, 옛 면접을 열고 «질문으로» 를 누르면 그 면접의 전체 시간이
 // 실시간으로 불어났습니다.
 var liveInterview = false;
+// 면접을 하다가 «질문 고치기» 로 준비 화면에 돌아와 있는 중인가.
+// 이때는 왼쪽 칸을 학생 명단으로 되돌리면 안 됩니다. 다른 학생을 누르면
+// 지금 면접의 질문이 통째로 날아갑니다.
+var editingMid = false;
 
 // ── 공통 ──
 function toast(msg, kind) {
@@ -159,7 +183,9 @@ function show(view) {
     document.getElementById('view-' + v).hidden = (v !== view);
   });
   // 면접 중에는 왼쪽 칸이 질문 진행 상황으로 바뀝니다.
-  var inInterview = (view === 'run' || view === 'finish' || view === 'report');
+  // 질문을 고치러 준비 화면에 와 있을 때도 마찬가지입니다 — 명단을 되돌려 놓으면
+  // 다른 학생을 눌러서 지금 면접의 질문을 날려 버릴 수 있습니다.
+  var inInterview = (view === 'run' || view === 'finish' || view === 'report') || editingMid;
   document.getElementById('rail-students').hidden = inInterview;
   document.getElementById('rail-progress').hidden = !inInterview;
   if (inInterview) renderRailProgress();
@@ -354,6 +380,7 @@ function backToList() {
   }
   stopTicking();
   liveInterview = false;
+  editingMid = false;
   interviewId = null;
   viewing = null;
   target = null;
@@ -370,6 +397,8 @@ function backToList() {
 // ══════════════ 준비 ══════════════
 
 async function pickStudent(id) {
+  // 면접 도중 질문을 고치는 중이라면 명단이 보이지 않지만, 혹시 몰라 막아 둡니다.
+  if (editingMid) return;
   target = students.filter(function (s) { return s.id === id; })[0];
   if (!target) return;
 
@@ -455,6 +484,7 @@ function renderQuestions() {
   }
   renderGreetings();
   document.getElementById('btn-start').disabled = (composeQuestions().length === 0);
+  paintStartButton();
 }
 
 async function loadCommon(category, competency) {
@@ -471,10 +501,41 @@ async function loadCommon(category, competency) {
 
 // ══════════════ 진행 ══════════════
 
+// ── 면접 도중에 질문 고치기 ──
+//
+// 선생님 말씀: «질문 완료 했다가 면접 화면 갔을 때 질문을 수정하고 싶을 때
+// 수정이 안 되더라». 첫 질문에서 «← 이전» 이 아무것도 안 했습니다.
+// 이제 그 자리에서 준비 화면으로 돌아옵니다. 매긴 평가는 그대로 있습니다.
+async function editQuestions() {
+  if (interviewId) await saveAnswer(qIndex);
+  // 선생님이 질문을 손보는 동안 시간이 가면 안 됩니다. 돌아가서 «이어서» 를 누르시면 됩니다.
+  stopTicking();
+  editingMid = true;
+  decomposeQuestions(questions);
+  renderGreetings();
+  renderQuestions();
+  show('setup');
+}
+
+function paintStartButton() {
+  var btn = document.getElementById('btn-start');
+  var note = document.getElementById('setup-editing');
+  btn.textContent = editingMid ? '고치기 끝 · 면접 화면으로 →' : '질문 완료 · 면접 화면으로 →';
+  if (note) note.hidden = !editingMid;
+  // 면접 도중에는 지난 회차를 눌러 열면 지금 면접이 날아갑니다. 접어 둡니다.
+  var hist = document.getElementById('history-box');
+  if (hist) hist.hidden = editingMid;
+}
+
 async function startInterview() {
   // 첫인사 → 가운데 질문들 → 끝인사 순서로 한 줄로 폅니다.
-  questions = composeQuestions();
-  if (!questions.length) { toast('질문이 없습니다.', 'bad'); return; }
+  var list = composeQuestions();
+  if (!list.length) { toast('질문이 없습니다.', 'bad'); return; }
+
+  // 이미 하던 면접이라면 새로 만들지 않고 그 면접으로 돌아갑니다.
+  if (interviewId && editingMid) { await resumeWithQuestions(list); return; }
+
+  questions = list;
 
   var btn = document.getElementById('btn-start');
   btn.disabled = true;
@@ -511,6 +572,64 @@ async function startInterview() {
 
   show('run');
   showQuestion();
+}
+
+// 질문을 고친 뒤 하던 면접으로 돌아갑니다.
+//
+// ⚠️ 매긴 평가를 잃지 않는 것이 핵심입니다.
+//    answers 는 «몇 번째 질문» 으로 매여 있어서, 질문을 하나 끼워 넣으면
+//    그 뒤의 평가가 통째로 한 칸씩 밀립니다.
+//    그래서 번호가 아니라 «질문 글자» 로 짝을 다시 맞춥니다.
+//    글자를 고친 질문은 짝을 못 찾아 빈칸으로 돌아갑니다. 그게 맞습니다 —
+//    다른 질문이 된 것이니까요.
+async function resumeWithQuestions(list) {
+  var btn = document.getElementById('btn-start');
+  btn.disabled = true;
+  btn.textContent = '저장하는 중...';
+
+  var oldQ = questions, oldA = answers, used = {};
+  answers = list.map(function (q) {
+    for (var i = 0; i < oldQ.length; i++) {
+      if (used[i] || oldQ[i].text !== q.text) continue;
+      used[i] = true;
+      return oldA[i];
+    }
+    return { seconds: 0, good: [], bad: [], rating: null, memo: '' };
+  });
+  questions = list;
+  if (qIndex >= questions.length) qIndex = questions.length - 1;
+
+  var ok = await rewriteAnswers();
+
+  btn.disabled = false;
+  paintStartButton();
+  if (!ok) return;          // 저장이 안 되면 준비 화면에 그대로 둡니다
+
+  editingMid = false;
+  show('run');
+  showQuestion();
+  toast('질문을 고쳤습니다. 매긴 평가는 그대로 있습니다.', 'ok');
+}
+
+// 질문 순서가 바뀌었으니 표의 줄도 통째로 다시 씁니다.
+// (seq 로 맞춰 둔 줄이라 하나씩 고치면 엉킵니다)
+async function rewriteAnswers() {
+  var del = await sb.from('interview_answers').delete().eq('interview_id', interviewId);
+  if (del.error) { toast('질문을 저장하지 못했습니다: ' + del.error.message, 'bad'); return false; }
+
+  var rows = questions.map(function (q, i) {
+    var a = answers[i];
+    return {
+      interview_id: interviewId, seq: i + 1,
+      competency: q.competency, question: q.text,
+      seconds: a.seconds, good_tags: a.good, bad_tags: a.bad,
+      rating: a.rating, memo: a.memo || ''
+    };
+  });
+  if (!rows.length) return true;
+  const { error } = await sb.from('interview_answers').insert(rows);
+  if (error) { toast('질문을 저장하지 못했습니다: ' + error.message, 'bad'); return false; }
+  return true;
 }
 
 // ── 시계 하나로 둘을 같이 ──
@@ -567,7 +686,9 @@ function showQuestion() {
   paintTimer();
   paintTotal();
   paintTimerButton();
-  document.getElementById('btn-prev').disabled = (qIndex === 0);
+  var prev = document.getElementById('btn-prev');
+  prev.disabled = false;
+  prev.textContent = (qIndex === 0) ? '← 질문 고치기' : '← 이전';
   document.getElementById('btn-next').textContent =
     (qIndex === questions.length - 1) ? '면접 마무리 →' : '다음 질문 →';
 
@@ -656,7 +777,9 @@ async function goToQuestion(i) {
 }
 
 async function prevQuestion() {
-  if (qIndex === 0) return;
+  // 첫 질문에서는 «준비 화면» 으로 돌아갑니다.
+  // 예전에는 여기서 아무 일도 안 일어나서, 질문을 고칠 길이 없었습니다.
+  if (qIndex === 0) { await editQuestions(); return; }
   await saveAnswer(qIndex);
   qIndex--;
   showQuestion();
@@ -899,6 +1022,7 @@ async function openPast(id, round) {
   totalSeconds = r.interview.total_seconds || 0;
   qIndex = 0;
   liveInterview = false;   // 지난 회차입니다. 시간이 더 흐르면 안 됩니다
+  editingMid = false;
   startedOnce = false;
   stopTicking();
   paintTotal();

@@ -60,6 +60,11 @@ function 확인(무엇, 참인가, 덧붙임) {
   if (!참인가) 실패++;
 }
 
+// 묶음(과목·갈래·행특)마다 «직접 적기» 칸이 하나씩 딸려 나옵니다.
+// 기계가 «뽑은» 질문만 보고 싶을 때 씁니다.
+function 뽑힌(qs) { return (qs || []).filter(function (q) { return !q.blank; }); }
+function 적는칸(qs) { return (qs || []).filter(function (q) { return q.blank; }); }
+
 // ① 영역 자르기
 제목('영역 자르기');
 var sec = sg.sgSplitSections(LINES);
@@ -112,8 +117,20 @@ console.log('  창체 ' + r.counts.changche + '개 · 세특 ' + r.counts.sesa +
      r.counts.changche > 0 && r.counts.sesa > 0 && r.counts.haengteuk > 0);
 확인('학년이 붙어 있는가', r.questions.every(function (q) { return q.grade >= 0 && q.grade <= 3; }));
 확인('원문이 같이 있는가', r.questions.every(function (q) { return q.source && q.source.length > 10; }));
+// «직접 적기» 칸의 글자는 선생님이 고쳐 쓰실 밑글이라 묶음마다 같아도 됩니다.
+// 기계가 뽑은 질문끼리만 겹치지 않으면 됩니다.
 확인('같은 질문이 겹치지 않는가',
-     new Set(r.questions.map(function (q) { return q.text; })).size === r.questions.length);
+     new Set(뽑힌(r.questions).map(function (q) { return q.text; })).size === 뽑힌(r.questions).length);
+확인('묶음마다 «직접 적기» 칸이 하나씩 있는가',
+     (function () {
+       var by = {};
+       r.questions.forEach(function (q) {
+         var k = q.grade + '|' + q.area + '|' + (q.subject || '(과목 모름)');
+         by[k] = by[k] || 0;
+         if (q.blank) by[k]++;
+       });
+       return Object.keys(by).every(function (k) { return by[k] === 1; });
+     })());
 
 제목('나온 질문 (영역·학년별)');
 ['changche', 'sesa', 'haengteuk'].forEach(function (k) {
@@ -172,11 +189,11 @@ var 창체갈림 = sg.sgSplitGrades(창체줄, 'changche');
 
 // ══ 한 이야깃거리에 질문 하나 ══
 제목('한 이야깃거리에 질문 하나만');
-var 하나 = sg.sgMakeQuestions('sesa', 1, ['「삼투압과 세포의 부피 변화」에 대해 탐구를 진행함.']);
+var 하나 = 뽑힌(sg.sgMakeQuestions('sesa', 1, ['「삼투압과 세포의 부피 변화」에 대해 탐구를 진행함.']));
 확인('두 줄로 늘어서지 않는가', 하나.length === 1, 하나.length + '개: ' + 하나.map(function(q){return q.text.slice(0,20);}).join(' | '));
 확인('탐구는 과정을 묻는가', 하나.length === 1 && 하나[0].text.indexOf('무엇이 궁금해서') > -1, 하나[0] && 하나[0].text);
 
-var 설명 = sg.sgMakeQuestions('sesa', 1, ['정보: 「자료구조」 단원을 배움.']);
+var 설명 = 뽑힌(sg.sgMakeQuestions('sesa', 1, ['정보: 「자료구조」 단원을 배움.']));
 확인('개념은 설명을 시키는가', 설명.length === 1 && 설명[0].text.indexOf('아는 대로 설명') > -1, 설명[0] && 설명[0].text);
 
 // ══ 실제 생기부에서 겪은 것들 ══
@@ -191,7 +208,7 @@ var 설명 = sg.sgMakeQuestions('sesa', 1, ['정보: 「자료구조」 단원�
        got.indexOf(pair[1]) > -1, got.join(' / ') || '(못 찾음)');
 });
 
-var 물음 = sg.sgMakeQuestions('sesa', 3, ['기하: \'포물선의 반사 성질은 광촉매 반응기의 효율을 어떻게 높일까?\'를 주제로 하여 배움.']);
+var 물음 = 뽑힌(sg.sgMakeQuestions('sesa', 3, ['기하: \'포물선의 반사 성질은 광촉매 반응기의 효율을 어떻게 높일까?\'를 주제로 하여 배움.']));
 확인('물음으로 된 제목은 «답을 찾았나» 로 묻는가',
      물음.length === 1 && 물음[0].text.indexOf('이 물음을 스스로 던졌군요') > -1,
      물음[0] && 물음[0].text.slice(0, 40));
@@ -222,9 +239,15 @@ var 둘다 = sg.sgMakeQuestions('sesa', 3, [
   '기하: \'포물선의 성질\'을 주제로 탐구함.',
   '스포츠 생활: 족구 경기에서 리시브 기능이 우수함.'
 ]);
-확인('제목이 있는 과목에는 덧붙이지 않는가',
-     둘다.filter(function (q) { return q.subject === '기하'; }).length === 1,
-     둘다.filter(function (q) { return q.subject === '기하'; }).map(function(q){return q.text.slice(0,24);}).join(' | '));
+확인('제목이 있는 과목에는 붙박이 질문을 덧붙이지 않는가',
+     뽑힌(둘다).filter(function (q) { return q.subject === '기하'; }).length === 1,
+     뽑힌(둘다).filter(function (q) { return q.subject === '기하'; }).map(function(q){return q.text.slice(0,24);}).join(' | '));
+확인('그래도 «직접 적기» 칸은 과목마다 하나씩 있는가',
+     적는칸(둘다).length === 2 &&
+     적는칸(둘다).every(function (q) { return q.source && q.source.length > 10; }),
+     적는칸(둘다).map(function (q) { return q.subject; }).join(' | '));
+확인('제목이 있는 과목의 적는 칸은 «못 찾음» 으로 겁주지 않는가',
+     적는칸(둘다).filter(function (q) { return q.subject === '기하'; })[0].lonely === false);
 
 // ══ 여러 과목을 한꺼번에 ══
 // 한 과목에 맞추면 다른 과목이 빠집니다.

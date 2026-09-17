@@ -16,7 +16,21 @@
 }
 .sg-note.bad{color:var(--rose)}
 
-.sg-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+/* ── 묶음 (학년 · 과목/갈래) ──
+   묶음마다 기록 전문 + 직접 적는 칸이 맨 위, 뽑힌 질문이 그 아래입니다. */
+.sg-group{margin-top:20px}
+.sg-group:first-of-type{margin-top:14px}
+.sg-gtitle{
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  margin:0 0 8px;padding-bottom:7px;border-bottom:1px solid var(--line);
+  font-size:13.5px;font-weight:800;color:var(--ink);word-break:keep-all;
+}
+.sg-gsec{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--ink-3)}
+.sg-gtitle .n{
+  margin-left:auto;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--ink-3);
+}
+
+.sg-list{display:flex;flex-direction:column;gap:8px;margin-top:0}
 .sg-item{
   display:flex;align-items:flex-start;gap:10px;cursor:pointer;
   padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--surface);
@@ -42,6 +56,7 @@
 .sg-item.blank:hover{border-color:var(--line)}
 .sg-item.blank.on{border-style:solid;border-color:var(--ink)}
 .sg-warn{font-weight:700;color:var(--rose);letter-spacing:0}
+.sg-own{font-weight:700;color:var(--ink-3);letter-spacing:0}
 /* ⚠️ 위의 «.sg-item input» (체크칸 16px) 보다 힘이 세야 합니다. 안 그러면 16px 로 쪼그라듭니다 */
 .sg-item input.sg-write{
   width:100%;height:auto;box-sizing:border-box;margin:2px 0 4px;
