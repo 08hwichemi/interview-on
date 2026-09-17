@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-17.13">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-17.14">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-17.13">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-17.13">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-17.13">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-17.13">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-17.13">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-17.14">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-17.14">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-17.14">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-17.14">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-17.14">
 </head>
 <body>
 
@@ -248,48 +248,61 @@
 
   <!-- ══ 실전 면접 후기 ══
        학생 앱과 같은 자료를 같은 모양으로 봅니다 (reviews.js) -->
-  <main class="wrap narrow" id="page-reviews" hidden>
+  <!-- 넓은 화면에서는 «고르는 칸 | 목록» 두 칸입니다 (browse.css 의 .browse-cols) -->
+  <main class="wrap" id="page-reviews" hidden>
     <div class="panel pad">
       <p class="sec" style="margin:0 0 4px">실전 면접 후기</p>
       <p class="hint">선배들이 남긴 합·불 사례와 실제로 받은 질문입니다. 카드를 누르면 펼쳐집니다.</p>
 
-      <button id="rev-main-univ-btn" class="main-univ-btn" onclick="openUnivModal('rev')">
-        <span>🏫 원하시는 대학을 먼저 선택해 주세요</span><span>▼</span>
-      </button>
+      <div class="browse-cols">
+        <div class="browse-side">
+          <button id="rev-main-univ-btn" class="main-univ-btn" onclick="openUnivModal('rev')">
+            <span>🏫 원하시는 대학을 먼저 선택해 주세요</span><span>▼</span>
+          </button>
 
-      <div id="rev-sub-filters" class="sub-filters">
-        <div style="display:flex;gap:8px;margin-bottom:8px">
-          <select id="rev-year" onchange="updateRevFilters('year')"><option value="전체">년도 (전체)</option></select>
-          <select id="rev-type" onchange="updateRevFilters('type')"><option value="전체">전형 (전체)</option></select>
+          <div id="rev-sub-filters" class="sub-filters">
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+              <select id="rev-year" onchange="updateRevFilters('year')"><option value="전체">년도 (전체)</option></select>
+              <select id="rev-type" onchange="updateRevFilters('type')"><option value="전체">전형 (전체)</option></select>
+            </div>
+            <select id="rev-major" onchange="updateRevFilters('major')"><option value="전체">학과 (전체)</option></select>
+          </div>
         </div>
-        <select id="rev-major" onchange="updateRevFilters('major')"><option value="전체">학과 (전체)</option></select>
-      </div>
 
-      <div id="review-list">
-        <div class="guide-msg"><div class="icon">👆</div>
-          <div class="text">위 버튼을 눌러 대학을 선택해주세요</div></div>
+        <div class="browse-main">
+          <div id="review-list">
+            <div class="guide-msg"><div class="icon">👆</div>
+              <div class="text">왼쪽에서 대학을 선택해주세요</div></div>
+          </div>
+          <div id="review-empty" style="text-align:center;padding:40px 20px;color:var(--ink-3);display:none">
+            조건에 맞는 결과가 없습니다.</div>
+        </div>
       </div>
-      <div id="review-empty" style="text-align:center;padding:40px 20px;color:var(--ink-3);display:none">
-        조건에 맞는 결과가 없습니다.</div>
     </div>
   </main>
 
   <!-- ══ 대학별 기출 질문 ══ -->
-  <main class="wrap narrow" id="page-questions" hidden>
+  <main class="wrap" id="page-questions" hidden>
     <div class="panel pad">
       <p class="sec" style="margin:0 0 4px">대학별 기출 질문</p>
       <p class="hint">선행학습 영향평가 보고서에 공개된 실제 문항입니다.</p>
 
-      <button id="q-main-univ-btn" class="main-univ-btn" onclick="openUnivModal('q')">
-        <span>🏫 원하시는 대학을 먼저 선택해 주세요</span><span>▼</span>
-      </button>
+      <div class="browse-cols">
+        <div class="browse-side">
+          <button id="q-main-univ-btn" class="main-univ-btn" onclick="openUnivModal('q')">
+            <span>🏫 원하시는 대학을 먼저 선택해 주세요</span><span>▼</span>
+          </button>
+        </div>
 
-      <div id="question-list">
-        <div class="guide-msg"><div class="icon">👆</div>
-          <div class="text">위 버튼을 눌러 대학을 선택해주세요</div></div>
+        <div class="browse-main">
+          <div id="question-list">
+            <div class="guide-msg"><div class="icon">👆</div>
+              <div class="text">왼쪽에서 대학을 선택해주세요</div></div>
+          </div>
+          <div id="question-empty" style="text-align:center;padding:40px 20px;color:var(--ink-3);display:none">
+            조건에 맞는 결과가 없습니다.</div>
+        </div>
       </div>
-      <div id="question-empty" style="text-align:center;padding:40px 20px;color:var(--ink-3);display:none">
-        조건에 맞는 결과가 없습니다.</div>
     </div>
   </main>
 </div>
@@ -370,17 +383,17 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-17.13"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-17.13"></script>
-<script src="../assets/js/utils.js?v=2026-09-17.13"></script>
-<script src="../assets/js/api.js?v=2026-09-17.13"></script>
-<script src="../assets/js/browse.js?v=2026-09-17.13"></script>
-<script src="../assets/js/reviews.js?v=2026-09-17.13"></script>
-<script src="../assets/js/questions.js?v=2026-09-17.13"></script>
-<script src="../assets/js/report.js?v=2026-09-17.13"></script>
-<script src="../assets/js/chat.js?v=2026-09-17.13"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-17.13"></script>
-<script src="../assets/js/saenggibu.js?v=2026-09-17.13"></script>
+<script src="../assets/js/config.js?v=2026-09-17.14"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-17.14"></script>
+<script src="../assets/js/utils.js?v=2026-09-17.14"></script>
+<script src="../assets/js/api.js?v=2026-09-17.14"></script>
+<script src="../assets/js/browse.js?v=2026-09-17.14"></script>
+<script src="../assets/js/reviews.js?v=2026-09-17.14"></script>
+<script src="../assets/js/questions.js?v=2026-09-17.14"></script>
+<script src="../assets/js/report.js?v=2026-09-17.14"></script>
+<script src="../assets/js/chat.js?v=2026-09-17.14"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-17.14"></script>
+<script src="../assets/js/saenggibu.js?v=2026-09-17.14"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);

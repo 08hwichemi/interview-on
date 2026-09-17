@@ -41,9 +41,17 @@
 /* --- [신규] 앱 스타일 UI 요소 --- */
 .main-univ-btn {
   width: 100%; background-color: var(--ink); color: white; border: none; border-radius: 12px; padding: 16px 20px;
-  font-size: 16px; font-weight: bold; margin-bottom: 16px; cursor: pointer; box-shadow: 0 4px 10px rgba(26,79,160,0.2);
-  display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;
+  font-size: 16px; font-weight: bold; margin-bottom: 16px; cursor: pointer;
+  box-shadow: 0 6px 16px rgba(24,24,27,.12);
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; transition: background 0.2s;
 }
+/* ⚠️ 「원하시는 대학을 먼저 선택해 주세요」 가 두 줄로 접히면 지저분합니다.
+      좁아지면 글씨를 줄여서 한 줄을 지킵니다. */
+.main-univ-btn > span:first-child {
+  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: clamp(13.5px, 1.6vw, 16px);
+}
+.main-univ-btn > span:last-child { flex: 0 0 auto; font-size: 12px; opacity: .75; }
 .main-univ-btn:active { background-color: var(--ink); }
 
 .sub-filters {
@@ -79,3 +87,43 @@
 }
 .univ-list-btn:active { background: var(--line); transform: scale(0.98); }
 
+
+/* ══════════════ 넓은 화면 — 앱이 아니라 «웹» 처럼 ══════════════
+   교사 선생님은 컴퓨터로 보십니다. 휴대폰 화면을 그대로 늘여 놓으면
+   검은 띠가 화면을 가로지르고 카드가 한 줄로 길게 늘어져 읽기 나쁩니다.
+   넓어지면 왼쪽에 «고르는 칸», 오른쪽에 «목록» 으로 나눕니다. */
+@media (min-width: 900px) {
+  .browse-cols {
+    display: grid;
+    grid-template-columns: clamp(240px, 22%, 330px) 1fr;
+    gap: 22px; align-items: start;
+  }
+  .browse-cols > * { min-width: 0; }
+
+  /* 왼쪽 — 스크롤해도 따라옵니다 */
+  .browse-side { position: sticky; top: 84px; }
+  .main-univ-btn {
+    padding: 14px 16px; font-size: 14.5px; margin-bottom: 12px;
+    border-radius: 10px; box-shadow: none;
+  }
+  .main-univ-btn > span:first-child { font-size: 14px; }
+  .sub-filters { margin-bottom: 0; padding: 14px; }
+  .sub-filters > div { flex-direction: column; }
+  .sub-filters select { margin-bottom: 8px; }
+  .sub-filters select:last-child { margin-bottom: 0; }
+
+  /* 오른쪽 — 카드. 글 읽는 폭을 지키려고 한 줄로 둡니다 */
+  .browse-main { margin: 0; }
+  .card { margin-bottom: 10px; }
+  .card-header { padding: 14px 18px; }
+  .card-body { padding: 18px; }
+  .guide-msg { padding: 80px 20px; }
+
+  /* 대학 고르기는 아래에서 올라오는 시트가 아니라 가운데 창으로 */
+  .modal-overlay { align-items: center; }
+  .modal-content {
+    max-width: 560px; border-radius: 16px;
+    height: min(72vh, 620px); max-height: 80%;
+    animation: none;                     /* 가운데 창이라 아래에서 올라올 까닭이 없습니다 */
+  }
+}

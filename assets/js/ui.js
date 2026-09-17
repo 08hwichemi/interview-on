@@ -109,3 +109,71 @@ function navigateTo(screenId) {
 
 // 대학 고르기 팝업(openUnivModal · closeUnivModal · selectUniv)은
 // browse.js 로 옮겼습니다. 교사 화면도 같은 팝업을 씁니다.
+
+// ══════════════ 휴대폰 뒤로가기 막음 ══════════════
+//
+// 홈에서 뒤로가기를 누르면 앱이 그냥 닫히고 바탕화면으로 나가 버립니다.
+// 이동수업 출석부 앱과 같은 방식으로 «한 번 더 누르면 나갑니다» 를 띄웁니다.
+//
+// 어떻게 도는가 —
+//   ① 시작할 때 «가짜 걸음» 을 하나 쌓아 둡니다 (pushState)
+//   ② 뒤로가기를 누르면 그 걸음이 빠지면서 popstate 가 옵니다
+//   ③ 열린 창이 있으면 그것부터 닫고, 걸음을 다시 쌓습니다
+//   ④ 홈이 아니면 홈으로 보내고, 걸음을 다시 쌓습니다
+//   ⑤ 홈이면 안내만 하고 걸음을 다시 쌓습니다.
+//      2초 안에 또 누르면 걸음을 안 쌓아서 진짜로 나갑니다
+
+var BACK_GUARD_MS = 2000;
+var backGuardAt = 0;
+
+function armBackGuard() {
+  try { history.pushState({ interviewOn: true }, '', location.href); } catch (e) { /* 사생활 보호 모드 */ }
+}
+
+// 위에 떠 있는 창을 하나 닫습니다. 닫았으면 true.
+function closeTopLayer() {
+  var confirmBox = document.getElementById('custom-confirm');
+  if (confirmBox && confirmBox.style.display === 'flex') { closeConfirm(); return true; }
+
+  var room = document.getElementById('chat-room-modal');
+  if (room && room.style.display === 'flex') {
+    if (typeof closeChatRoom === 'function') closeChatRoom(); else room.style.display = 'none';
+    return true;
+  }
+  var list = document.getElementById('chat-list-modal');
+  if (list && list.style.display === 'flex') {
+    if (typeof closeChatList === 'function') closeChatList(); else list.style.display = 'none';
+    return true;
+  }
+  var univ = document.getElementById('univ-modal');
+  if (univ && univ.style.display === 'flex') {
+    if (typeof closeUnivModal === 'function') closeUnivModal(); else univ.style.display = 'none';
+    return true;
+  }
+  return false;
+}
+
+window.addEventListener('popstate', function () {
+  if (closeTopLayer()) { armBackGuard(); return; }
+
+  var cur = document.querySelector('.screen.active');
+  var id = cur ? cur.id.replace('screen-', '') : 'home';
+
+  // 로그인 전에는 막지 않습니다. 나가고 싶으면 나갈 수 있어야 합니다.
+  if (id === 'login' || id === 'change-password') return;
+
+  if (id !== 'home') {
+    // 훈련 중이면 handleBack() 이 «중단할까요?» 를 먼저 묻습니다
+    handleBack();
+    armBackGuard();
+    return;
+  }
+
+  var now = Date.now();
+  if (now - backGuardAt < BACK_GUARD_MS) return;   // 두 번째 — 그대로 나갑니다
+  backGuardAt = now;
+  showToast('한 번 더 누르면 앱이 닫힙니다.');
+  armBackGuard();
+});
+
+armBackGuard();
