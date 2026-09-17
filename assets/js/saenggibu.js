@@ -26,15 +26,73 @@ var SG_SECTIONS = [
 
 // 여기서 끊어야 하는 다른 영역들 (뒤에 붙는 내용이 섞이지 않게)
 var SG_STOPS = [
-  '인적', '학적사항', '출결상황', '수상경력', '자격증', '진로희망',
-  '독서활동상황', '봉사활동실적', '학교폭력'
+  '인적·학적사항', '인적사항', '학적사항', '출결상황', '수상경력', '자격증취득상황',
+  '진로희망사항', '독서활동상황', '봉사활동실적', '학교폭력'
 ];
+
+// ══ 쪽 머리글·꼬리글 ══
+//
+// ⚠️ 이것 때문에 창체·행특 기록이 엉망이 됐습니다.
+//    글이 쪽을 넘어가면 새 쪽 맨 위에 이런 줄이 들어갑니다 —
+//      「부광고등학교  2026년 9월 17일  4 / 19  반 1 번호 9 성명 ○○○」
+//    이걸 안 걷어내면 문장 한가운데에 그대로 끼어들고,
+//      「…현실적인 해결책을[부광고등학교 …성명 ○○○]든든한 조력자…」
+//    그 바람에 뒤따라오는 갈래(동아리활동)까지 앞 칸으로 딸려 들어갑니다.
+//    세특은 쪽을 덜 넘어가서 멀쩡해 보였을 뿐입니다.
+function sgIsPageFurniture(line) {
+  var t = sgNorm(line);
+  if (!t) return true;
+  if (/^학교\s*생활\s*기록\s*부/.test(t)) return true;
+  if (/^-?\s*\d{1,3}\s*-?$/.test(t)) return true;               // 쪽번호
+  if (/^\s*-\s*\d{1,3}\s*-\s*$/.test(t)) return true;
+  if (/성\s*명\s*[가-힣]{2,5}\s*$/.test(t) && t.length <= 40) return true;
+  if (/(?:^|\s)반\s*\d+\s*번\s*호\s*\d+/.test(t)) return true;
+  if (/[가-힣]{2,12}(?:초등학교|중학교|고등학교)\s*\d{4}\s*년/.test(t)) return true;
+  // 「4 / 19」 — 몇 쪽 가운데 몇 쪽. 짧은 줄일 때만 봅니다(성적표의 91/73.8 과 헷갈리지 않게)
+  if (t.length <= 40 && /(?:^|\s)\d{1,3}\s*\/\s*\d{1,3}(?:\s|$)/.test(t)) return true;
+  return false;
+}
+
+// 줄을 이어 붙인 뒤에도 머리글이 문장 사이에 끼어 있으면 도려냅니다.
+// (pdf.js 가 머리글을 본문 줄과 같은 높이로 돌려주는 판이 있습니다)
+var SG_FURNITURE_RUNS = [
+  /[가-힣]{2,12}(?:초등학교|중학교|고등학교)\s*\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일[\s\S]{0,40}?성\s*명\s*[가-힣]{2,5}\s*(?:학년)?/g,
+  /\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일\s*\d{1,3}\s*\/\s*\d{1,3}/g,
+  /반\s*\d+\s*번\s*호\s*\d+\s*성\s*명\s*[가-힣]{2,5}/g,
+  /\d{1,3}\s*\/\s*\d{1,3}\s*반\s*\d+\s*번\s*호\s*\d+/g
+];
+function sgScrubFurniture(text) {
+  var t = String(text || '');
+  SG_FURNITURE_RUNS.forEach(function (re) { t = t.replace(new RegExp(re.source, 'g'), ' '); });
+  return sgNorm(t);
+}
 
 // 창의적 체험활동 안의 갈래
 var SG_AREAS = ['자율활동', '동아리활동', '봉사활동', '진로활동'];
 
 function sgNorm(s) {
   return String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+}
+
+// 이 줄이 «영역 제목» 인가.
+//
+// ⚠️ 예전에는 줄 «어디에든» 그 말이 있으면 제목으로 봤습니다.
+//    그래서 진로활동 글의 「자격증 취득을 목표로…」, 행특 글의 「진로희망을…」에서
+//    영역이 끊기고 그 뒤가 통째로 사라졌습니다.
+//    나이스 제목은 「8. 행동특성 및 종합의견」처럼 그 줄에 제목뿐입니다.
+//    그러니 «줄 전체가 그 제목일 때» 만 제목으로 봅니다.
+function sgIsHeading(line, words) {
+  var t = sgNorm(line).replace(/\s/g, '');
+  // 앞의 번호(「8.」)와 괄호·쪽표시를 떼고 남는 알맹이만 견줍니다
+  var core = t.replace(/^[0-9]{1,2}[.．)]/, '').replace(/[()[\]{}0-9.\-·]/g, '');
+  for (var i = 0; i < words.length; i++) {
+    var w = words[i].replace(/[\s·]/g, '');
+    if (!w) continue;
+    if (core.indexOf(w) !== 0) continue;
+    // 제목 뒤에 남는 글자가 거의 없어야 제목입니다 (「과 목 세부능력 및 특기사항」 정도까지)
+    if (core.length - w.length <= 3) return true;
+  }
+  return false;
 }
 
 // 줄들을 영역별로 자릅니다.
@@ -54,17 +112,13 @@ function sgSplitSections(lines) {
     var started = null;
     if (line.replace(/\s/g, '').indexOf('개인별') === -1) {
       SG_SECTIONS.forEach(function (sec) {
-        if (started) return;
-        sec.heads.forEach(function (h) {
-          if (!started && line.replace(/\s/g, '').indexOf(h.replace(/\s/g, '')) > -1) started = sec.key;
-        });
+        if (!started && sgIsHeading(line, sec.heads)) started = sec.key;
       });
     }
     if (started) { cur = started; return; }   // 제목 줄 자체는 담지 않습니다
 
     // 우리가 안 보는 영역이 시작되면 끊습니다
-    var stop = SG_STOPS.some(function (w) { return line.indexOf(w) > -1 && line.length < 40; });
-    if (stop) { cur = null; return; }
+    if (sgIsHeading(line, SG_STOPS)) { cur = null; return; }
 
     if (cur) out[cur].push(line);
   });
@@ -115,6 +169,18 @@ function sgIsNoise(line) {
   if (t.length > 40) return false;
   return SG_NOISE.some(function (w) { return t.indexOf(w) > -1; });
 }
+
+// 교과 이수 현황 표 — 「… 인공지능 기초 교양 이수학점 합계 15」
+// 한글이 많아서 성적표 검사에 안 걸리는데, 세특이 아닙니다.
+// 이걸 과목으로 잡는 바람에 「3학년 · 진로 선택 과목」 같은 칸이 생겼습니다.
+function sgIsCourseTable(line) {
+  var t = sgNorm(line).replace(/\s/g, '');
+  return /이수학점|이수단위|학점합계|단위합계|이수단위합계/.test(t);
+}
+
+// 「진로 선택」 「일반 선택」 「공통」 은 과목 이름이 아니라 «교과 구분» 입니다.
+var SG_NOT_SUBJECT =
+  /^(?:공통|일반선택|진로선택|융합선택|전문교과[ⅠⅡ12]?|보통교과|교과|과목|학기|학년|영역|구분|계|합계)(?:과목)?$/;
 
 // 영역 안의 줄들을 학년별로 다시 자릅니다.
 // 학년 표시가 없으면 «학년 모름(0)» 으로 모읍니다.
@@ -191,9 +257,10 @@ function sgTidy(text) {
 //    길이가 짧다고 버리지 않습니다.
 function sgRecordText(lines) {
   var kept = (lines || []).filter(function (l) {
-    return !sgIsNoise(l) && !sgIsTableRow(l);
+    return !sgIsPageFurniture(l) && !sgIsNoise(l) &&
+           !sgIsTableRow(l) && !sgIsCourseTable(l);
   });
-  return sgTidy(sgJoinLines(kept));
+  return sgScrubFurniture(sgTidy(sgJoinLines(kept)));
 }
 
 // ══ 질문 만들기용 — 문장으로 쪼갭니다 ══
@@ -627,20 +694,25 @@ function sgChunkBy(lines, marks, fallbackLabel) {
     var line = sgNorm(raw);
     if (!line) return;
 
-    // ⚠️ 줄 «맨 앞» 만 보면 안 됩니다.
-    //    표에서 학년·시간 칸이 먼저 오면 「1 동아리활동 (26시간) (과학탐구부)…」 가 되어
-    //    맨 앞 검사가 빗나갑니다. 그 바람에 동아리 기록이 이름 없는 칸으로 새 버렸습니다.
-    //    그래서 줄 안 어디든 찾고, 찾은 자리에서 자릅니다.
+    // 줄 «맨 앞» 만 보면 표에서 학년·시간 칸이 먼저 올 때 빗나갑니다 —
+    //   「1 동아리활동 (26시간) (과학탐구부)…」
+    // 그래서 줄 안에서 찾되, «앞머리» 에 있을 때만 받습니다.
+    //
+    // ⚠️ 글 한가운데서 자르면 안 됩니다.
+    //    「…체험 활동을 구성함. 눈물의 종류와…」 를 가운데서 자르는 바람에
+    //    앞 칸이 「…구성함. 눈」 으로 끝나고 다음 칸이 「물의 종류와」 로 시작했습니다.
+    //    이름 앞에 «한글 글자» 가 있으면 그건 이름이 아니라 그냥 글입니다.
     var best = null;
     marks.forEach(function (mk) {
       var m = line.match(mk.re);
       if (!m) return;
+      var head = line.slice(0, m.index);
+      if (/[가-힣]/.test(head)) return;               // 앞에 글이 있으면 자르지 않습니다
       if (!best || m.index < best.at) best = { name: mk.name, at: m.index, len: m[0].length };
     });
 
     if (!best) { push(line); return; }
 
-    push(sgNorm(line.slice(0, best.at)));            // 이름 앞에 있던 말은 앞 묶음 것
     cur = into(best.name);
     var rest = sgNorm(line.slice(best.at + best.len));
     if (rest) cur.lines.push(rest);
@@ -696,18 +768,21 @@ function sgSplitSubjects(lines) {
       return;
     }
 
+    // 과목 이름도 «줄 앞머리» 에 있을 때만 받습니다.
+    // 글 한가운데의 콜론(「목표: 환경 개선」)에서 자르면 문장이 두 동강 납니다.
     var best = null;
     marks.forEach(function (mk) {
       var m = line.match(mk.re);
       if (!m) return;
       var name = sgNorm(m[1]);
       if (!name || name.length > 12) return;
-      var at = m.index + m[0].indexOf(m[1]);
-      if (!best || at < best.at) best = { name: name, at: m.index, len: m[0].length };
+      // 「진로 선택」 「공통」 은 교과 구분이지 과목이 아닙니다
+      if (SG_NOT_SUBJECT.test(name.replace(/\s/g, ''))) return;
+      if (/[가-힣]/.test(line.slice(0, m.index))) return;
+      if (!best || m.index < best.at) best = { name: name, at: m.index, len: m[0].length };
     });
 
     if (!best) { push(line); return; }
-    push(sgNorm(line.slice(0, best.at)));
     cur = into(best.name);
     var rest = sgNorm(line.slice(best.at + best.len));
     if (rest) cur.lines.push(rest);
@@ -728,11 +803,18 @@ function sgBuild(lines) {
   var sections = sgSplitSections(lines);
   var all = [];
   var counts = {};
+  // ⚠️ 마지막 안전판입니다.
+  //    칸을 아무리 잘 잘라도 나이스 판이 바뀌면 또 어긋납니다.
+  //    그래서 «영역 × 학년» 통째 원문을 따로 들고 있다가 화면 맨 위에 둡니다.
+  //    칸 나누기가 틀려도 선생님이 못 보는 글은 없어야 합니다.
+  var wholes = {};
 
   SG_SECTIONS.forEach(function (sec) {
     var byGrade = sgSplitGrades(sections[sec.key], sec.key);
     counts[sec.key] = 0;
     [1, 2, 3, 0].forEach(function (g) {
+      var whole = sgRecordText(byGrade[g]);
+      if (whole) wholes[g + '|' + sec.key] = whole;
       sgChunks(sec.key, byGrade[g]).forEach(function (c) {
         // ⚠️ 길이 두 개를 따로 냅니다.
         //    record   — 선생님께 보여드리는 기록 전문. 한 글자도 버리지 않습니다
@@ -751,7 +833,7 @@ function sgBuild(lines) {
     });
   });
 
-  return { questions: all, counts: counts, sections: sections };
+  return { questions: all, counts: counts, sections: sections, wholes: wholes };
 }
 
 // 브라우저 밖(시험)에서도 쓸 수 있게 내보냅니다.
@@ -761,6 +843,8 @@ if (typeof module !== 'undefined' && module.exports) {
                      sgSentences: sgSentences, sgTopics: sgTopics, sgTraits: sgTraits,
                      sgSplitAreas: sgSplitAreas, sgSplitSubjects: sgSplitSubjects,
                      sgChunks: sgChunks, sgRecordText: sgRecordText, sgBlankItem: sgBlankItem,
+                     sgIsPageFurniture: sgIsPageFurniture, sgIsHeading: sgIsHeading,
+                     sgIsCourseTable: sgIsCourseTable, sgScrubFurniture: sgScrubFurniture,
                      sgMakeQuestions: sgMakeQuestions, sgBuild: sgBuild,
                      SG_SECTIONS: SG_SECTIONS };
 }
@@ -812,6 +896,7 @@ async function sgReadPdf(file) {
 // ══════════════ 화면 (교사) ══════════════
 
 var sgFound = [];        // 뽑은 질문들
+var sgWholes = {};       // 「학년|영역」 통째 원문 — 칸 나누기가 틀려도 볼 수 있게
 var sgEdited = {};       // 선생님이 직접 고쳐 쓴 질문 { 번호: 글자 }
 var sgPicked = {};       // { 번호: true } — 담을 것
 // ⚠️ «모든 학년» 을 0 으로 두면 안 됩니다. 0 은 «학년 모름» 의 값입니다.
@@ -855,6 +940,7 @@ async function onSaenggibuFile(input) {
 
     var r = sgBuild(lines);
     sgFound = r.questions;
+    sgWholes = r.wholes || {};
     sgPicked = {};
     sgEdited = {};
 
@@ -970,8 +1056,15 @@ function renderSaenggibu() {
   }
 
   var groups = sgGroups(sgVisible());
+  // 영역·학년이 바뀌는 자리마다 «통째 원문» 을 한 번 끼워 넣습니다
+  var seenWhole = {}, html = '';
+  groups.forEach(function (g) {
+    var wk = g.grade + '|' + g.area;
+    if (!seenWhole[wk]) { seenWhole[wk] = true; html += sgWholeHTML(g, wk); }
+    html += sgGroupHTML(g);
+  });
   body.innerHTML = chips + (groups.length
-    ? groups.map(sgGroupHTML).join('')
+    ? html
     : '<p class="sg-note">그 조건에 맞는 질문이 없습니다.</p>');
 
   paintSgFoot();
@@ -996,6 +1089,21 @@ function sgGroups(list) {
 function sgSectionTitle(key) {
   var hit = SG_SECTIONS.filter(function (s) { return s.key === key; })[0];
   return hit ? hit.title : '';
+}
+
+// ⚠️ 마지막 안전판 — 칸(갈래·과목) 나누기가 어긋나도 원문은 다 보이게 합니다.
+//    나이스 판이 조금만 달라져도 칸이 어긋나는데, 그때마다 선생님이
+//    «내용이 잘렸다» 고 느끼셔야 할 까닭이 없습니다. 접어 두고, 펴면 다 나옵니다.
+function sgWholeHTML(g, wk) {
+  var whole = sgWholes[wk];
+  if (!whole) return '';
+  var title = (g.grade ? g.grade + '학년' : '학년 모름') + ' ' + sgSectionTitle(g.area);
+  return '<details class="sg-whole">' +
+    '<summary>' + esc(title) + ' <b>원문 전체</b>' +
+      '<span class="n">' + String(whole.length).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '자</span>' +
+    '</summary>' +
+    '<div class="sg-wholetext">' + esc(sgMaskText(whole)) + '</div>' +
+    '</details>';
 }
 
 function sgGroupHTML(g) {
