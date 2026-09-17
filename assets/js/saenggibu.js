@@ -508,14 +508,17 @@ async function sgReadPdf(file) {
 
 var sgFound = [];        // 뽑은 질문들
 var sgPicked = {};       // { 번호: true } — 담을 것
-var sgGrade = 0;         // 0 = 모든 학년
+// ⚠️ «모든 학년» 을 0 으로 두면 안 됩니다. 0 은 «학년 모름» 의 값입니다.
+//    같은 값이라 「학년 모름」 단추가 늘 눌린 것처럼 보이고, 눌러도
+//    걸러지지 않아 1학년·2학년 질문이 그대로 나왔습니다.
+var sgGrade = null;      // null = 모든 학년, 0 = 학년 모름, 1~3 = 그 학년
 var sgArea = '';         // '' = 모든 영역
 var sgSubject = '';      // '' = 모든 과목 (세특일 때만 씁니다)
 var SG_NO_SUBJECT = '(과목 모름)';
 var sgMask = true;       // 개인정보 가림
 
 function openSaenggibu() {
-  sgFound = []; sgPicked = {}; sgGrade = 0; sgArea = ''; sgSubject = '';
+  sgFound = []; sgPicked = {}; sgGrade = null; sgArea = ''; sgSubject = '';
   document.getElementById('sg-modal').style.display = 'flex';
   document.getElementById('sg-file').value = '';
   renderSaenggibu();
@@ -570,7 +573,7 @@ function sgMaskText(s) {
 }
 
 function toggleSgMask() { sgMask = !sgMask; renderSaenggibu(); }
-function pickSgGrade(g) { sgGrade = (sgGrade === g) ? 0 : g; renderSaenggibu(); }
+function pickSgGrade(g) { sgGrade = (sgGrade === g) ? null : g; renderSaenggibu(); }
 function pickSgArea(a) { sgArea = (sgArea === a) ? '' : a; sgSubject = ''; renderSaenggibu(); }
 function pickSgSubject(x) { sgSubject = (sgSubject === x) ? '' : x; renderSaenggibu(); }
 
@@ -582,7 +585,7 @@ function toggleSgPick(i) {
 function sgVisible() {
   return sgFound.map(function (q, i) { return { q: q, i: i }; })
     .filter(function (x) {
-      if (sgGrade && x.q.grade !== sgGrade) return false;
+      if (sgGrade !== null && x.q.grade !== sgGrade) return false;
       if (sgArea && x.q.area !== sgArea) return false;
       // 「(과목 모름)」도 골라 볼 수 있어야 합니다. 빈 값이면 거르기가 안 먹습니다.
       if (sgSubject && (x.q.subject || SG_NO_SUBJECT) !== sgSubject) return false;
@@ -626,7 +629,7 @@ function renderSaenggibu() {
     var subs = {};
     sgFound.forEach(function (q) {
       if (q.area !== 'sesa') return;
-      if (sgGrade && q.grade !== sgGrade) return;
+      if (sgGrade !== null && q.grade !== sgGrade) return;
       var k = q.subject || SG_NO_SUBJECT;
       subs[k] = (subs[k] || 0) + 1;
     });
