@@ -48,9 +48,24 @@ function sgIsPageFurniture(line) {
   if (/성\s*명\s*[가-힣]{2,5}\s*$/.test(t) && t.length <= 40) return true;
   if (/(?:^|\s)반\s*\d+\s*번\s*호\s*\d+/.test(t)) return true;
   if (/[가-힣]{2,12}(?:초등학교|중학교|고등학교)\s*\d{4}\s*년/.test(t)) return true;
+  // ⚠️ 칸을 나누면 꼬리글도 조각조각 흩어집니다 —
+  //    「부광고등학교」 「2026년 9월 17일」 「부광고등학교/2026.09.17 08:28/」
+  //    한 조각만 놓쳐도 그게 기록 끝에 들러붙습니다.
+  if (/^[가-힣]{2,12}(?:초등학교|중학교|고등학교)\s*[\/·]?\s*$/.test(t)) return true;
+  if (/^[가-힣]{2,12}(?:초등학교|중학교|고등학교)\s*\//.test(t)) return true;
+  if (/^\d{4}\s*[년.\-/]\s*\d{1,2}\s*[월.\-/]\s*\d{1,2}\s*일?\s*[.\-/]?\s*$/.test(t)) return true;
+  if (/\d{4}\s*[.\-/]\s*\d{1,2}\s*[.\-/]\s*\d{1,2}\s+\d{1,2}\s*:\s*\d{2}/.test(t)) return true;
   // 「4 / 19」 — 몇 쪽 가운데 몇 쪽. 짧은 줄일 때만 봅니다(성적표의 91/73.8 과 헷갈리지 않게)
   if (t.length <= 40 && /(?:^|\s)\d{1,3}\s*\/\s*\d{1,3}(?:\s|$)/.test(t)) return true;
   return false;
+}
+
+// 쪽 꼬리글인가 — 쪽번호(숫자 한두 자)는 뺍니다.
+// ⚠️ 창체·행특 표에서는 숫자 한 자가 «학년» 입니다. 그것까지 꼬리글로 보면 안 됩니다.
+function sgIsFooterish(text) {
+  var t = sgNorm(text);
+  if (/^[-\s]*\d{1,3}[-\s]*$/.test(t)) return false;
+  return sgIsPageFurniture(t);
 }
 
 // 줄을 이어 붙인 뒤에도 머리글이 문장 사이에 끼어 있으면 도려냅니다.
@@ -66,6 +81,10 @@ function sgScrubFurniture(text) {
   SG_FURNITURE_RUNS.forEach(function (re) { t = t.replace(new RegExp(re.source, 'g'), ' '); });
   return sgNorm(t);
 }
+
+// 표에서 «칸이 바뀌는 자리» 에 끼워 두는 표시.
+// 글에 절대 안 나오는 글자라 본문과 헷갈릴 일이 없습니다.
+var SG_CELL_BREAK = '\u241E';
 
 // 창의적 체험활동 안의 갈래
 var SG_AREAS = ['자율활동', '동아리활동', '봉사활동', '진로활동'];
@@ -95,10 +114,27 @@ function sgIsHeading(line, words) {
   return false;
 }
 
+// 성적표·이수 현황 표에만 나오는 말. 세특 글에는 안 나옵니다.
+// (「성취도」 는 글에도 나오므로 넣지 않습니다 — 「성취도 향상에 기여함」)
+var SG_SCORE_HEAD = /원점수|과목평균|석차등급|표준편차|수강자수|이수학점|이수단위|분포비율|학점수/;
+function sgIsScoreHead(line) {
+  var t = sgNorm(line);
+  return t.length <= 40 && SG_SCORE_HEAD.test(t.replace(/\s/g, ''));
+}
+
 // 줄들을 영역별로 자릅니다.
 // 반환: { changche:[줄...], sesa:[줄...], haengteuk:[줄...] }
+//
+// ⚠️ 교과학습발달상황은 «성적표 → 이수학점 합계 → 세부능력 및 특기사항 → 세특 글» 이
+//    학기마다 되풀이됩니다. 성적표 칸들이 낱낱이 흩어져 오면
+//      「국어」 「사회(역사/도덕포」 「기술・가정/제」 「교양」
+//    같은 토막이 되는데, 한글이라 성적표 검사에 안 걸리고 세특 끝에 들러붙습니다.
+//    그래서 «문» 을 둡니다 — 「세부능력 및 특기사항」 이 나오면 열고,
+//    성적표 머리글이 나오면 닫습니다.
 function sgSplitSections(lines) {
   var out = { changche: [], sesa: [], haengteuk: [] };
+  var sesaAll = [];                 // 문이 한 번도 안 열리면 이걸 씁니다
+  var sesaOpen = false, everOpened = false;
   var cur = null;
 
   (lines || []).forEach(function (raw) {
@@ -115,14 +151,31 @@ function sgSplitSections(lines) {
         if (!started && sgIsHeading(line, sec.heads)) started = sec.key;
       });
     }
-    if (started) { cur = started; return; }   // 제목 줄 자체는 담지 않습니다
+    if (started) {
+      cur = started;
+      if (started === 'sesa' && sgIsHeading(line, ['세부능력 및 특기사항'])) {
+        sesaOpen = true; everOpened = true;
+      }
+      return;                       // 제목 줄 자체는 담지 않습니다
+    }
 
     // 우리가 안 보는 영역이 시작되면 끊습니다
     if (sgIsHeading(line, SG_STOPS)) { cur = null; return; }
 
+    if (line === SG_CELL_BREAK) { if (cur) { if (cur === 'sesa') sesaAll.push(line); out[cur].push(line); } return; }
+
+    if (cur === 'sesa') {
+      sesaAll.push(line);
+      if (sgIsScoreHead(line)) { sesaOpen = false; return; }
+      // 학년 표시는 문이 닫혀 있어도 흘려보내야 합니다. 안 그러면 학년이 안 갈립니다.
+      if (sesaOpen || sgGradeOf(line, false)) out.sesa.push(line);
+      return;
+    }
     if (cur) out[cur].push(line);
   });
 
+  // 「세부능력 및 특기사항」 이라는 줄이 한 번도 없는 판이면 문을 안 씁니다
+  if (!everOpened) out.sesa = sesaAll;
   return out;
 }
 
@@ -201,6 +254,7 @@ function sgSplitGrades(lines, sectionKey) {
   var cur = 0;
   (lines || []).forEach(function (raw) {
     var line = sgNorm(raw);
+    if (line === SG_CELL_BREAK) { byGrade[cur].push(line); return; }
 
     // ⚠️ 표의 맨 왼쪽 «학년» 칸이 줄 앞에 붙어 나오기도 합니다.
     //      「1 자율활동 (34시간) 다양한 활동을…」
@@ -261,6 +315,7 @@ function sgTidy(text) {
 //    길이가 짧다고 버리지 않습니다.
 function sgRecordText(lines) {
   var kept = (lines || []).filter(function (l) {
+    if (l === SG_CELL_BREAK) return false;          // 칸 바뀜 표시는 글이 아닙니다
     return !sgIsPageFurniture(l) && !sgIsNoise(l) &&
            !sgIsTableRow(l) && !sgIsCourseTable(l);
   });
@@ -319,7 +374,24 @@ function sgIsProseCell(cell, proseX) {
   return sgNorm(cell.text).length > 14;
 }
 
-function sgItemsToLines(items) {
+// 표의 가로선(괘선) 사이를 «띠» 로 봅니다. 이름표가 든 띠가 곧 그 칸입니다.
+//
+// ⚠️ 여기가 창체를 정확히 가르는 열쇠입니다.
+//    세특은 글 안에 「화학Ⅱ:」 처럼 과목이 적혀 있어 글만 보고 자를 수 있지만,
+//    창체는 영역 이름이 «표의 다른 칸» 에 세로 가운데로 놓여 있습니다.
+//    「가운데」 라는 셈으로 되짚을 수도 있는데, 칸이 다음 쪽으로 이어지면 그 셈이
+//    깨집니다 — 이어지는 쪽 맨 위는 앞 칸인데 거기에 다음 이름표를 붙여 버려서,
+//    동아리 내용이 진로활동으로 들어갔습니다.
+//    선을 읽으면 추측할 일이 없습니다. 선 사이가 곧 칸입니다.
+function sgBandOf(rules, y) {
+  if (!rules || rules.length < 2) return null;
+  for (var i = 0; i < rules.length - 1; i++) {
+    if (y <= rules[i] && y > rules[i + 1]) return { top: rules[i], bottom: rules[i + 1] };
+  }
+  return null;
+}
+
+function sgItemsToLines(items, rules) {
   var rows = [];
   (items || []).forEach(function (it) {
     var text = it.str;
@@ -427,11 +499,26 @@ function sgItemsToLines(items) {
     });
   });
 
-  // ⚠️ 한 세로줄이라도 셈이 어긋나면 그 줄은 통째로 제자리에 둡니다.
-  //    반만 옮기면 줄 순서가 뒤엉켜서, 글이 통째로 앞으로 튀어나옵니다.
+  // ── 이름표를 제 칸 맨 위로 ──
+  //
+  // ① 표의 가로선이 있으면 그것이 답입니다 (추측 없음)
+  // ② 선을 못 읽으면 «이름표는 칸 한가운데» 라는 셈으로 되짚습니다.
+  //    한 세로줄이라도 셈이 어긋나면 그 줄은 통째로 제자리에 둡니다 —
+  //    반만 옮기면 글이 통째로 앞으로 튀어나옵니다.
   var moved = stay;
+  var haveRules = !!(rules && rules.length >= 2);
+
   Object.keys(byCol).sort(function (a, b) { return Number(a) - Number(b); }).forEach(function (k) {
     var col = byCol[k].sort(function (a, b) { return b.y - a.y; });
+
+    if (haveRules) {
+      col.forEach(function (m) {
+        var band = sgBandOf(rules, m.y);
+        moved.push({ y: band ? band.top + 0.5 : m.y, text: m.text });
+      });
+      return;
+    }
+
     var edge = top, plan = [], okay = (top !== null);
     col.forEach(function (m) {
       if (!okay) return;
@@ -450,12 +537,28 @@ function sgItemsToLines(items) {
   grid.forEach(function (L) {
     var prose = L.cells.filter(function (c) { return sgIsProseCell(c, proseX); })
                        .map(function (c) { return c.text; }).join(' ');
-    if (sgNorm(prose)) out.push({ y: L.y, text: prose });
+    if (sgNorm(prose)) out.push({ y: L.y, text: prose, prose: true });
   });
   moved.forEach(function (m) { if (sgNorm(m.text)) out.push(m); });
   out.sort(function (a, b) { return b.y - a.y; });
 
-  return out.map(function (o) { return o.text; });
+  // ── 칸이 바뀌는 자리에 표시를 남깁니다 ──
+  //
+  // ⚠️ 세특 표는 과목이 바뀔 때 «줄 간격이 두 배» 가 됩니다 (14 → 28).
+  //    선을 안 긋고 여백으로만 나눕니다. 그래서 과목 이름이 없는 칸
+  //    (개인별 세부능력 및 특기사항) 은 앞 과목에 통째로 붙어 버렸습니다.
+  //    간격이 벌어지는 자리에 표시를 끼워 두면 뒤에서 칸을 나눌 수 있습니다.
+  //    ⚠️ 쪽 꼬리글(학교 이름·날짜·성명)은 글 아래쪽에 뚝 떨어져 있습니다.
+  //       그것까지 글로 세면 쪽마다 가짜 «칸 바뀜» 이 생기고, 다음 쪽으로 이어지던
+  //       과목이 «이름 없는 칸» 으로 잘려 개인별 세특으로 둔갑했습니다.
+  var marked = [], prevY = null;
+  out.forEach(function (o) {
+    var real = o.prose && !sgIsFooterish(o.text);
+    if (real && prevY !== null && (prevY - o.y) > lineH * 1.7) marked.push(SG_CELL_BREAK);
+    if (real) prevY = o.y;
+    marked.push(o.text);
+  });
+  return marked;
 }
 
 
@@ -832,7 +935,7 @@ function sgChunkBy(lines, marks, fallbackLabel) {
 
   (lines || []).forEach(function (raw) {
     var line = sgNorm(raw);
-    if (!line) return;
+    if (!line || line === SG_CELL_BREAK) return;   // 창체는 갈래 이름으로 가릅니다
 
     // 줄 «맨 앞» 만 보면 표에서 학년·시간 칸이 먼저 올 때 빗나갑니다 —
     //   「1 동아리활동 (26시간) (과학탐구부)…」
@@ -893,9 +996,16 @@ function sgSplitSubjects(lines) {
     cur.lines.push(t);
   }
 
+  var pendingBreak = false, namedSeen = false;
+
   (lines || []).forEach(function (raw) {
     var line = sgNorm(raw);
     if (!line) return;
+
+    // ⚠️ 세특 표는 과목이 바뀔 때 줄 간격이 두 배가 됩니다. 선을 안 긋습니다.
+    //    그래서 «과목 이름이 없는 칸» (개인별 세부능력 및 특기사항) 이
+    //    앞 과목(영어 독해와 작문)에 통째로 붙어 버렸습니다.
+    if (line === SG_CELL_BREAK) { pendingBreak = true; return; }
 
     // ⚠️ 칸을 나누기 시작하면서 「개인별」 과 「세부능력 및 특기사항」 이 따로 떨어져
     //    나옵니다. 그러면 뒤엣것은 영역 제목으로 먹히고 「개인별」 만 남아,
@@ -927,7 +1037,18 @@ function sgSplitSubjects(lines) {
       if (!best || m.index < best.at) best = { name: name, at: m.index, len: m[0].length };
     });
 
-    if (!best) { push(line); return; }
+    if (!best) {
+      // 칸이 바뀌었는데 과목 이름이 없습니다.
+      // 나이스에서 과목 이름 없이 마지막에 오는 칸은 «개인별 세부능력 및 특기사항» 입니다.
+      if (pendingBreak) {
+        cur = into(namedSeen ? SG_PERSONAL : SG_NO_SUBJECT);
+        pendingBreak = false;
+      }
+      push(line);
+      return;
+    }
+    pendingBreak = false;
+    namedSeen = true;
     cur = into(best.name);
     var rest = sgNorm(line.slice(best.at + best.len));
     if (rest) cur.lines.push(rest);
@@ -995,6 +1116,7 @@ if (typeof module !== 'undefined' && module.exports) {
                      sgIsPageFurniture: sgIsPageFurniture, sgIsHeading: sgIsHeading,
                      sgIsCourseTable: sgIsCourseTable, sgScrubFurniture: sgScrubFurniture,
                      sgIsHeadCell: sgIsHeadCell, sgIsCellLabel: sgIsCellLabel,
+                     sgIsScoreHead: sgIsScoreHead, SG_CELL_BREAK: SG_CELL_BREAK,
                      sgMakeQuestions: sgMakeQuestions, sgBuild: sgBuild,
                      SG_SECTIONS: SG_SECTIONS };
 }
@@ -1038,9 +1160,76 @@ async function sgReadPdf(file) {
   for (var i = 1; i <= pdf.numPages; i++) {
     var page = await pdf.getPage(i);
     var content = await page.getTextContent();
-    lines = lines.concat(sgItemsToLines(content.items));
+    var rules = await sgPageRules(page, pdfjsLib);
+    lines = lines.concat(sgItemsToLines(content.items, rules));
   }
   return lines;
+}
+
+// ══ 표의 가로선 읽기 ══
+//
+// 창체·행특은 표입니다. 영역 이름이 글 안에 없고 «옆 칸» 에 있어서,
+// 글만 봐서는 어느 줄이 어느 칸인지 알 수 없습니다.
+// PDF 에는 표의 선이 그림 명령으로 들어 있습니다. 그걸 읽으면 칸 경계가 나옵니다.
+//
+// ⚠️ 못 읽어도 괜찮게 만들어 둡니다. 실패하면 빈 배열을 돌려주고,
+//    그러면 예전처럼 «이름표는 칸 한가운데» 라는 셈으로 되짚습니다.
+function sgMul(m, n) {
+  return [m[0]*n[0]+m[1]*n[2], m[0]*n[1]+m[1]*n[3],
+          m[2]*n[0]+m[3]*n[2], m[2]*n[1]+m[3]*n[3],
+          m[4]*n[0]+m[5]*n[2]+n[4], m[4]*n[1]+m[5]*n[3]+n[5]];
+}
+function sgApply(m, x, y) { return [m[0]*x + m[2]*y + m[4], m[1]*x + m[3]*y + m[5]]; }
+
+async function sgPageRules(page, pdfjsLib) {
+  try {
+    var ops = await page.getOperatorList();
+    var OPS = pdfjsLib.OPS;
+    var ctm = [1, 0, 0, 1, 0, 0], stack = [], segs = [];
+
+    for (var k = 0; k < ops.fnArray.length; k++) {
+      var fn = ops.fnArray[k], a = ops.argsArray[k];
+      if (fn === OPS.save) { stack.push(ctm.slice()); continue; }
+      if (fn === OPS.restore) { ctm = stack.pop() || [1, 0, 0, 1, 0, 0]; continue; }
+      if (fn === OPS.transform) { ctm = sgMul(a, ctm); continue; }
+      if (fn !== OPS.constructPath) continue;
+
+      var subOps = a[0], co = a[1], ci = 0, cx = 0, cy = 0;
+      for (var si = 0; si < subOps.length; si++) {
+        var op = subOps[si];
+        if (op === OPS.moveTo) { cx = co[ci]; cy = co[ci + 1]; ci += 2; }
+        else if (op === OPS.lineTo) {
+          var p1 = sgApply(ctm, cx, cy), p2 = sgApply(ctm, co[ci], co[ci + 1]);
+          segs.push({ y0: p1[1], y1: p2[1], w: Math.abs(p2[0] - p1[0]) });
+          cx = co[ci]; cy = co[ci + 1]; ci += 2;
+        }
+        else if (op === OPS.rectangle) {
+          var x = co[ci], yy = co[ci + 1], w = co[ci + 2], h = co[ci + 3];
+          var q1 = sgApply(ctm, x, yy), q2 = sgApply(ctm, x + w, yy + h);
+          segs.push({ y0: q1[1], y1: q1[1], w: Math.abs(q2[0] - q1[0]) });
+          segs.push({ y0: q2[1], y1: q2[1], w: Math.abs(q2[0] - q1[0]) });
+          ci += 4;
+        }
+        else if (op === OPS.curveTo) ci += 6;
+        else if (op === OPS.curveTo2 || op === OPS.curveTo3) ci += 4;
+      }
+    }
+
+    // 가로선만, 그리고 표를 가로지르는 «긴» 것만 씁니다.
+    // 짧은 선은 「희망분야 | 생명」 같은 칸 속 칸이라 칸 경계가 아닙니다.
+    var hor = segs.filter(function (s) { return Math.abs(s.y1 - s.y0) < 2; });
+    if (!hor.length) return [];
+    var widest = 0;
+    hor.forEach(function (s) { if (s.w > widest) widest = s.w; });
+    var ys = {};
+    hor.forEach(function (s) {
+      if (s.w < widest * 0.6) return;
+      ys[Math.round((s.y0 + s.y1) / 2)] = true;
+    });
+    return Object.keys(ys).map(Number).sort(function (a, b) { return b - a; });
+  } catch (e) {
+    return [];   // 선을 못 읽어도 «가운데» 셈으로 돌아갑니다
+  }
 }
 
 // ══════════════ 화면 (교사) ══════════════
