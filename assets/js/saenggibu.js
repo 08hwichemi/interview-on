@@ -70,11 +70,14 @@ function sgSplitSections(lines) {
 // 줄 안에서 학년 표시를 찾습니다.
 // 나이스 PDF 는 세 가지로 적습니다 — 「[1학년]」, 「1학년」, 그리고 표 안에서는
 // 숫자 하나만 덩그러니 「1」. 마지막 것 때문에 애를 먹었습니다.
-function sgGradeOf(line) {
+function sgGradeOf(line, bareOk) {
   var t = sgNorm(line);
-  if (/^\[?\s*[1-3]\s*\]?$/.test(t)) return Number(t.replace(/[^0-9]/g, ''));
+  // 「[1학년]」 「1학년」 — 어디서나 믿을 수 있습니다
   var m = t.match(/(?:^|[^0-9])([1-3])\s*학\s*년/);
-  return m ? Number(m[1]) : null;
+  if (m) return Number(m[1]);
+  // 숫자 한 자 — 창체·행특 표에서만 학년입니다
+  if (bareOk && /^\[?\s*[1-3]\s*\]?$/.test(t)) return Number(t.replace(/[^0-9]/g, ''));
+  return null;
 }
 
 // 성적표 줄인가 — 「국어 국어 4 91/73.8(15.5) A(190) 2」 같은 것.
@@ -99,11 +102,19 @@ function sgIsNoise(line) {
 
 // 영역 안의 줄들을 학년별로 다시 자릅니다.
 // 학년 표시가 없으면 «학년 모름(0)» 으로 모읍니다.
-function sgSplitGrades(lines) {
+//
+// ⚠️ 숫자 한 자(「1」)를 학년으로 볼지는 영역마다 다릅니다.
+//    창체·행특 표에서는 맨 왼쪽 칸이 학년이라 「1」이 학년입니다.
+//    그런데 교과학습발달상황 표에서는 「1」이 «학기» 입니다.
+//    이걸 학년으로 읽는 바람에 1학년 과목(과학탐구실험)이 2학년으로 갔습니다.
+//    세특은 「[1학년]」 처럼 또렷이 적힌 것만 봅니다.
+//    한 번 「[1학년]」이 나오면 다음 학년 표시가 나올 때까지 계속 1학년입니다.
+function sgSplitGrades(lines, sectionKey) {
+  var bareOk = (sectionKey !== 'sesa');
   var byGrade = { 0: [], 1: [], 2: [], 3: [] };
   var cur = 0;
   (lines || []).forEach(function (line) {
-    var g = sgGradeOf(line);
+    var g = sgGradeOf(line, bareOk);
     if (g) {
       cur = g;
       // 「2학년」 「[2학년]」 「2」 처럼 표시만 있는 줄이면 버립니다.
@@ -145,6 +156,49 @@ function sgSentences(lines) {
     .map(sgNorm)
     .filter(function (s) { return s.length >= 12; });   // 토막 글자는 버립니다
 }
+
+// ⚠️ pdf.js 는 글자를 «낱개» 로 돌려줄 때가 많습니다.
+//    「히트스마트패치」가 '히','트','스',… 일곱 조각으로 옵니다.
+//    이걸 띄어쓰기로 이으면 「히 트 스 마 트 패 치」가 됩니다.
+//
+//    그래서 조각 사이의 «가로 틈» 을 봅니다.
+//    앞 조각이 끝난 자리와 다음 조각이 시작하는 자리가 거의 붙어 있으면
+//    한 낱말이니 그냥 붙이고, 뚝 떨어져 있을 때만 띄웁니다.
+function sgItemsToLines(items) {
+  var rows = [];
+  (items || []).forEach(function (it) {
+    var text = it.str;
+    if (!text || !text.trim()) return;
+    var y = Math.round(it.transform[5]);
+    var size = Math.abs(it.transform[0]) || Math.abs(it.transform[3]) || 10;
+    rows.push({ y: y, x: it.transform[4], w: it.width || 0, size: size, text: text });
+  });
+
+  // 세로 위치가 비슷하면 한 줄로 봅니다
+  var lines = [];
+  rows.sort(function (a, b) { return (b.y - a.y) || (a.x - b.x); });
+  rows.forEach(function (r) {
+    var line = lines.length ? lines[lines.length - 1] : null;
+    if (!line || Math.abs(line.y - r.y) > 3) { line = { y: r.y, parts: [] }; lines.push(line); }
+    line.parts.push(r);
+  });
+
+  return lines.map(function (line) {
+    var parts = line.parts.sort(function (a, b) { return a.x - b.x; });
+    var out = '';
+    parts.forEach(function (p, i) {
+      if (i > 0) {
+        var prev = parts[i - 1];
+        var gap = p.x - (prev.x + prev.w);
+        // 글자 크기의 1/4 보다 넓게 벌어져 있으면 진짜 띄어쓰기입니다
+        if (gap > p.size * 0.25) out += ' ';
+      }
+      out += p.text;
+    });
+    return out;
+  });
+}
+
 
 // ══════════════ ③ 질문 만들기 ══════════════
 
@@ -205,7 +259,17 @@ function sgTopics(sentence) {
       // 아직도 따옴표가 남아 있으면 제대로 못 잘린 것입니다. 버립니다.
       if (new RegExp('[' + SG_QUOTES + ']').test(t)) continue;
       if (sgLooksJunk(t)) continue;
-      if (found.some(function (f) { return f.text === t; })) continue;
+
+      // 같은 말이 규칙 여럿에 걸리면 «더 구체적인» 쪽을 씁니다.
+      // 「…에 대해 탐구를 진행함」은 따옴표 규칙에도, 탐구 규칙에도 걸리는데
+      // 탐구인 줄 알아야 «무엇이 궁금해서 시작했나» 를 물을 수 있습니다.
+      var already = found.filter(function (f) { return f.text === t; })[0];
+      if (already) {
+        if (already.kind === '제목' && (rule.kind === '탐구' || rule.kind === '활동')) {
+          already.kind = rule.kind;
+        }
+        continue;
+      }
       found.push({ text: t, kind: rule.kind });
     }
   });
@@ -219,39 +283,36 @@ function sgBookOf(topic) {
   return m ? { title: sgNorm(m[1]), author: sgNorm(m[2]) } : null;
 }
 
-var SG_BOOK_TEMPLATES = [
+// ⚠️ 한 이야깃거리에 질문 하나만 냅니다. 여럿이면 같은 말이 두 줄로 늘어섭니다.
+var SG_BOOK_TEMPLATE =
   { comp: '학업역량',
-    make: function (b) { return '「' + b.title + '」을(를) 읽었군요. 어떤 대목이 가장 기억에 남고, 왜 그랬나요?'; } },
-  { comp: '진로역량',
-    make: function (b) { return '「' + b.title + '」을(를) 읽고 생각이 바뀐 것이 있다면 무엇인가요?'; } }
-];
+    make: function (b) { return '「' + b.title + '」을(를) 읽었군요. 어떤 대목이 가장 기억에 남고, 왜 그랬나요?'; } };
 
 // 영역마다 다른 질문 틀입니다.
+// 영역마다 질문 틀 하나씩.
 var SG_TEMPLATES = {
-  changche: [
+  changche:
     { comp: '공동체역량',
       make: function (t) { return '「' + t + '」 기록이 있습니다. 그때 본인이 실제로 한 일과, 가장 어려웠던 판단은 무엇이었나요?'; } },
-    { comp: '진로역량',
-      make: function (t) { return '「' + t + '」 활동이 지금의 진로 생각에 어떤 영향을 주었나요?'; } }
-  ],
-  sesa: [
+  sesa:
     { comp: '학업역량',
       make: function (t) { return '「' + t + '」이(가) 기록에 나옵니다. 아는 대로 설명해 보세요.'; } },
-    { comp: '학업역량',
-      make: function (t) { return '「' + t + '」은(는) 무엇이 궁금해서 시작했고, 결과를 어떻게 확인했나요?'; } }
-  ],
-  haengteuk: [
+  haengteuk:
     { comp: '공동체역량',
       make: function (t) { return '선생님이 「' + t + '」이라고 적어 주셨습니다. 그렇게 보였을 장면을 하나 들어 주세요.'; } }
-  ]
 };
+
+// 세특에서 «탐구·실험» 으로 잡힌 것은 과정을 묻는 편이 낫습니다.
+var SG_SESA_INQUIRY =
+  { comp: '학업역량',
+    make: function (t) { return '「' + t + '」은(는) 무엇이 궁금해서 시작했고, 결과를 어떻게 확인했나요?'; } };
+
 
 // 행동특성에 따옴표로 묶인 것은 «칭찬하는 말» 이 아니라 활동 이름입니다.
 // 「30분의 기적」에 «이라고 적어 주셨습니다» 를 붙이면 말이 안 됩니다.
-var SG_HT_ACT_TEMPLATES = [
+var SG_HT_ACT_TEMPLATE =
   { comp: '공동체역량',
-    make: function (t) { return '「' + t + '」 이야기가 있습니다. 어떻게 시작했고 본인이 맡은 몫은 무엇이었나요?'; } }
-];
+    make: function (t) { return '「' + t + '」 이야기가 있습니다. 어떻게 시작했고 본인이 맡은 몫은 무엇이었나요?'; } };
 
 // 행동특성은 «칭찬하는 말» 자체가 이야깃거리입니다.
 // 따옴표가 없을 때가 많아서 서술어를 보고 찾습니다.
@@ -267,9 +328,12 @@ var SG_TRAIT_RE =
 var SG_MODIFIER_END = /(?:는|은|ㄴ|한|된|인|워|며|고|게|이|히)$/;
 
 function sgTrimTrait(t) {
-  var parts = sgNorm(t).split(' ');
+  var v = sgNorm(t);
+  // 줄이 낱말 가운데서 끊겨 붙어 버린 꾸밈말 — 「정리하는의사소통 능력」
+  v = v.replace(/^[가-힣]{1,4}(?:하는|되는|지는|기는|리는|는|은|한|된|인)(?=[가-힣]{2,})/, '');
+  var parts = v.split(' ');
   if (parts.length === 2 && SG_MODIFIER_END.test(parts[0])) return parts[1];
-  return sgNorm(t);
+  return sgNorm(v);
 }
 
 function sgTraits(sentence) {
@@ -296,7 +360,6 @@ function sgSubjectOf(sentence) {
 // 한 영역·한 학년의 문장들에서 질문을 만듭니다.
 // 반환: [{ text, competency, topic, subject, source, grade, area }]
 function sgMakeQuestions(sectionKey, grade, sentences) {
-  var templates = SG_TEMPLATES[sectionKey] || [];
   var made = [];
   var seen = {};
 
@@ -319,23 +382,32 @@ function sgMakeQuestions(sectionKey, grade, sentences) {
 
     topics.forEach(function (topic) {
       var book = (sectionKey === 'haengteuk') ? null : sgBookOf(topic.text);
-      var use = book ? SG_BOOK_TEMPLATES
-              : (sectionKey === 'haengteuk' && topic.kind === '제목') ? SG_HT_ACT_TEMPLATES
-              : templates;
 
-      use.forEach(function (tpl) {
-        var text = book ? tpl.make(book) : tpl.make(topic.text);
-        if (seen[text]) return;
-        seen[text] = true;
-        made.push({
-          text: text,
-          competency: tpl.comp,
-          topic: book ? book.title : topic.text,
-          subject: subject,
-          source: sentence,        // 원문을 같이 보여줍니다. 이상하면 바로 알아채도록
-          grade: grade,
-          area: sectionKey
-        });
+      // ⚠️ 이야깃거리 하나에 질문 하나만 냅니다.
+      //    「…아는 대로 설명해 보세요」 와 「…무엇이 궁금해서 시작했고…」 가
+      //    나란히 나오면 같은 말이 두 줄로 늘어서 고르기만 번거롭습니다.
+      //    담은 뒤에 글자를 고칠 수 있으니 하나면 됩니다.
+      var tpl;
+      if (book) tpl = SG_BOOK_TEMPLATE;
+      else if (sectionKey === 'haengteuk')
+        tpl = (topic.kind === '제목') ? SG_HT_ACT_TEMPLATE : SG_TEMPLATES.haengteuk;
+      else if (sectionKey === 'sesa')
+        // 탐구·실험이면 과정을 묻고, 개념·제목이면 설명을 시킵니다
+        tpl = (topic.kind === '탐구' || topic.kind === '활동') ? SG_SESA_INQUIRY : SG_TEMPLATES.sesa;
+      else tpl = SG_TEMPLATES[sectionKey];
+      if (!tpl) return;
+
+      var text = book ? tpl.make(book) : tpl.make(topic.text);
+      if (seen[text]) return;
+      seen[text] = true;
+      made.push({
+        text: text,
+        competency: tpl.comp,
+        topic: book ? book.title : topic.text,
+        subject: subject,
+        source: sentence,        // 원문을 같이 보여줍니다. 이상하면 바로 알아채도록
+        grade: grade,
+        area: sectionKey
       });
     });
   });
@@ -365,7 +437,7 @@ function sgBuild(lines) {
   var counts = {};
 
   SG_SECTIONS.forEach(function (sec) {
-    var byGrade = sgSplitGrades(sections[sec.key]);
+    var byGrade = sgSplitGrades(sections[sec.key], sec.key);
     counts[sec.key] = 0;
     [1, 2, 3, 0].forEach(function (g) {
       var sentences = sgSentences(byGrade[g]);
@@ -381,7 +453,7 @@ function sgBuild(lines) {
 
 // 브라우저 밖(시험)에서도 쓸 수 있게 내보냅니다.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { sgSplitSections: sgSplitSections, sgCleanTopic: sgCleanTopic,
+  module.exports = { sgSplitSections: sgSplitSections, sgItemsToLines: sgItemsToLines, sgCleanTopic: sgCleanTopic,
                      sgIsTableRow: sgIsTableRow, sgBookOf: sgBookOf, sgSubjectOf: sgSubjectOf, sgIsNoise: sgIsNoise, sgGradeOf: sgGradeOf, sgSplitGrades: sgSplitGrades,
                      sgSentences: sgSentences, sgTopics: sgTopics, sgTraits: sgTraits,
                      sgMakeQuestions: sgMakeQuestions, sgBuild: sgBuild,
@@ -417,26 +489,6 @@ function sgLoadPdfJs() {
 
 // PDF 한 쪽의 글자 조각을 «줄» 로 묶습니다.
 // 표라서 조각이 뿔뿔이 나오므로, 세로 위치(y)가 비슷하면 한 줄로 봅니다.
-function sgItemsToLines(items) {
-  var rows = [];
-  items.forEach(function (it) {
-    var text = it.str;
-    if (!text || !text.trim()) return;
-    var y = Math.round(it.transform[5]);
-    var x = it.transform[4];
-    var row = rows.filter(function (r) { return Math.abs(r.y - y) <= 3; })[0];
-    if (!row) { row = { y: y, parts: [] }; rows.push(row); }
-    row.parts.push({ x: x, text: text });
-  });
-
-  return rows
-    .sort(function (a, b) { return b.y - a.y; })        // 위에서 아래로
-    .map(function (r) {
-      return r.parts.sort(function (a, b) { return a.x - b.x; })   // 왼쪽에서 오른쪽으로
-        .map(function (p) { return p.text; }).join(' ');
-    });
-}
-
 // 파일 하나를 읽어 줄 목록을 돌려줍니다.
 async function sgReadPdf(file) {
   var pdfjsLib = await sgLoadPdfJs();
