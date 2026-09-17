@@ -344,10 +344,39 @@ function sgTidy(text) {
 function sgRecordText(lines) {
   var kept = (lines || []).filter(function (l) {
     if (l === SG_CELL_BREAK) return false;          // 칸 바뀜 표시는 글이 아닙니다
+    // ⚠️ 표의 이름표 칸(「자율활동」 「1」)은 글이 아니라 «칸 이름» 입니다.
+    //    묶음별 기록에서는 sgSplitAreas() 가 떼어 내지만, «원문 전체» 는
+    //    줄을 그대로 이어 붙이므로 여기서 걸러야 합니다.
+    //    안 그러면 「자율활동글쓰기 활동에 참여하여…」 처럼 앞에 눌어붙습니다.
+    if (sgIsCellLabel(l)) return false;
     return !sgIsPageFurniture(l) && !sgIsNoise(l) &&
            !sgIsTableRow(l) && !sgIsCourseTable(l);
   });
   return sgScrubFurniture(sgTidy(sgJoinLines(kept)));
+}
+
+// ══ 원문 전체를 «갈래 → 글» 짝으로 ══
+//
+// 원문 전체는 그 학년 그 영역을 통째로 보여주는 안전판입니다.
+// 줄을 그냥 이으면 「자율활동글쓰기 활동에 참여하여…」 처럼 이름표가 앞에 눌어붙습니다.
+// 이름표에서 끊어 짝으로 돌려주면, 화면에서 색 네모로 구분해 보여줄 수 있습니다.
+// 반환: [{ label, text }] — label 이 '' 이면 이름표가 없는 대목입니다.
+function sgRecordParts(lines) {
+  var out = [], cur = { label: '', lines: [] };
+  (lines || []).forEach(function (raw) {
+    var t = sgNorm(raw);
+    // 한 자리 학년은 이름표라도 보여줄 것이 없습니다
+    if (t && sgIsCellLabel(t) && !/^[1-3]$/.test(t)) {
+      if (cur.lines.length) out.push(cur);
+      cur = { label: t, lines: [] };
+      return;
+    }
+    cur.lines.push(raw);
+  });
+  if (cur.lines.length) out.push(cur);
+
+  return out.map(function (c) { return { label: c.label, text: sgRecordText(c.lines) }; })
+            .filter(function (c) { return c.text; });
 }
 
 // ══ 질문 만들기용 — 문장으로 쪼갭니다 ══
@@ -1124,8 +1153,8 @@ function sgBuild(lines) {
       // 세특은 과목마다 기록이 또렷하게 갈려서 안전판이 필요 없습니다.
       // 전 과목을 다시 이어 붙여 보여주면 같은 글만 두 번 읽게 됩니다.
       if (sec.key !== 'sesa') {
-        var whole = sgRecordText(byGrade[g]);
-        if (whole) wholes[g + '|' + sec.key] = whole;
+        var whole = sgRecordParts(byGrade[g]);
+        if (whole.length) wholes[g + '|' + sec.key] = whole;
       }
       sgChunks(sec.key, byGrade[g]).forEach(function (c) {
         // ⚠️ 길이 두 개를 따로 냅니다.
@@ -1155,6 +1184,7 @@ if (typeof module !== 'undefined' && module.exports) {
                      sgSentences: sgSentences, sgTopics: sgTopics, sgTraits: sgTraits,
                      sgSplitAreas: sgSplitAreas, sgSplitSubjects: sgSplitSubjects,
                      sgChunks: sgChunks, sgRecordText: sgRecordText, sgBlankItem: sgBlankItem,
+                     sgRecordParts: sgRecordParts,
                      sgIsPageFurniture: sgIsPageFurniture, sgIsHeading: sgIsHeading,
                      sgIsCourseTable: sgIsCourseTable, sgScrubFurniture: sgScrubFurniture,
                      sgIsHeadCell: sgIsHeadCell, sgIsCellLabel: sgIsCellLabel,
@@ -1483,15 +1513,34 @@ function sgSectionTitle(key) {
 //    나이스 판이 조금만 달라져도 칸이 어긋나는데, 그때마다 선생님이
 //    «내용이 잘렸다» 고 느끼셔야 할 까닭이 없습니다. 접어 두고, 펴면 다 나옵니다.
 function sgWholeHTML(g, wk) {
-  var whole = sgWholes[wk];
-  if (!whole) return '';
+  var parts = sgWholes[wk];
+  if (!parts || !parts.length) return '';
+
+  var chars = 0;
+  parts.forEach(function (p) { chars += p.text.length; });
   var title = (g.grade ? g.grade + '학년' : '학년 모름') + ' ' + sgSectionTitle(g.area);
+
   return '<details class="sg-whole">' +
     '<summary>' + esc(title) + ' <b>원문 전체</b>' +
-      '<span class="n">' + String(whole.length).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '자</span>' +
+      '<span class="n">' + String(chars).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '자</span>' +
     '</summary>' +
-    '<div class="sg-wholetext">' + esc(sgMaskText(whole)) + '</div>' +
+    '<div class="sg-wholetext">' + parts.map(function (p) {
+      // 갈래 이름은 «제 줄» 에 색 네모로. 글에 눌어붙으면 구별이 안 됩니다.
+      return '<div class="sg-wpart">' +
+        (p.label ? '<div class="sg-wlabel"><b class="sg-tag ' + sgTagClass(p.label) + '">' +
+                   esc(p.label) + '</b></div>' : '') +
+        '<p class="sg-wtext">' + esc(sgMaskText(p.text)) + '</p>' +
+        '</div>';
+    }).join('') + '</div>' +
     '</details>';
+}
+
+// 갈래마다 다른 색 네모. 이름을 CSS 반에 직접 넣지 않고 정해진 것만 씁니다.
+var SG_TAG_CLASS = {
+  '자율활동': 'jayul', '동아리활동': 'dongari', '봉사활동': 'bongsa', '진로활동': 'jinro'
+};
+function sgTagClass(label) {
+  return SG_TAG_CLASS[sgNorm(label).replace(/\s/g, '')] || 'etc';
 }
 
 function sgGroupHTML(g) {
