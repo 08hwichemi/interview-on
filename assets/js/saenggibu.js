@@ -206,10 +206,17 @@ function sgItemsToLines(items) {
 // 「」 '' 안의 제목, ~을 주제로, ~에 대해 탐구/조사/발표 …
 var SG_QUOTES = '「」『』"\'\u201c\u201d\u2018\u2019';
 var SG_TOPIC_RULES = [
-  { re: /[「『"'\u2018\u201c]([^」』"'\u2019\u201d]{3,40})[」』"'\u2019\u201d]/g,    kind: '제목' },
-  { re: /([^,.\s][^,.]{2,40}?)(?:을|를)\s*주제로/g,              kind: '주제' },
-  { re: /([^,.\s][^,.]{2,40}?)에\s*(?:대해|관해|대하여)\s*(?:탐구|조사|발표|실험|연구|분석)/g, kind: '탐구' },
-  { re: /([^,.\s][^,.]{2,40}?)\s*(?:탐구|실험|프로젝트|캠페인|동아리|활동)(?:을|를|에)?\s*(?:진행|수행|기획|참여)/g, kind: '활동' }
+  // ⚠️ 길이를 30자로 막아 뒀더니 실제 생기부의 탐구 제목이 줄줄이 버려졌습니다.
+  //    「포물선의 반사 성질은 광촉매 반응기의 효율을 어떻게 높일까?」 가 33자입니다.
+  //    생기부의 탐구 제목은 «질문 한 문장» 인 일이 흔해서 60자까지 받습니다.
+  { re: /[「『"'\u2018\u201c]([^」』"'\u2019\u201d]{3,60})[」』"'\u2019\u201d]/g,    kind: '제목' },
+  { re: /([^,.\s][^,.]{2,50}?)(?:을|를)\s*주제로/g,              kind: '주제' },
+  { re: /([^,.\s][^,.]{2,50}?)에\s*(?:대해|관해|대하여)\s*(?:탐구|조사|발표|실험|연구|분석)/g, kind: '탐구' },
+  { re: /([^,.\s][^,.]{2,50}?)\s*(?:탐구|실험|프로젝트|캠페인|동아리|활동)(?:을|를|에)?\s*(?:진행|수행|기획|참여)/g, kind: '활동' },
+  // 세특에 자주 나오는 말투를 더 받습니다
+  { re: /([^,.\s][^,.]{2,50}?)(?:라는|이라는)\s*(?:질문|물음)/g,   kind: '질문' },
+  { re: /([^,.\s][^,.]{2,50}?)(?:을|를)\s*(?:설계|고안|제작|개발|구현)/g, kind: '활동' },
+  { re: /([^,.\s][^,.]{2,50}?)(?:을|를)\s*(?:탐색|고찰|규명|입증)/g, kind: '탐구' }
 ];
 
 // 창체 갈래 이름·과목 꼬리표가 앞에 붙어 오면 떼어 냅니다.
@@ -219,7 +226,7 @@ function sgCleanTopic(raw) {
   var t = sgNorm(raw);
 
   // 따옴표가 섞여 있으면 그 «안쪽» 만 씁니다. 바깥은 군더더기입니다.
-  var inner = t.match(/[「『"'\u2018\u201c]([^」』"'\u2019\u201d]{3,40})[」』"'\u2019\u201d]/);
+  var inner = t.match(/[「『"'\u2018\u201c]([^」』"'\u2019\u201d]{3,60})[」』"'\u2019\u201d]/);
   if (inner) t = sgNorm(inner[1]);
 
   // 남은 따옴표·괄호 묶음을 떼어 냅니다
@@ -241,8 +248,14 @@ function sgCleanTopic(raw) {
 // 토씨로 시작하는 토막이 잡힙니다. 질문으로 쓸 수 없습니다.
 var SG_JUNK_HEAD = /^(?:라는|이라는|라고|이라고|하는|되는|하여|으로|로서|에서|에게|및|와|과|의|을|를|은|는|이|가|도|만)\s/;
 
+// 「실험을 통해 배우고 느낀점 및 아쉬운 점을 고찰하며」 처럼
+// 탐구 «제목» 이 아니라 그냥 서술인 토막이 규칙에 걸려 들어옵니다.
+// 절을 잇는 말이 들어 있으면 제목이 아닙니다.
+var SG_CLAUSE = /(?:통해|위해|대한|하면서|하며$|하고$|하여$|면서$|보며$|으며$|는데$|지만$)/;
+
 function sgLooksJunk(t) {
   if (SG_JUNK_HEAD.test(t)) return true;
+  if (SG_CLAUSE.test(t)) return true;
   // 한글이 거의 없으면 표에서 흘러든 조각입니다
   var hangul = (t.match(/[가-힣]/g) || []).length;
   return hangul < 2;
@@ -255,7 +268,7 @@ function sgTopics(sentence) {
     var m;
     while ((m = re.exec(sentence)) !== null) {
       var t = sgCleanTopic(m[1]);
-      if (t.length < 3 || t.length > 30) continue;
+      if (t.length < 3 || t.length > 60) continue;
       // 아직도 따옴표가 남아 있으면 제대로 못 잘린 것입니다. 버립니다.
       if (new RegExp('[' + SG_QUOTES + ']').test(t)) continue;
       if (sgLooksJunk(t)) continue;
@@ -301,6 +314,11 @@ var SG_TEMPLATES = {
     { comp: '공동체역량',
       make: function (t) { return '선생님이 「' + t + '」이라고 적어 주셨습니다. 그렇게 보였을 장면을 하나 들어 주세요.'; } }
 };
+
+// 「…어떻게 높일까?」 처럼 물음으로 된 제목에 «아는 대로 설명해 보세요» 는 어색합니다.
+var SG_QUESTION_TEMPLATE =
+  { comp: '학업역량',
+    make: function (t) { return '「' + t + '」 이 물음을 스스로 던졌군요. 어떤 답을 찾았고, 무엇이 아직 안 풀렸나요?'; } };
 
 // 세특에서 «탐구·실험» 으로 잡힌 것은 과정을 묻는 편이 낫습니다.
 var SG_SESA_INQUIRY =
@@ -363,12 +381,17 @@ function sgMakeQuestions(sectionKey, grade, sentences) {
   var made = [];
   var seen = {};
 
-  var subject = '';   // 과목은 한 번 나오면 그 뒤 문장까지 이어집니다
+  var subject = '';         // 과목은 한 번 나오면 그 뒤 문장까지 이어집니다
+  var seenSubjects = [];    // 이 학년에 나온 과목들
+  var gotSubjects = {};     // 그 중 질문이 하나라도 나온 과목
 
   (sentences || []).forEach(function (sentence) {
     if (sectionKey === 'sesa') {
       var found = sgSubjectOf(sentence);
-      if (found) subject = found;
+      if (found) {
+        subject = found;
+        if (seenSubjects.indexOf(found) === -1) seenSubjects.push(found);
+      }
     }
     var topics;
     if (sectionKey === 'haengteuk') {
@@ -391,9 +414,12 @@ function sgMakeQuestions(sectionKey, grade, sentences) {
       if (book) tpl = SG_BOOK_TEMPLATE;
       else if (sectionKey === 'haengteuk')
         tpl = (topic.kind === '제목') ? SG_HT_ACT_TEMPLATE : SG_TEMPLATES.haengteuk;
-      else if (sectionKey === 'sesa')
-        // 탐구·실험이면 과정을 묻고, 개념·제목이면 설명을 시킵니다
-        tpl = (topic.kind === '탐구' || topic.kind === '활동') ? SG_SESA_INQUIRY : SG_TEMPLATES.sesa;
+      else if (sectionKey === 'sesa') {
+        // 물음이면 답을 묻고, 탐구·실험이면 과정을 묻고, 개념·제목이면 설명을 시킵니다
+        if (topic.kind === '질문' || /[?？]\s*$/.test(topic.text)) tpl = SG_QUESTION_TEMPLATE;
+        else if (topic.kind === '탐구' || topic.kind === '활동') tpl = SG_SESA_INQUIRY;
+        else tpl = SG_TEMPLATES.sesa;
+      }
       else tpl = SG_TEMPLATES[sectionKey];
       if (!tpl) return;
 
@@ -409,6 +435,23 @@ function sgMakeQuestions(sectionKey, grade, sentences) {
         grade: grade,
         area: sectionKey
       });
+      if (subject) gotSubjects[subject] = true;
+    });
+  });
+
+  // ⚠️ 서술만 있고 따옴표도 «주제로» 도 없는 과목은 한 개도 안 나왔습니다.
+  //    선생님은 «3학년 과목이 다 안 나온다» 고 느끼십니다.
+  //    그런 과목에는 과목 이름으로 여는 질문을 하나 넣어 둡니다.
+  //    (글자는 담은 뒤에 고치실 수 있습니다)
+  seenSubjects.forEach(function (subj) {
+    if (gotSubjects[subj]) return;
+    var text = '「' + subj + '」 수업에서 가장 기억에 남는 탐구나 활동은 무엇이었나요?';
+    if (seen[text]) return;
+    seen[text] = true;
+    made.push({
+      text: text, competency: '학업역량', topic: subj, subject: subj,
+      source: '(이 과목 기록에서는 탐구 제목을 찾지 못했습니다. 기록을 보시고 질문을 고쳐 주세요.)',
+      grade: grade, area: sectionKey
     });
   });
 

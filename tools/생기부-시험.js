@@ -179,5 +179,49 @@ var 하나 = sg.sgMakeQuestions('sesa', 1, ['「삼투압과 세포의 부피 �
 var 설명 = sg.sgMakeQuestions('sesa', 1, ['정보: 「자료구조」 단원을 배움.']);
 확인('개념은 설명을 시키는가', 설명.length === 1 && 설명[0].text.indexOf('아는 대로 설명') > -1, 설명[0] && 설명[0].text);
 
+// ══ 실제 생기부에서 겪은 것들 ══
+제목('긴 탐구 제목 (30자 제한에 걸려 통째로 버려졌던 것들)');
+[['기하: \'포물선의 반사 성질은 광촉매 반응기의 효율을 어떻게 높일까?\'를 주제로 하여 배움.',
+  '포물선의 반사 성질은 광촉매 반응기의 효율을 어떻게 높일까?'],
+ ['물리학Ⅱ: \'복합 기술이 단일 기술의 경제성을 뛰어넘는 시점은 언제일까?\'라는 질문을 바탕으로 설명함.',
+  '복합 기술이 단일 기술의 경제성을 뛰어넘는 시점은 언제일까?']
+].forEach(function (pair) {
+  var got = sg.sgTopics(pair[0]).map(function (t) { return t.text; });
+  확인('「' + pair[1].slice(0, 16) + '…」 (' + pair[1].length + '자) 를 찾았는가',
+       got.indexOf(pair[1]) > -1, got.join(' / ') || '(못 찾음)');
+});
+
+var 물음 = sg.sgMakeQuestions('sesa', 3, ['기하: \'포물선의 반사 성질은 광촉매 반응기의 효율을 어떻게 높일까?\'를 주제로 하여 배움.']);
+확인('물음으로 된 제목은 «답을 찾았나» 로 묻는가',
+     물음.length === 1 && 물음[0].text.indexOf('이 물음을 스스로 던졌군요') > -1,
+     물음[0] && 물음[0].text.slice(0, 40));
+
+제목('서술 토막은 제목이 아닙니다');
+[['실험을 통해 배우고 느낀점 및 아쉬운 점을 고찰하며 실험 수행 능력을 향상시킴.', '실험을 통해'],
+ ['자원 순환 시스템의 필요성을 주장하기 위해 탐구를 진행함.', '위해']
+].forEach(function (pair) {
+  var got = sg.sgTopics(pair[0]).map(function (t) { return t.text; });
+  확인('「' + pair[1] + '…」 같은 서술은 안 잡는가',
+       !got.some(function (t) { return t.indexOf(pair[1]) > -1; }), got.join(' / ') || '(하나도 안 잡음)');
+});
+
+제목('과목마다 적어도 하나 — 「3학년 과목이 다 안 나온다」');
+var 서술만 = sg.sgMakeQuestions('sesa', 3,
+  ['스포츠 생활: 족구 경기에서 리시브 기능이 우수하며, 공의 낙하지점을 빠르게 예측함.']);
+확인('따옴표도 «주제로» 도 없는 과목에도 질문이 나오는가', 서술만.length >= 1,
+     서술만[0] && 서술만[0].text);
+확인('그 질문에 과목 이름이 들어 있는가',
+     서술만.length >= 1 && 서술만[0].text.indexOf('스포츠 생활') > -1);
+확인('찾지 못했다는 것을 원문 자리에 밝히는가',
+     서술만.length >= 1 && 서술만[0].source.indexOf('찾지 못했습니다') > -1);
+
+var 둘다 = sg.sgMakeQuestions('sesa', 3, [
+  '기하: \'포물선의 성질\'을 주제로 탐구함.',
+  '스포츠 생활: 족구 경기에서 리시브 기능이 우수함.'
+]);
+확인('제목이 있는 과목에는 덧붙이지 않는가',
+     둘다.filter(function (q) { return q.subject === '기하'; }).length === 1,
+     둘다.filter(function (q) { return q.subject === '기하'; }).map(function(q){return q.text.slice(0,24);}).join(' | '));
+
 console.log('\n' + (실패 ? '✗ ' + 실패 + '군데 안 맞습니다' : '✓ 모두 맞습니다'));
 process.exit(실패 ? 1 : 0);
