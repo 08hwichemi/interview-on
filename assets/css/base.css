@@ -34,8 +34,9 @@ html, body {
   flex-shrink: 0; 
 }
 
-/* [수정] 스크롤바가 생겨도 화면 밀림 방지 */
-html { overflow-y: scroll; scrollbar-gutter: stable; }
+/* 스크롤바가 생겨도 화면이 밀리지 않게 자리만 잡아 둡니다.
+   ⚠️ overflow-y:scroll 로 두면 스크롤할 것이 없어도 막대가 늘 보였습니다. */
+html { overflow-y: auto; scrollbar-gutter: stable; }
 
 /* [신규] 결과 리포트 아코디언 스타일 */
 .result-card {
@@ -63,9 +64,6 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
   display: flex;
   flex-direction: column;
 }
-
-/* [수정] 스크롤바가 생겨도 화면 밀림 방지 */
-html { overflow-y: scroll; scrollbar-gutter: stable; }
 
 /* 상단 헤더 (제목 정중앙 고정 + 이름표 우측 고정) */
 .header {
@@ -123,14 +121,20 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
 }
 
 /* 신규: 입장 코드 화면 스타일 */
+/* ⚠️ 예전에는 height:100dvh 였습니다. 그러면 «화면 한 장 + 꼬리말» 이 되어
+      저작권 표시가 늘 화면 밖으로 밀려나고 스크롤이 생겼습니다.
+      이제 남는 자리를 채우기만 합니다 — 꼬리말 몫은 남겨 둡니다. */
 .login-container {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 100dvh; padding: 0 40px; text-align: center; background: linear-gradient(180deg, #27272A 0%, var(--ink) 100%);
+  flex: 1 1 auto; padding: 24px 40px; text-align: center;
+  background: linear-gradient(180deg, #27272A 0%, var(--ink) 100%);
   color: white;
 }
-.login-logo { font-size: 60px; margin-bottom: 20px; }
-.login-title { font-size: 24px; font-weight: bold; margin-bottom: 8px; }
-.login-subtitle { font-size: 14px; opacity: 0.8; margin-bottom: 30px; line-height: 1.5; }
+/* 화면이 짧은 휴대폰(320×568 같은)에서도 꼬리말까지 한 장에 들어가도록
+   윗부분은 화면 높이에 맞춰 같이 줄어듭니다. */
+.login-logo { font-size: clamp(38px, 7.4vh, 60px); margin-bottom: clamp(8px, 2.4vh, 20px); }
+.login-title { font-size: clamp(20px, 3.2vh, 24px); font-weight: bold; margin-bottom: 8px; }
+.login-subtitle { font-size: 14px; opacity: 0.8; margin-bottom: clamp(14px, 3.6vh, 30px); line-height: 1.5; word-break: keep-all; }
 .login-input-group { width: 100%; max-width: 220px; }
 /* 입력칸과 로그인 단추가 둘 다 하얀 상자면 무엇을 눌러야 할지 헷갈립니다.
    입력칸은 어두운 바탕에 녹여 두고, 단추만 하얗게 띄웁니다. */
@@ -161,6 +165,8 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
   flex-direction: column; 
 }
 .screen.active { display: flex !important; }
+/* 로그인·비밀번호 바꾸기는 어두운 그림이 화면을 꽉 채웁니다 (흰 테두리가 남지 않게) */
+#screen-login, #screen-change-password { padding: 0; }
 
 /* 홈 화면 메뉴 버튼
    ⚠️ 예전에는 min-height:480px 이었습니다. 화면이 짧은 휴대폰에서는
@@ -182,7 +188,7 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
 
 /* --- [신규] 로그인 화면: 학생 / 선생님 탭 --- */
 .login-tabs {
-  display: flex; gap: 8px; margin-bottom: 20px; width: 100%; max-width: 260px;
+  display: flex; gap: 8px; margin-bottom: clamp(12px, 2.4vh, 20px); width: 100%; max-width: 260px;
 }
 .login-tab {
   flex: 1; padding: 10px; border: none; border-radius: 10px; cursor: pointer;
