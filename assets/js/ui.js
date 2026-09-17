@@ -106,13 +106,9 @@ function navigateTo(screenId) {
   if (screenId === 'my-reports') loadMyReports();
   window.scrollTo(0, 0);
 
-  // 화면을 하나 들어갈 때마다 걸음도 한 칸 씁니다. 그래야 뒤로가기가
-  // «들어온 만큼» 되돌아 나갈 수 있습니다.
-  // ⚠️ 다만 이 함수는 앱이 켜지면서 스스로 부를 때도 있습니다(로그인이 살아 있으면
-  //    곧장 홈으로). 그때 쌓은 걸음은 사람의 손이 아니라 크롬이 건너뛰는데,
-  //    세어 버리면 그 뒤로 진짜 걸음을 한 번도 안 쌓게 됩니다.
-  //    그래서 «지금 사람이 누르는 중인가» 를 브라우저에게 물어보고 그때만 쌓습니다.
-  armBackGuard(false);
+  // ⚠️ 여기서 걸음을 쌓지 않습니다 — 이동수업 앱 원본에도 없습니다.
+  //    단추를 눌러서 왔다면 pointerdown 에서 이미 쌓였고,
+  //    앱이 켜지면서 스스로 불렀다면 쌓아 봐야 건너뛰어집니다.
 }
 
 // 대학 고르기 팝업(openUnivModal · closeUnivModal · selectUniv)은
@@ -132,17 +128,13 @@ function navigateTo(screenId) {
 //    ※ 컴퓨터 브라우저와 시험 도구에서는 이 건너뛰기가 일어나지 않습니다.
 //      여기서 아무리 돌려 봐도 멀쩡해 보이므로 실제 휴대폰에서 봐야 합니다.
 //
-// 그래서 이동수업 출석부 앱의 방식을 가져오고, 실제 휴대폰 자취를 보고 고쳤습니다 —
-//   ① 화면을 만질 때마다(pointerdown·터치·자판) 걸음을 «세어 가며» 채웁니다.
-//      이때 넣은 걸음은 사람의 조작이라 브라우저가 건너뛰지 않습니다.
-//      **한 번에 한 칸만** 쌓습니다 (크롬이 터치 한 번당 하나만 인정하므로)
-//   ② 뒤로가기를 처리하면서 넣는 걸음은 건너뛰어질 수 있으므로 «개수로 세지 않습니다»
-//   ③ **여유분을 넉넉히(GUARD_TARGET 칸) 쌓아 둡니다.** 한 칸만 두었더니,
-//      뒤로가기 한 번에 0 칸이 되고 사람이 만지기 전에 또 누르면 그대로 꺼졌습니다.
-//      실제 휴대폰 자취로 확인한 대목입니다
-//   ④ beforeunload 도 걸어 둡니다. 다만 **안드로이드에서는 이게 안 옵니다**
-//      (자취에 「나가려 함」이 한 번도 안 찍혔습니다). 컴퓨터 브라우저용 보조입니다 —
-//      **믿을 것은 ③ 입니다**
+// 그래서 이동수업 출석부 앱에서 실제로 통하는 방식을 **한 줄도 바꾸지 않고** 씁니다 —
+//   ① 열자마자 걸음을 하나 쌓습니다 (아무것도 안 만진 채 누를 때를 대비)
+//   ② 화면을 만질 때마다(pointerdown·터치·자판) 한 칸까지 다시 채웁니다
+//   ③ 뒤로가기를 처리하면서도 한 칸 넣습니다 (세지는 않습니다)
+//   ④ beforeunload 로 브라우저가 «사이트를 나가시겠습니까?» 를 묻게 합니다
+//      — 우리 창이 아니라 크롬 창이라 모양이 다릅니다. 실제로 한 번은 이것이
+//        앱을 붙잡아 주었습니다(자취에 「나가려 함」이 찍혔습니다)
 //
 // 뒤로가기를 누르면 —
 //   1) 열린 창이 있으면 → 그 창만 닫기
@@ -157,7 +149,19 @@ function navigateTo(screenId) {
 //    만지지 않고 곧바로 또 누르면 채울 틈이 없어 그대로 앱이 꺼졌습니다.
 //    (안드로이드에서는 beforeunload 도 안 옵니다 — 자취에 아무것도 안 찍혔습니다)
 //    그래서 여유분을 여러 칸 쌓아 둡니다. 만질 때마다 한 칸씩 찹니다.
-var GUARD_TARGET = 4;
+// ══ 아래는 이동수업 출석부 앱(movingclass-src/App.js)의 «정확히 같은» 짜임입니다 ══
+//
+// ⚠️ 여기를 «개선» 하지 마세요. 제가 세 판에 걸쳐 고쳐 보려다 전부 더 나빠졌습니다 —
+//    ① 여유분을 1 → 4 칸으로 늘렸더니, pointerdown 과 touchstart 가 손가락 한 번에
+//       둘 다 오는 바람에 허깨비 걸음이 잔뜩 쌓였습니다.
+//       («while (걸음 < 1)» 로 막아 두면 두 이벤트가 와도 한 칸에서 멈춥니다)
+//    ② 열자마자 쌓는 첫 걸음을 뺐더니, 앱을 켜고 아무것도 안 만진 채 뒤로가기를
+//       누르면 막을 것이 하나도 없어 그대로 꺼졌습니다
+//    ③ 뒤로가기를 처리하면서 쌓는 걸음(pushBestEffort)을 뺐더니,
+//       한 번 뒤로 간 뒤에는 남는 것이 없어 다음 누름에 꺼졌습니다
+//    셋 다 원본에는 있는 것들이고, 없애 보니 하나같이 탈이 났습니다.
+
+var GUARD_TARGET = 1;      // 여유분 한 칸 (원본 그대로)
 var backGuards = 0;        // 지금 쌓아 둔 걸음 수
 var leaving = false;       // 일부러 나가는 중인가 (종료 확인 · 새로고침 · 로그아웃)
 var leavingAt = 0;
@@ -169,7 +173,7 @@ function leavingNow() { return leaving && Date.now() - leavingAt < 3000; }
 
 // ── 자취 남기기 ──
 // 휴대폰에서 무슨 일이 일어났는지 «앱이 꺼진 뒤에도» 볼 수 있어야 합니다.
-// 그래서 브라우저에 남겨 둡니다. 다시 열고 판 번호를 세 번 누르면 보입니다.
+// 다시 열고 꼬리말의 판 번호를 세 번 누르면 보입니다.
 function logBack(what) {
   try {
     var a = JSON.parse(localStorage.getItem('backlog') || '[]');
@@ -181,40 +185,19 @@ function logBack(what) {
 
 // 사람이 만지는 중에 넣는 걸음 — 브라우저가 인정해 줍니다
 function pushCounted() {
-  try { history.pushState({ interviewOn: true }, ''); backGuards += 1; logBack('걸음+1(손) → ' + backGuards); } catch (e) { /* 사생활 보호 모드 */ }
+  try { history.pushState({ interviewOn: true }, ''); backGuards += 1; } catch (e) { /* 사생활 보호 모드 */ }
 }
-// ⚠️ 뒤로가기를 처리하는 중에 걸음을 다시 쌓던 것(pushBestEffort)은 없앴습니다.
-//    그때는 사람의 손이 닿은 순간이 아니라 크롬이 그 걸음을 건너뜁니다.
-//    막지도 못하면서 히스토리만 늘렸습니다 — 「걸음 1칸인데 히스토리만 늘어난다」가
-//    바로 그것이었습니다. 이제 걸음은 «사람이 누르는 순간» 에만 쌓습니다.
-
-// 지금 이 순간이 «사람이 누르는 중» 인가를 브라우저에게 직접 물어봅니다.
-// 이걸 물어보면 «단추를 눌러서 온 것» 과 «앱이 스스로 부른 것» 을 가를 수 있습니다.
-// 모르는 브라우저에서는 안 쌓습니다 — 허깨비를 세는 것보다 안 세는 편이 낫습니다.
-function inUserGesture() {
-  try {
-    var ua = navigator.userActivation;
-    if (ua && typeof ua.isActive === 'boolean') return ua.isActive;
-  } catch (e) { /* 아래로 */ }
-  return false;
+// 뒤로가기를 처리하면서 넣는 걸음 — 건너뛰어질 수 있으므로 «개수로 세지 않습니다»
+function pushBestEffort() {
+  try { history.pushState({ interviewOn: true }, ''); } catch (e) { /* 사생활 보호 모드 */ }
 }
 
-// ⚠️ 걸음은 **사람이 누르는 순간에만** 쌓아야 합니다.
-//    그 순간이라야 브라우저가 «사람이 만든 걸음» 으로 인정하고 건너뛰지 않습니다.
-//    sure = true 는 손가락·자판 이벤트 «안» 이라 따져 볼 것도 없는 자리입니다.
-// ⚠️ 그리고 **한 번에 한 칸만** 쌓습니다. 크롬은 터치 한 번당 걸음 하나만
-//    인정하므로, 한 번에 여러 칸을 밀어 넣으면 첫 칸만 진짜이고 나머지는
-//    허깨비인데 개수만 늘어납니다. 그러면 또 «이미 찼다» 며 안 쌓게 됩니다.
-var lastArmAt = 0;
-function armBackGuard(sure) {
+function armBackGuard() {
   if (leavingNow()) return;
-  if (backGuards >= GUARD_TARGET) return;
-  if (!sure && !inUserGesture()) return;
-  // 한 번의 손짓에는 한 칸만. 자판을 꾹 누르면 keydown 이 연달아 오기도 합니다.
-  var now = Date.now();
-  if (now - lastArmAt < 250) return;
-  lastArmAt = now;
-  pushCounted();
+  var n = 0;
+  // ⚠️ 이 «while + n» 이 핵심입니다. 손가락 한 번에 pointerdown·touchstart 가
+  //    둘 다 와도 걸음은 한 칸에서 멈춥니다.
+  while (backGuards < GUARD_TARGET && n < GUARD_TARGET) { pushCounted(); n++; }
 }
 
 // 위에 떠 있는 창을 하나 닫습니다. 닫았으면 true.
@@ -241,26 +224,22 @@ function closeTopLayer() {
 }
 
 // ⚠️ 자바스크립트로는 안드로이드 앱을 «닫을» 수가 없습니다.
-//    history.go(-N) 은 우리 화면 안에서만 움직이고(그래서 «확인을 눌러도 아무 일도
-//    안 일어난다» 였습니다), window.close() 는 스크립트가 연 창이 아니면 막힙니다.
-//    할 수 있는 일은 **막고 있던 걸음을 모두 치워, 다음 뒤로가기가 그대로 나가게**
-//    하는 것뿐입니다. 그래서 «확인» 은 문을 열어 주고, 나가는 것은 뒤로가기가 합니다.
+//    history.go(-N) 은 우리 화면 «안» 에서만 움직이고, window.close() 는
+//    스크립트가 연 창이 아니면 막힙니다. 할 수 있는 일은 막고 있던 걸음을 치워
+//    **다음 뒤로가기가 그대로 나가게** 하는 것뿐입니다.
 function askExit() {
   var box = document.getElementById('custom-confirm');
   if (box && box.style.display === 'flex') return;   // 다른 물음이 떠 있으면 겹치지 않게
   showConfirm('앱을 종료할까요?<br><span style="font-size:13px;color:var(--ink-3)">' +
               '«확인» 을 누르고 <b>뒤로가기를 한 번 더</b> 누르면 나갑니다</span>',
     function () {
-      allowLeaving();            // 이제부터는 아무것도 막지 않습니다
+      allowLeaving();
       backGuards = 0;
       logBack('종료 확인 → 막음 품');
-      // 쌓아 둔 걸음을 모두 걷어내 맨 처음 자리로 돌아갑니다.
-      // 그래야 다음 뒤로가기 한 번에 앱 밖으로 나갑니다.
       try { if (history.length > 1) history.go(-(history.length - 1)); } catch (e) {}
       setTimeout(function () { try { window.close(); } catch (e) {} }, 300);
       setTimeout(function () {
-        // 그래도 살아 있으면 — 브라우저가 못 닫는 것입니다. 한 번 더 누르시라고 알립니다.
-        allowLeaving();
+        allowLeaving();      // 아직 살아 있으면 — 한 번 더 누르시라고 알립니다
         showToast('뒤로가기를 한 번 더 누르면 나갑니다.');
       }, 700);
     });
@@ -271,35 +250,36 @@ window.addEventListener('popstate', function () {
   leaving = false;
   if (backGuards > 0) backGuards -= 1;
 
-  if (closeTopLayer()) { logBack('뒤로 → 창 닫음 (남은걸음 ' + backGuards + ')'); return; }
+  if (closeTopLayer()) {
+    logBack('뒤로 → 창 닫음 (걸음 ' + backGuards + ')');
+    pushBestEffort();
+    return;
+  }
 
   var cur = document.querySelector('.screen.active');
   var id = cur ? cur.id.replace('screen-', '') : 'home';
 
   // 홈도 로그인도 아니면 홈으로 (훈련 중이면 handleBack() 이 «중단할까요?» 를 먼저 묻습니다)
   if (id !== 'home' && id !== 'login' && id !== 'change-password') {
-    logBack('뒤로 → 홈으로 (' + id + ', 남은걸음 ' + backGuards + ')');
+    logBack('뒤로 → 홈으로 (' + id + ', 걸음 ' + backGuards + ')');
     handleBack();
+    pushBestEffort();
     return;
   }
 
-  logBack('뒤로 → 종료 물음 (' + id + ', 남은걸음 ' + backGuards + ')');
+  logBack('뒤로 → 종료 물음 (' + id + ', 걸음 ' + backGuards + ')');
+  pushBestEffort();
   askExit();
 });
 
 // 사람이 만질 때마다 걸음을 채웁니다. 이 걸음만 브라우저가 인정해 줍니다.
-// ⚠️ 예전에는 pointerdown 과 touchstart 를 «둘 다» 들었습니다.
-//    손가락 한 번에 두 이벤트가 와서 걸음을 두 칸 쌓는데, 크롬이 인정하는 것은
-//    한 칸뿐입니다. 나머지 한 칸은 허깨비인데 개수만 늘어나, 네 칸인 줄 알았던
-//    여유분이 실제로는 두 칸이었습니다. 자취에 「걸음+1」이 같은 초에 네 줄
-//    찍혔던 것이 그 증거입니다. 이제 pointerdown 하나만 듣습니다.
-['pointerdown', 'keydown'].forEach(function (t) {
-  window.addEventListener(t, function () { armBackGuard(true); }, true);
+// (원본과 같이 세 가지를 다 듣습니다 — 위의 while 이 두 번 쌓는 것을 막아 줍니다)
+['pointerdown', 'touchstart', 'keydown'].forEach(function (t) {
+  window.addEventListener(t, armBackGuard, true);
 });
 
-// 보조 안전망 (컴퓨터 브라우저용).
-// ⚠️ 안드로이드 PWA 에서는 이것이 오지 않습니다 — 실제 자취로 확인했습니다.
-//    그래서 여유분(GUARD_TARGET)을 넉넉히 두는 쪽이 본줄기입니다.
+// 보조 안전망. 브라우저가 직접 «사이트를 나가시겠습니까?» 를 묻습니다.
+// 우리가 만든 창이 아니라 크롬의 창입니다 — 그래서 모양이 다릅니다.
 window.addEventListener('beforeunload', function (e) {
   if (leavingNow()) { logBack('나감(일부러)'); return; }
   logBack('나가려 함 → 브라우저에 물어 달라고 함');
@@ -308,9 +288,9 @@ window.addEventListener('beforeunload', function (e) {
   return '';
 });
 
-// ⚠️ 열자마자는 걸음을 쌓지 않습니다.
-//    사람의 손이 닿기 전에 쌓은 걸음은 크롬이 건너뛰므로 막지도 못하면서
-//    히스토리만 늘립니다. 화면을 처음 누르는 순간 진짜 걸음이 하나 쌓입니다.
+// 첫 진입분. 앱을 켜고 «아무것도 만지지 않은 채» 뒤로가기를 눌러도
+// 막을 것이 하나는 있어야 합니다. (원본에도 있습니다)
+pushCounted();
 logBack('── 앱 열림 ' + (typeof BUILD_ID !== 'undefined' ? BUILD_ID : '?') + ' ──');
 
 // ── 화면에서 바로 보는 진단 ──
