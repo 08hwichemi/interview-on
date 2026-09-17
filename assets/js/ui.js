@@ -130,13 +130,17 @@ function navigateTo(screenId) {
 //    ※ 컴퓨터 브라우저와 시험 도구에서는 이 건너뛰기가 일어나지 않습니다.
 //      여기서 아무리 돌려 봐도 멀쩡해 보이므로 실제 휴대폰에서 봐야 합니다.
 //
-// 그래서 이동수업 출석부 앱에서 실제로 통했던 방식을 그대로 가져왔습니다 —
+// 그래서 이동수업 출석부 앱의 방식을 가져오고, 실제 휴대폰 자취를 보고 고쳤습니다 —
 //   ① 화면을 만질 때마다(pointerdown·터치·자판) 걸음을 «세어 가며» 채웁니다.
-//      이때 넣은 걸음은 사람의 조작이라 브라우저가 건너뛰지 않습니다
+//      이때 넣은 걸음은 사람의 조작이라 브라우저가 건너뛰지 않습니다.
+//      **한 번에 한 칸만** 쌓습니다 (크롬이 터치 한 번당 하나만 인정하므로)
 //   ② 뒤로가기를 처리하면서 넣는 걸음은 건너뛰어질 수 있으므로 «개수로 세지 않습니다»
-//   ③ 그래도 걸음이 바닥나 진짜로 나가려는 마지막 순간에는
-//      **beforeunload** 로 브라우저가 직접 «나가시겠습니까?» 를 묻게 합니다.
-//      이건 브라우저 기능이라 위의 건너뛰기 제한을 받지 않습니다. **이게 진짜 안전망입니다**
+//   ③ **여유분을 넉넉히(GUARD_TARGET 칸) 쌓아 둡니다.** 한 칸만 두었더니,
+//      뒤로가기 한 번에 0 칸이 되고 사람이 만지기 전에 또 누르면 그대로 꺼졌습니다.
+//      실제 휴대폰 자취로 확인한 대목입니다
+//   ④ beforeunload 도 걸어 둡니다. 다만 **안드로이드에서는 이게 안 옵니다**
+//      (자취에 「나가려 함」이 한 번도 안 찍혔습니다). 컴퓨터 브라우저용 보조입니다 —
+//      **믿을 것은 ③ 입니다**
 //
 // 뒤로가기를 누르면 —
 //   1) 열린 창이 있으면 → 그 창만 닫기
@@ -145,7 +149,13 @@ function navigateTo(screenId) {
 //      (예전에는 «한 번 더 누르면 닫힙니다» 안내만 띄웠는데, 눈에 잘 안 띄고
 //       두 번째 누름이 건너뛰기에 걸려서 이동수업 앱에서도 물음창으로 바꿨습니다)
 
-var GUARD_TARGET = 1;      // 늘 채워 두려는 걸음 수 (크롬이 터치 한 번당 하나만 인정합니다)
+// 늘 채워 두려는 «진짜 걸음» 수.
+// ⚠️ 1 칸으로는 모자랍니다. 실제 자취로 확인한 것 —
+//    뒤로가기 한 번(다른 화면 → 홈)에 걸음이 0 칸이 되는데, 사람이 화면을
+//    만지지 않고 곧바로 또 누르면 채울 틈이 없어 그대로 앱이 꺼졌습니다.
+//    (안드로이드에서는 beforeunload 도 안 옵니다 — 자취에 아무것도 안 찍혔습니다)
+//    그래서 여유분을 여러 칸 쌓아 둡니다. 만질 때마다 한 칸씩 찹니다.
+var GUARD_TARGET = 4;
 var backGuards = 0;        // 지금 쌓아 둔 걸음 수
 var leaving = false;       // 일부러 나가는 중인가 (종료 확인 · 새로고침 · 로그아웃)
 var leavingAt = 0;
@@ -178,10 +188,13 @@ function pushBestEffort() {
 
 // ⚠️ 이 함수는 **손가락·자판 이벤트 안에서만** 불러야 합니다.
 //    그 순간이라야 브라우저가 걸음을 «사람이 만든 것» 으로 인정합니다.
+// ⚠️ 그리고 **한 번에 한 칸만** 쌓습니다. 크롬은 터치 한 번당 걸음 하나만
+//    인정하므로, 한 번에 여러 칸을 밀어 넣으면 첫 칸만 진짜이고 나머지는
+//    허깨비인데 개수만 늘어납니다. 그러면 또 «이미 찼다» 며 안 쌓게 됩니다.
 function armBackGuard() {
   if (leavingNow()) return;
-  var n = 0;
-  while (backGuards < GUARD_TARGET && n < GUARD_TARGET) { pushCounted(); n++; }
+  if (backGuards >= GUARD_TARGET) return;
+  pushCounted();
 }
 
 // 위에 떠 있는 창을 하나 닫습니다. 닫았으면 true.
@@ -223,20 +236,20 @@ window.addEventListener('popstate', function () {
   leaving = false;
   if (backGuards > 0) backGuards -= 1;
 
-  if (closeTopLayer()) { logBack('뒤로 → 창 닫음'); pushBestEffort(); return; }
+  if (closeTopLayer()) { logBack('뒤로 → 창 닫음 (남은걸음 ' + backGuards + ')'); pushBestEffort(); return; }
 
   var cur = document.querySelector('.screen.active');
   var id = cur ? cur.id.replace('screen-', '') : 'home';
 
   // 홈도 로그인도 아니면 홈으로 (훈련 중이면 handleBack() 이 «중단할까요?» 를 먼저 묻습니다)
   if (id !== 'home' && id !== 'login' && id !== 'change-password') {
-    logBack('뒤로 → 홈으로 (' + id + ')');
+    logBack('뒤로 → 홈으로 (' + id + ', 남은걸음 ' + backGuards + ')');
     handleBack();
     pushBestEffort();
     return;
   }
 
-  logBack('뒤로 → 종료 물음 (' + id + ')');
+  logBack('뒤로 → 종료 물음 (' + id + ', 남은걸음 ' + backGuards + ')');
   pushBestEffort();
   askExit();
 });
@@ -246,9 +259,9 @@ window.addEventListener('popstate', function () {
   window.addEventListener(t, armBackGuard, true);
 });
 
-// ⚠️ 진짜 안전망.
-// 위의 걸음은 «터치 한 번당 하나» 라서, 만지지 않고 뒤로가기를 연달아 누르면
-// 막지 못합니다. 그 마지막 순간에 브라우저가 직접 묻게 합니다.
+// 보조 안전망 (컴퓨터 브라우저용).
+// ⚠️ 안드로이드 PWA 에서는 이것이 오지 않습니다 — 실제 자취로 확인했습니다.
+//    그래서 여유분(GUARD_TARGET)을 넉넉히 두는 쪽이 본줄기입니다.
 window.addEventListener('beforeunload', function (e) {
   if (leavingNow()) { logBack('나감(일부러)'); return; }
   logBack('나가려 함 → 브라우저에 물어 달라고 함');
