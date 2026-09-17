@@ -292,6 +292,7 @@ function sgItemsToLines(items) {
     var size = Math.abs(it.transform[0]) || Math.abs(it.transform[3]) || 10;
     rows.push({ y: y, x: it.transform[4], w: it.width || 0, size: size, text: text });
   });
+  if (!rows.length) return [];
 
   // 세로 위치가 비슷하면 한 줄로 봅니다
   var lines = [];
@@ -302,20 +303,108 @@ function sgItemsToLines(items) {
     line.parts.push(r);
   });
 
-  return lines.map(function (line) {
+  // ── 줄을 표의 «칸» 으로 나눕니다 ──
+  //
+  // ⚠️ 예전에는 한 줄을 통째로 이어 붙였습니다. 그래서 표의 왼쪽 칸(학년·영역·시간)이
+  //    오른쪽 글에 그대로 눌어붙었습니다 — 「눈동아리활동 41 물의 종류와…」
+  //    칸이 바뀌는 자리는 글자 두세 개 너비로 벌어집니다. 다만 양쪽 정렬된 글도
+  //    틈이 벌어지므로, 왼쪽에 쌓인 글이 짧을 때만 칸이 바뀐 것으로 봅니다.
+  var grid = lines.map(function (line) {
     var parts = line.parts.sort(function (a, b) { return a.x - b.x; });
-    var out = '';
+    var cells = [], cur = null;
     parts.forEach(function (p, i) {
-      if (i > 0) {
+      if (i > 0 && cur) {
         var prev = parts[i - 1];
         var gap = p.x - (prev.x + prev.w);
-        // 글자 크기의 1/4 보다 넓게 벌어져 있으면 진짜 띄어쓰기입니다
-        if (gap > p.size * 0.25) out += ' ';
+        if (gap > p.size * 2.2 && cur.text.length <= 14) { cells.push(cur); cur = null; }
+        else if (gap > p.size * 0.25) cur.text += ' ';   // 글자 크기의 1/4 넘게 벌어지면 띄어쓰기
       }
-      out += p.text;
+      if (!cur) cur = { x: p.x, text: '' };
+      cur.text += p.text;
     });
-    return out;
+    if (cur) cells.push(cur);
+    return { y: line.y, cells: cells };
   });
+
+  // ── 글이 실린 세로줄(특기사항 칸)이 어디인지 찾습니다 ──
+  var tally = {}, proseX = null, best = 0;
+  grid.forEach(function (L) {
+    L.cells.forEach(function (c) {
+      if (c.text.length < 20) return;
+      var k = Math.round(c.x / 4) * 4;
+      tally[k] = (tally[k] || 0) + 1;
+      if (tally[k] > best) { best = tally[k]; proseX = k; }
+    });
+  });
+
+  // 표가 아니면(글만 있는 쪽) 예전처럼 순서대로 이어 붙입니다
+  if (proseX === null || best < 3) {
+    return grid.map(function (L) {
+      return L.cells.map(function (c) { return c.text; }).join(' ');
+    });
+  }
+
+  // ── 세로 가운데 정렬된 이름표를 제 칸 «맨 위» 로 옮깁니다 ──
+  //
+  // ⚠️ 이것이 창체·행특이 엉망이 되던 진짜 까닭입니다.
+  //    나이스 표는 「학년 | 영역 | 시간 | 특기사항」 인데 왼쪽 세 칸이 «세로 가운데» 에
+  //    놓입니다. 그래서 「동아리활동 41」 이 글 한가운데 줄과 같은 높이로 옵니다.
+  //    그걸 칸의 시작으로 보면
+  //      · 앞 칸이 「…구성함. 눈」 에서 끊기고 다음 칸이 「물의 종류와」 로 시작하고
+  //      · 학년 「1」 앞에 있던 자율활동이 통째로 «학년 모름» 으로 빠집니다
+  //
+  //    이름표가 «칸 한가운데» 라는 것을 되짚으면 칸의 시작을 알 수 있습니다.
+  //      칸이 [위 … 아래] 이고 이름표가 가운데면   아래 = 2 × 이름표 − 위
+  var proseYs = [];
+  grid.forEach(function (L) {
+    if (L.cells.some(function (c) { return Math.abs(c.x - proseX) <= 6; })) proseYs.push(L.y);
+  });
+  proseYs.sort(function (a, b) { return b - a; });
+
+  // ⚠️ 칸의 «가장자리» 를 써야 합니다. 첫 줄의 밑선을 쓰면 반 줄이 어긋나서
+  //    칸 경계가 한 줄씩 밀립니다 (「고민함.」 이 다음 칸으로 넘어갔습니다).
+  var gaps = [];
+  for (var gi = 1; gi < proseYs.length; gi++) {
+    var d = proseYs[gi - 1] - proseYs[gi];
+    if (d > 1) gaps.push(d);
+  }
+  gaps.sort(function (a, b) { return a - b; });
+  var lineH = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 12;
+  var top = proseYs.length ? proseYs[0] + lineH / 2 : null;
+
+  var byCol = {};
+  grid.forEach(function (L) {
+    L.cells.forEach(function (c) {
+      if (c.x >= proseX - 6) return;             // 글 칸은 이름표가 아닙니다
+      var k = Math.round(c.x / 8) * 8;           // 비슷한 가로 위치는 같은 세로줄
+      (byCol[k] = byCol[k] || []).push({ y: L.y, text: c.text });
+    });
+  });
+
+  var moved = [];
+  Object.keys(byCol).forEach(function (k) {
+    var col = byCol[k].sort(function (a, b) { return b.y - a.y; });
+    var edge = top;
+    col.forEach(function (m) {
+      var bottom = 2 * m.y - edge;
+      // 되짚은 칸이 이름표를 품지 못하면 셈이 어긋난 것입니다. 그때는 제자리에 둡니다.
+      var okay = (edge !== null && bottom < m.y && m.y <= edge);
+      moved.push({ y: okay ? edge + 0.5 : m.y, text: m.text });
+      if (okay) edge = bottom;
+    });
+  });
+
+  // 글 줄과 옮긴 이름표를 세로 순서대로 다시 늘어놓습니다
+  var out = [];
+  grid.forEach(function (L) {
+    var prose = L.cells.filter(function (c) { return c.x >= proseX - 6; })
+                       .map(function (c) { return c.text; }).join(' ');
+    if (sgNorm(prose)) out.push({ y: L.y, text: prose });
+  });
+  moved.forEach(function (m) { if (sgNorm(m.text)) out.push(m); });
+  out.sort(function (a, b) { return b.y - a.y; });
+
+  return out.map(function (o) { return o.text; });
 }
 
 
@@ -813,8 +902,12 @@ function sgBuild(lines) {
     var byGrade = sgSplitGrades(sections[sec.key], sec.key);
     counts[sec.key] = 0;
     [1, 2, 3, 0].forEach(function (g) {
-      var whole = sgRecordText(byGrade[g]);
-      if (whole) wholes[g + '|' + sec.key] = whole;
+      // 세특은 과목마다 기록이 또렷하게 갈려서 안전판이 필요 없습니다.
+      // 전 과목을 다시 이어 붙여 보여주면 같은 글만 두 번 읽게 됩니다.
+      if (sec.key !== 'sesa') {
+        var whole = sgRecordText(byGrade[g]);
+        if (whole) wholes[g + '|' + sec.key] = whole;
+      }
       sgChunks(sec.key, byGrade[g]).forEach(function (c) {
         // ⚠️ 길이 두 개를 따로 냅니다.
         //    record   — 선생님께 보여드리는 기록 전문. 한 글자도 버리지 않습니다
