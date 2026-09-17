@@ -252,9 +252,16 @@ function sgSplitGrades(lines, sectionKey) {
   var bareOk = (sectionKey !== 'sesa');
   var byGrade = { 0: [], 1: [], 2: [], 3: [] };
   var cur = 0;
+  // ⚠️ 안전판 — 학년 표시가 아직 안 나온 줄들은 손에 들고 있다가,
+  //    첫 학년이 나오면 그 학년에 얹습니다.
+  //    표의 맨 왼쪽이 학년 칸이라 그 «앞» 에 오는 글은 없습니다.
+  //    선을 잘못 읽어 학년 표시가 늦게 잡혀도 자율활동이 통째로
+  //    «학년 모름» 으로 빠지지 않게 하는 마지막 막음입니다.
+  var pending = [];
+
   (lines || []).forEach(function (raw) {
     var line = sgNorm(raw);
-    if (line === SG_CELL_BREAK) { byGrade[cur].push(line); return; }
+    if (line === SG_CELL_BREAK) { (cur ? byGrade[cur] : pending).push(line); return; }
 
     // ⚠️ 표의 맨 왼쪽 «학년» 칸이 줄 앞에 붙어 나오기도 합니다.
     //      「1 자율활동 (34시간) 다양한 활동을…」
@@ -269,12 +276,17 @@ function sgSplitGrades(lines, sectionKey) {
     var g = sgGradeOf(line, bareOk);
     if (g) {
       cur = g;
+      if (pending.length) { byGrade[g] = byGrade[g].concat(pending); pending = []; }
       // 「2학년」 「[2학년]」 「2」 처럼 표시만 있는 줄이면 버립니다.
       if (line.replace(/(?:제)?[1-3]\s*학\s*년/, '')
               .replace(/[0-9()\[\]|:\s]/g, '') === '') return;
     }
-    if (line) byGrade[cur].push(line);
+    if (!line) return;
+    if (cur) byGrade[cur].push(line); else pending.push(line);
   });
+
+  // 끝까지 학년이 한 번도 안 나왔으면 «학년 모름» 으로 둡니다
+  byGrade[0] = byGrade[0].concat(pending);
   return byGrade;
 }
 
@@ -383,10 +395,24 @@ function sgIsProseCell(cell, proseX) {
 //    깨집니다 — 이어지는 쪽 맨 위는 앞 칸인데 거기에 다음 이름표를 붙여 버려서,
 //    동아리 내용이 진로활동으로 들어갔습니다.
 //    선을 읽으면 추측할 일이 없습니다. 선 사이가 곧 칸입니다.
-function sgBandOf(rules, y) {
+// ⚠️ 선이 «가로로 어디까지» 뻗었는지 같이 봐야 합니다.
+//    나이스 창체 표에서 학년 칸은 자율·동아리·진로 세 칸을 아우릅니다(세로 병합).
+//    그래서 자율↔동아리를 가르는 선은 «학년 칸을 지나가지 않습니다».
+//    그걸 학년 칸의 경계로 착각하면, 세 칸 가운데에 놓인 학년 「1」 이
+//    동아리 칸 맨 위에서 시작하고 그 위의 자율활동이 통째로 «학년 모름» 으로 빠집니다.
+//    그 칸을 지나가는 선만으로 띠를 만듭니다.
+function sgBandOf(rules, y, x) {
   if (!rules || rules.length < 2) return null;
-  for (var i = 0; i < rules.length - 1; i++) {
-    if (y <= rules[i] && y > rules[i + 1]) return { top: rules[i], bottom: rules[i + 1] };
+  var mine = [];
+  rules.forEach(function (r) {
+    if (typeof r === 'number') { mine.push(r); return; }   // 가로 범위를 모르면 다 씁니다
+    if (x === undefined || x === null) { mine.push(r.y); return; }
+    if (x >= r.x0 - 4 && x <= r.x1 + 4) mine.push(r.y);
+  });
+  if (mine.length < 2) return null;
+  mine.sort(function (a, b) { return b - a; });
+  for (var i = 0; i < mine.length - 1; i++) {
+    if (y <= mine[i] && y > mine[i + 1]) return { top: mine[i], bottom: mine[i + 1] };
   }
   return null;
 }
@@ -495,7 +521,7 @@ function sgItemsToLines(items, rules) {
       if (sgIsProseCell(c, proseX)) return;       // 글 칸은 이름표가 아닙니다
       if (!sgIsCellLabel(c.text)) { stay.push({ y: L.y, text: c.text }); return; }
       var k = Math.round(c.x / 8) * 8;            // 비슷한 가로 위치는 같은 세로줄
-      (byCol[k] = byCol[k] || []).push({ y: L.y, text: c.text });
+      (byCol[k] = byCol[k] || []).push({ y: L.y, x: c.x, text: c.text });
     });
   });
 
@@ -513,7 +539,7 @@ function sgItemsToLines(items, rules) {
 
     if (haveRules) {
       col.forEach(function (m) {
-        var band = sgBandOf(rules, m.y);
+        var band = sgBandOf(rules, m.y, m.x);
         moved.push({ y: band ? band.top + 0.5 : m.y, text: m.text });
       });
       return;
@@ -1200,14 +1226,16 @@ async function sgPageRules(page, pdfjsLib) {
         if (op === OPS.moveTo) { cx = co[ci]; cy = co[ci + 1]; ci += 2; }
         else if (op === OPS.lineTo) {
           var p1 = sgApply(ctm, cx, cy), p2 = sgApply(ctm, co[ci], co[ci + 1]);
-          segs.push({ y0: p1[1], y1: p2[1], w: Math.abs(p2[0] - p1[0]) });
+          segs.push({ y0: p1[1], y1: p2[1], w: Math.abs(p2[0] - p1[0]),
+                      x0: Math.min(p1[0], p2[0]), x1: Math.max(p1[0], p2[0]) });
           cx = co[ci]; cy = co[ci + 1]; ci += 2;
         }
         else if (op === OPS.rectangle) {
           var x = co[ci], yy = co[ci + 1], w = co[ci + 2], h = co[ci + 3];
           var q1 = sgApply(ctm, x, yy), q2 = sgApply(ctm, x + w, yy + h);
-          segs.push({ y0: q1[1], y1: q1[1], w: Math.abs(q2[0] - q1[0]) });
-          segs.push({ y0: q2[1], y1: q2[1], w: Math.abs(q2[0] - q1[0]) });
+          var rx0 = Math.min(q1[0], q2[0]), rx1 = Math.max(q1[0], q2[0]);
+          segs.push({ y0: q1[1], y1: q1[1], w: rx1 - rx0, x0: rx0, x1: rx1 });
+          segs.push({ y0: q2[1], y1: q2[1], w: rx1 - rx0, x0: rx0, x1: rx1 });
           ci += 4;
         }
         else if (op === OPS.curveTo) ci += 6;
@@ -1221,12 +1249,17 @@ async function sgPageRules(page, pdfjsLib) {
     if (!hor.length) return [];
     var widest = 0;
     hor.forEach(function (s) { if (s.w > widest) widest = s.w; });
+    // 같은 높이에 토막토막 그어진 선은 하나로 봅니다 (가로 범위를 넓혀 가며)
     var ys = {};
     hor.forEach(function (s) {
-      if (s.w < widest * 0.6) return;
-      ys[Math.round((s.y0 + s.y1) / 2)] = true;
+      if (s.w < widest * 0.25) return;            // 너무 짧은 것은 칸 속 칸입니다
+      var key = Math.round((s.y0 + s.y1) / 2);
+      var cur = ys[key];
+      if (!cur) ys[key] = { y: key, x0: s.x0, x1: s.x1 };
+      else { cur.x0 = Math.min(cur.x0, s.x0); cur.x1 = Math.max(cur.x1, s.x1); }
     });
-    return Object.keys(ys).map(Number).sort(function (a, b) { return b - a; });
+    return Object.keys(ys).map(function (k) { return ys[k]; })
+             .sort(function (a, b) { return b.y - a.y; });
   } catch (e) {
     return [];   // 선을 못 읽어도 «가운데» 셈으로 돌아갑니다
   }
