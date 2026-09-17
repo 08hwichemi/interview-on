@@ -59,6 +59,9 @@ html { overflow-y: auto; scrollbar-gutter: stable; }
   background-color: #ffffff;
   min-height: 100dvh;
   height: fit-content; /* 🛡️ [핵심 추가] 내용물이 늘어나면 도화지도 끝까지 무한정 늘어납니다! */
+  /* ⚠️ 새 판 띠가 뜨면 여기에 padding-top 이 붙습니다. border-box 라야 그 두께가
+     100dvh «안에» 들어갑니다. content-box 면 그만큼 화면을 넘겨 스크롤이 생깁니다. */
+  box-sizing: border-box;
   box-shadow: 0 0 20px rgba(0,0,0,0.05);
   position: relative;
   display: flex;
@@ -126,7 +129,8 @@ html { overflow-y: auto; scrollbar-gutter: stable; }
       이제 남는 자리를 채우기만 합니다 — 꼬리말 몫은 남겨 둡니다. */
 .login-container {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  flex: 1 1 auto; padding: 24px 40px; text-align: center;
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  padding: 24px 40px; text-align: center;
   background: linear-gradient(180deg, #27272A 0%, var(--ink) 100%);
   color: white;
 }
@@ -165,8 +169,15 @@ html { overflow-y: auto; scrollbar-gutter: stable; }
   flex-direction: column; 
 }
 .screen.active { display: flex !important; }
-/* 로그인·비밀번호 바꾸기는 어두운 그림이 화면을 꽉 채웁니다 (흰 테두리가 남지 않게) */
-#screen-login, #screen-change-password { padding: 0; }
+/* 로그인·비밀번호 바꾸기는 어두운 그림이 화면을 꽉 채웁니다 (흰 테두리가 남지 않게).
+   자리가 모자라면 (아주 작은 폰 · 새 판 띠가 떴을 때 · 자판이 올라왔을 때)
+   이 칸 «안에서» 스크롤합니다. 그래야 꼬리말이 화면 밖으로 밀려나지 않습니다. */
+#screen-login, #screen-change-password { padding: 0; flex: 1 1 auto; min-height: 0; }
+/* 통은 평소 «내용만큼 늘어나는» 도화지입니다(리포트처럼 긴 화면 때문에).
+   그런데 로그인 화면만은 늘 한 장이어야 하므로 그때만 높이를 화면에 맞춰 잠급니다.
+   :has 를 모르는 낡은 폰에서는 이 규칙만 조용히 건너뜁니다 — 그래도 큰 탈은 없습니다. */
+#app-container:has(> #screen-login.active),
+#app-container:has(> #screen-change-password.active) { height: 100dvh; }
 
 /* 홈 화면 메뉴 버튼
    ⚠️ 예전에는 min-height:480px 이었습니다. 화면이 짧은 휴대폰에서는
@@ -215,11 +226,17 @@ html { overflow-y: auto; scrollbar-gutter: stable; }
 /* ── 새 판 알림 ──
    교사 화면과 같은 방식입니다. 다만 학생 앱은 본문이 480px 가운데 정렬이라
    띠를 흐름 안에 두면 본문 옆에 나란히 서 버립니다. 그래서 붙박이(fixed)로 띄우고,
-   띠 높이만큼 본문을 내려 줍니다. */
+   띠 높이만큼 본문을 내려 줍니다.
+   ⚠️ 내려 주는 높이를 «44px» 로 박아 두었었습니다. 두 가지가 한꺼번에 어긋났습니다 —
+      ① 글이 길어 휴대폰에서는 띠가 두세 줄(77~95px)이 되어 머리줄을 덮었고,
+      ② 통은 min-height:100dvh 인데 padding 이 그 위에 «더해져» 화면이 44px 넘쳤습니다.
+         띠가 뜨기만 하면 저작권 표시가 아래로 밀려났습니다.
+      이제 글을 한 줄로 줄이고, 진짜 높이를 재어 --updatebar-h 에 담으며(update-bar.js),
+      통은 border-box 라 padding 이 100dvh «안에» 들어갑니다. */
 .updatebar {
   position: fixed; top: 0; left: 0; right: 0; z-index: 5000;
   display: flex; align-items: center; justify-content: center;
-  flex-wrap: wrap; gap: 10px; padding: 10px 14px;
+  flex-wrap: wrap; gap: 8px; padding: 9px 12px;
   background: var(--ink); color: #fff;
   font-size: 13px; font-weight: 500; text-align: center;
 }
@@ -229,8 +246,12 @@ html { overflow-y: auto; scrollbar-gutter: stable; }
   font-family: inherit; font-weight: 600; border-radius: 6px;
   padding: 5px 13px; font-size: 12.5px; cursor: pointer;
 }
-body.has-update #app-container { padding-top: 44px; }
-body.has-update .header { top: 44px; }
+.updatebar .updatebar-x {
+  border: 0; padding: 2px 6px; font-size: 19px; line-height: 1; opacity: .7;
+}
+.updatebar .updatebar-x:hover { opacity: 1; }
+body.has-update #app-container { padding-top: var(--updatebar-h, 44px); }
+body.has-update .header { top: var(--updatebar-h, 44px); }
 
 /* 지금 보고 있는 판 번호 */
 .verlabel { font-size: 10px; color: var(--ink-3); opacity: .8; }

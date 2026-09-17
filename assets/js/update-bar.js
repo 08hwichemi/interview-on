@@ -20,7 +20,7 @@
 // ※ 새 판을 올릴 때는 손으로 고치지 말고 `python3 tools/판올리기.py` 를 쓰세요.
 //    version.txt · BUILD_ID · 파일 주소 세 곳을 한꺼번에 맞춥니다.
 
-var BUILD_ID = '2026-09-17.15';
+var BUILD_ID = '2026-09-17.16';
 var UPDATE_SHOWN = false;
 var SERVER_VERSION = null;   // 서버에 올라와 있는 판 번호
 
@@ -36,6 +36,15 @@ var VERSION_URL = (function () {
   try { return new URL('version.txt', location.href).href; } catch (e) { return null; }
 })();
 
+// 띠의 «진짜» 높이를 재어 둡니다. 글이 길거나 화면이 좁으면 두세 줄이 되는데,
+// 예전처럼 44px 로 박아 두면 머리줄을 덮고 본문이 화면 밖으로 밀려납니다.
+function sizeUpdateBar() {
+  var bar = document.getElementById('updateBar');
+  if (!bar || bar.hidden) return;
+  var h = Math.ceil(bar.getBoundingClientRect().height);
+  if (h > 0) document.documentElement.style.setProperty('--updatebar-h', h + 'px');
+}
+
 function showUpdateBar() {
   if (UPDATE_SHOWN) return;
   var bar = document.getElementById('updateBar');
@@ -45,6 +54,22 @@ function showUpdateBar() {
   // 학생 앱은 화면 맨 위에 띠를 붙박이로 띄웁니다(휴대폰이라 스크롤해도 보여야 합니다).
   // 그만큼 본문을 아래로 내려야 머리줄이 가려지지 않습니다 — CSS 가 이 표시를 보고 처리합니다.
   document.body.classList.add('has-update');
+  sizeUpdateBar();
+}
+
+// 닫기. 이번에 열어 둔 동안에는 다시 뜨지 않습니다(UPDATE_SHOWN 이 남아 있습니다).
+function hideUpdateBar() {
+  var bar = document.getElementById('updateBar');
+  if (bar) bar.hidden = true;
+  document.body.classList.remove('has-update');
+  document.documentElement.style.removeProperty('--updatebar-h');
+}
+
+// «새로고침» 을 눌러 ?v=판번호 로 다시 열었는데도 판 번호가 그대로면,
+// 서버(또는 중간 서버)가 아직 옛 화면을 주고 있는 것입니다.
+// 그때 또 띠를 띄우면 눌러도 눌러도 안 사라지는 것처럼 보입니다. 한 번으로 끝냅니다.
+function alreadyTried(v) {
+  try { return new URLSearchParams(location.search).get('v') === v; } catch (e) { return false; }
 }
 
 function checkForUpdate() {
@@ -57,7 +82,10 @@ function checkForUpdate() {
       t = String(t).trim();
       // 파일이 통째로 없어서 서버가 안내 쪽(HTML)을 주는 경우가 있습니다. 그러면 그냥 둡니다.
       if (!t || t.length > 40 || /[<>]/.test(t)) return;
-      if (t !== BUILD_ID) { SERVER_VERSION = t; showUpdateBar(); }
+      if (t !== BUILD_ID) {
+        if (alreadyTried(t)) return;          // 이미 그 판으로 다시 열어 봤습니다
+        SERVER_VERSION = t; showUpdateBar();
+      }
     })
     .catch(function () { /* 오프라인이면 다음 차례에 다시 봅니다 */ });
 }
@@ -81,6 +109,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   var rb = document.getElementById('updateReload');
   if (rb) rb.addEventListener('click', reloadFresh);
+  var xb = document.getElementById('updateClose');
+  if (xb) xb.addEventListener('click', hideUpdateBar);
+
+  // 화면을 돌리거나 글씨 크기가 바뀌면 띠의 줄 수가 달라집니다
+  window.addEventListener('resize', sizeUpdateBar);
 
   checkForUpdate();                             // 열자마자 한 번
   setInterval(checkForUpdate, 3 * 60 * 1000);   // 그 뒤로 3분마다
