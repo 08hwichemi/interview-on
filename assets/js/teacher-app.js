@@ -643,17 +643,10 @@ async function loadHistory() {
 //   · 담는 것은 «대학명 · 전형 · 학과 · 면접 날짜» 뿐입니다 (성적·합불은 안 가져옵니다)
 //   · 학번으로 맞춥니다
 //   · 새로 받아 오는 것은 관리자 화면의 「수시 지원 자료 새로 받기」 단추입니다
-var SUSI_AREA = {
-  main:    { label: '수시 6장', order: 1 },
-  cand:    { label: '후보',     order: 2 },
-  college: { label: '전문대',   order: 3 },
-  tech:    { label: '기타',     order: 4 }
-};
-
-// '2026/10/16' → '10/16',  '2026/09/21 ~ 2026/09/23' → '09/21 ~ 09/23'
+// '2026/10/16' → '10/16',  '2026/09/21 ~ 2026/09/23' → '09/21~09/23'
 // 해는 어차피 올해라 자리만 차지합니다.
 function susiDate(s) {
-  return String(s || '').replace(/\d{4}\//g, '').trim();
+  return String(s || '').replace(/\d{4}\//g, '').replace(/\s*~\s*/, '~').trim();
 }
 
 async function loadSusi() {
@@ -662,41 +655,32 @@ async function loadSusi() {
   if (!box || !list || !target) return;
   box.hidden = true;
 
+  // «수시 6장»(area='main') 만 씁니다. 후보·전문대는 면접 준비에 쓰지 않습니다.
   const { data, error } = await sb.from('susi_plans')
-    .select('area, slot, uni_name, type_name, admission_name, dept_name, interview_date, synced_at')
-    .eq('student_no', target.student_no);
+    .select('slot, uni_name, type_name, admission_name, dept_name, interview_date, synced_at')
+    .eq('student_no', target.student_no)
+    .eq('area', 'main');
 
   // 표가 아직 없거나 권한이 없으면 조용히 접어 둡니다 — 면접에 꼭 필요한 자료는 아닙니다.
   if (error || !data || !data.length) return;
 
-  var rows = data.slice().sort(function (a, z) {
-    var ao = (SUSI_AREA[a.area] || { order: 9 }).order;
-    var zo = (SUSI_AREA[z.area] || { order: 9 }).order;
-    return ao !== zo ? ao - zo : (a.slot || 0) - (z.slot || 0);
-  });
+  var rows = data.slice().sort(function (a, z) { return (a.slot || 0) - (z.slot || 0); });
 
   var when = rows[0].synced_at ? new Date(rows[0].synced_at) : null;
   document.getElementById('susi-when').textContent = when
     ? '(' + (when.getMonth() + 1) + '월 ' + when.getDate() + '일에 받아 온 자료)'
     : '(수시지원계획서 앱)';
 
-  var lastArea = null;
+  // 한 지원에 한 줄입니다. 칸을 거의 안 쓰도록 테두리 없이 촘촘하게 적습니다.
+  // 전형 이름은 길어서 넘치면 …으로 자릅니다 (마우스를 올리면 다 보입니다).
   list.innerHTML = rows.map(function (r) {
-    var head = '';
-    if (r.area !== lastArea) {
-      lastArea = r.area;
-      head = '<p class="susihead">' + esc((SUSI_AREA[r.area] || {}).label || r.area) + '</p>';
-    }
-    var iv = susiDate(r.interview_date);
-    return head +
-      '<div class="susirow' + (iv ? ' hasiv' : '') + '">' +
+    var iv  = susiDate(r.interview_date);
+    var adm = [r.type_name, r.admission_name].filter(Boolean).join(' · ');
+    return '<div class="susirow' + (iv ? ' hasiv' : '') + '">' +
         '<span class="sn">' + (r.slot || '') + '</span>' +
         '<span class="uni">' + esc(r.uni_name || '') + '</span>' +
         '<span class="dept">' + esc(r.dept_name || '') + '</span>' +
-        '<span class="adm">' +
-          (r.type_name ? '<span class="tag">' + esc(r.type_name) + '</span> ' : '') +
-          esc(r.admission_name || '') +
-        '</span>' +
+        '<span class="adm" title="' + esc(adm) + '">' + esc(adm) + '</span>' +
         (iv ? '<span class="iv">면접 ' + esc(iv) + '</span>' : '') +
       '</div>';
   }).join('');
