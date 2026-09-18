@@ -695,18 +695,22 @@ async function loadSusi() {
 }
 
 // ── 아코디언 ──
-// 준비 화면은 이미 깁니다. 접어 두는 것이 기본이고, 펼친 채로 두면
-// 그 상태가 이 브라우저에 남습니다 — 매번 다시 누르지 않게.
+// **처음에는 펴 놓습니다.** 접힌 채로 두면 자료가 있는지조차 모릅니다.
+// 한 번 접거나 펴면 그 상태가 이 브라우저에 남습니다 — 매번 다시 누르지 않게.
 var susiOpen = (function () {
-  try { return localStorage.getItem('susiOpen') === '1'; } catch (e) { return false; }
+  try {
+    var v = localStorage.getItem('susiOpen');
+    return v === null ? true : v === '1';   // 처음 오신 분은 펼친 채로
+  } catch (e) { return true; }              // 사생활 보호 모드도 펼친 채로
 })();
 
 function paintSusi() {
-  var list = document.getElementById('susi');
-  var btn  = document.getElementById('susi-more');
+  var list  = document.getElementById('susi');
+  var btn   = document.getElementById('susi-more');
+  var label = document.getElementById('susi-more-label');
   if (!list || !btn) return;
   list.hidden = !susiOpen;
-  btn.textContent = susiOpen ? '접기' : '펼치기';
+  if (label) label.textContent = susiOpen ? '접기' : '펼치기';
   btn.setAttribute('aria-expanded', susiOpen ? 'true' : 'false');
 }
 

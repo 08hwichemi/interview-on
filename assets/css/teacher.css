@@ -507,20 +507,42 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
    면접 준비 화면은 이미 길어서, 여기는 **한 지원에 한 줄**만 씁니다.
    테두리 없이 줄만 그어 칸을 거의 안 쓰게 했습니다.
    면접이 있는 전형은 날짜를 붙여 눈에 걸리게 합니다 — 그게 오늘 볼 면접이니까요. */
-/* 접었다 펴는 머리줄. 접힌 채로는 이 한 줄이 전부입니다. */
-.susibar{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-.susibar > span:first-child{flex:1 1 auto;min-width:0}
-.susin{
-  font-weight:700;letter-spacing:0;text-transform:none;color:var(--ink-2);font-size:11px;
+/* ── 접었다 펴는 네모 ──
+   그냥 글자 단추로 두었더니 «눌러서 펴는 것» 인 줄 아무도 몰랐습니다.
+   그래서 통째로 네모로 묶고 바닥색을 달리했습니다 —
+   아래 「첫인사 · 낼 질문」 구역과 한눈에 구별되도록. */
+.susiacc{
+  margin:22px 0 26px;
+  border:1px solid var(--line-2);border-radius:9px;overflow:hidden;
+  background:var(--surface-2);
 }
-.susitoggle{
-  flex:0 0 auto;background:none;border:0;padding:2px 0;cursor:pointer;
-  font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.04em;
-  color:var(--ink-3);
+.susihead{
+  display:flex;align-items:center;gap:8px;width:100%;
+  padding:10px 13px;border:0;background:var(--surface-2);
+  font-family:inherit;text-align:left;cursor:pointer;
 }
-.susitoggle:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.susihead:hover{background:var(--accent-soft)}
+.susihead .chev{
+  flex:0 0 auto;font-size:10px;color:var(--ink-2);
+  transition:transform .15s ease;
+}
+.susihead[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+.susihead .ttl{
+  font-size:11px;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-2);white-space:nowrap;
+}
+.susihead .susin{font-size:11.5px;font-weight:700;color:var(--ink);white-space:nowrap}
+.susihead .opt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.susihead .more{
+  flex:0 0 auto;font-size:11px;font-weight:700;color:var(--ink-2);
+  border:1px solid var(--line-2);border-radius:5px;padding:2px 8px;background:var(--surface);
+  white-space:nowrap;
+}
+.susihead:hover .more{border-color:var(--ink);color:var(--ink)}
 
-#susi{border-top:1px solid var(--line)}
+/* 펼친 몸통. 머리줄과 바닥색이 달라 «여기까지가 수시» 임이 보입니다. */
+.susibody{background:var(--surface);border-top:1px solid var(--line-2);padding:4px 13px 5px}
+.susibody .susirow:last-child{border-bottom:0}
 
 .susirow{
   display:flex;align-items:baseline;gap:7px;

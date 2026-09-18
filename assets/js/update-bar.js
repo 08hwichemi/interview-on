@@ -20,7 +20,7 @@
 // ※ 새 판을 올릴 때는 손으로 고치지 말고 `python3 tools/판올리기.py` 를 쓰세요.
 //    version.txt · BUILD_ID · 파일 주소 세 곳을 한꺼번에 맞춥니다.
 
-var BUILD_ID = '2026-09-18.6';
+var BUILD_ID = '2026-09-18.7';
 var UPDATE_SHOWN = false;
 var SERVER_VERSION = null;   // 서버에 올라와 있는 판 번호
 

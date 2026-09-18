@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-18.6">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-18.7">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-18.6">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-18.6">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-18.6">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-18.6">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-18.6">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-18.7">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-18.7">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-18.7">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-18.7">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-18.7">
 </head>
 <body>
 
@@ -126,14 +126,21 @@
           </div>
 
           <!-- 수시지원계획서 앱에서 받아 온 지원 현황. 자료가 없으면 아예 안 뜹니다.
-               접었다 펴는 아코디언입니다 — 접힌 채로는 한 줄만 씁니다. -->
+               머리줄 전체가 단추입니다 — 어디를 눌러도 접히고 펴집니다.
+               «눌러서 펴는 것» 임을 알 수 있게 네모로 묶고 바닥색을 달리했습니다. -->
           <div id="susi-box" hidden>
-            <p class="sec susibar" style="margin-top:22px">
-              <span>수시 지원 <span class="susin" id="susi-count"></span>
-                <span class="opt" id="susi-when"></span></span>
-              <button class="susitoggle" id="susi-more" onclick="toggleSusi()" aria-expanded="false">펼치기</button>
-            </p>
-            <div id="susi" hidden></div>
+            <div class="susiacc">
+              <button class="susihead" id="susi-more" onclick="toggleSusi()"
+                      aria-expanded="true" aria-controls="susi">
+                <span class="chev" aria-hidden="true">▾</span>
+                <span class="ttl">수시 지원</span>
+                <span class="susin" id="susi-count"></span>
+                <span class="opt" id="susi-when"></span>
+                <span class="grow"></span>
+                <span class="more" id="susi-more-label">접기</span>
+              </button>
+              <div id="susi" class="susibody"></div>
+            </div>
           </div>
 
           <p class="sec" style="margin-top:22px">첫인사 <span class="opt">(면접을 여는 질문)</span></p>
@@ -413,17 +420,17 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-18.6"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-18.6"></script>
-<script src="../assets/js/utils.js?v=2026-09-18.6"></script>
-<script src="../assets/js/api.js?v=2026-09-18.6"></script>
-<script src="../assets/js/browse.js?v=2026-09-18.6"></script>
-<script src="../assets/js/reviews.js?v=2026-09-18.6"></script>
-<script src="../assets/js/questions.js?v=2026-09-18.6"></script>
-<script src="../assets/js/report.js?v=2026-09-18.6"></script>
-<script src="../assets/js/chat.js?v=2026-09-18.6"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-18.6"></script>
-<script src="../assets/js/saenggibu.js?v=2026-09-18.6"></script>
+<script src="../assets/js/config.js?v=2026-09-18.7"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-18.7"></script>
+<script src="../assets/js/utils.js?v=2026-09-18.7"></script>
+<script src="../assets/js/api.js?v=2026-09-18.7"></script>
+<script src="../assets/js/browse.js?v=2026-09-18.7"></script>
+<script src="../assets/js/reviews.js?v=2026-09-18.7"></script>
+<script src="../assets/js/questions.js?v=2026-09-18.7"></script>
+<script src="../assets/js/report.js?v=2026-09-18.7"></script>
+<script src="../assets/js/chat.js?v=2026-09-18.7"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-18.7"></script>
+<script src="../assets/js/saenggibu.js?v=2026-09-18.7"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
