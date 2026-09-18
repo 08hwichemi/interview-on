@@ -433,6 +433,15 @@ async function countChats() {
   return error ? null : (data || 0);
 }
 
+// ⚠️ 지우는 것도 서버 함수로 합니다.
+//    지우기 정책만 열어 두면 **한 건도 안 지워집니다** — 포스트그레스는 DELETE 의
+//    WHERE 절이 줄을 «읽을» 때 읽기 정책까지 같이 겁니다. 관리자는 남의 톡을
+//    못 읽으니 지울 줄도 없다고 보고, 오류도 없이 0건으로 끝납니다.
+async function wipeChatsOnServer() {
+  const { data, error } = await sb.rpc('admin_wipe_chats');
+  return { count: data || 0, error: error };
+}
+
 async function loadDataCounts() {
   var box = document.getElementById('data-counts');
   box.innerHTML = '<p class="empty">세는 중...</p>';
@@ -507,20 +516,19 @@ async function wipeChats() {
       '명단과 면접 기록은 그대로 둡니다.')) return;
 
   dataBusy('btn-wipe-chats', true, '지우는 중...');
-  const { error } = await sb.from('chats').delete().neq('id', IMPOSSIBLE_ID);
+  var r = await wipeChatsOnServer();
   dataBusy('btn-wipe-chats', false, '대화(톡) 초기화');
 
-  if (error) { dataResult('지우지 못했습니다: ' + esc(error.message), 'bad'); return; }
+  if (r.error) { dataResult('지우지 못했습니다: ' + esc(r.error.message), 'bad'); return; }
 
-  // RLS 가 조용히 막으면 오류 없이 0건만 지워집니다. 정말 지워졌는지 세어 봅니다.
+  // 정말 지워졌는지 다시 세어 봅니다. 조용히 0건으로 끝나는 일이 실제로 있었습니다.
   var left = await countChats();
   if (left) {
-    dataResult('지우지 못했습니다. 아직 <b>' + left + '건</b>이 남아 있습니다. ' +
-               '(chats 의 지우기 권한(RLS)을 확인해야 합니다)', 'bad');
+    dataResult('지우지 못했습니다. 아직 <b>' + left + '건</b>이 남아 있습니다.', 'bad');
     loadDataCounts();
     return;
   }
-  dataResult('톡 <b>' + n + '건</b>을 지웠습니다.');
+  dataResult('톡 <b>' + r.count + '건</b>을 지웠습니다.');
   toast('톡을 지웠습니다.', 'ok');
   loadDataCounts();
 }
