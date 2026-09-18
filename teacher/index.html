@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-18.3">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-18.4">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-18.3">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-18.3">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-18.3">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-18.3">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-18.3">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-18.4">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-18.4">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-18.4">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-18.4">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-18.4">
 </head>
 <body>
 
@@ -123,6 +123,12 @@
           <div id="history-box">
             <p class="sec" style="margin-top:22px">지난 면접</p>
             <div id="history"></div>
+          </div>
+
+          <!-- 수시지원계획서 앱에서 받아 온 지원 현황. 자료가 없으면 아예 안 뜹니다. -->
+          <div id="susi-box" hidden>
+            <p class="sec" style="margin-top:22px">수시 지원 <span class="opt" id="susi-when"></span></p>
+            <div id="susi"></div>
           </div>
 
           <p class="sec" style="margin-top:22px">첫인사 <span class="opt">(면접을 여는 질문)</span></p>
@@ -402,17 +408,17 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-18.3"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-18.3"></script>
-<script src="../assets/js/utils.js?v=2026-09-18.3"></script>
-<script src="../assets/js/api.js?v=2026-09-18.3"></script>
-<script src="../assets/js/browse.js?v=2026-09-18.3"></script>
-<script src="../assets/js/reviews.js?v=2026-09-18.3"></script>
-<script src="../assets/js/questions.js?v=2026-09-18.3"></script>
-<script src="../assets/js/report.js?v=2026-09-18.3"></script>
-<script src="../assets/js/chat.js?v=2026-09-18.3"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-18.3"></script>
-<script src="../assets/js/saenggibu.js?v=2026-09-18.3"></script>
+<script src="../assets/js/config.js?v=2026-09-18.4"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-18.4"></script>
+<script src="../assets/js/utils.js?v=2026-09-18.4"></script>
+<script src="../assets/js/api.js?v=2026-09-18.4"></script>
+<script src="../assets/js/browse.js?v=2026-09-18.4"></script>
+<script src="../assets/js/reviews.js?v=2026-09-18.4"></script>
+<script src="../assets/js/questions.js?v=2026-09-18.4"></script>
+<script src="../assets/js/report.js?v=2026-09-18.4"></script>
+<script src="../assets/js/chat.js?v=2026-09-18.4"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-18.4"></script>
+<script src="../assets/js/saenggibu.js?v=2026-09-18.4"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);

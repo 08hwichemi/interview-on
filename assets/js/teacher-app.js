@@ -471,6 +471,7 @@ async function pickStudent(id) {
   show('setup');
   loadSheet();      // 미리 만들어 둔 질문지가 있으면 그대로 펴 놓습니다
   loadHistory();
+  loadSusi();       // 수시로 어디에 지원했는지 (있으면)
 }
 
 // ══════════════ 미리 만들어 두는 질문지 ══════════════
@@ -631,6 +632,76 @@ async function loadHistory() {
       '</span>' +
       '<span class="acts"><span class="go">리포트 →</span></span></button>';
   }).join('') + '</div>';
+}
+
+// ══════════════ 수시 지원 현황 ══════════════
+//
+// 학생이 어디에 지원했는지는 «수시지원계획서» 앱에 있습니다 — 다른 Supabase 방입니다.
+// 화면에서 그 방을 직접 부르면 그 방의 열쇠를 브라우저에 넣어야 하고,
+// 그러면 누구나 전교생 지원 현황을 볼 수 있게 됩니다.
+// 그래서 서버에서 서버로 한 번 받아 둔 사본(susi_plans)을 봅니다.
+//   · 담는 것은 «대학명 · 전형 · 학과 · 면접 날짜» 뿐입니다 (성적·합불은 안 가져옵니다)
+//   · 학번으로 맞춥니다
+//   · 새로 받아 오는 것은 관리자 화면의 「수시 지원 자료 새로 받기」 단추입니다
+var SUSI_AREA = {
+  main:    { label: '수시 6장', order: 1 },
+  cand:    { label: '후보',     order: 2 },
+  college: { label: '전문대',   order: 3 },
+  tech:    { label: '기타',     order: 4 }
+};
+
+// '2026/10/16' → '10/16',  '2026/09/21 ~ 2026/09/23' → '09/21 ~ 09/23'
+// 해는 어차피 올해라 자리만 차지합니다.
+function susiDate(s) {
+  return String(s || '').replace(/\d{4}\//g, '').trim();
+}
+
+async function loadSusi() {
+  var box  = document.getElementById('susi-box');
+  var list = document.getElementById('susi');
+  if (!box || !list || !target) return;
+  box.hidden = true;
+
+  const { data, error } = await sb.from('susi_plans')
+    .select('area, slot, uni_name, type_name, admission_name, dept_name, interview_date, synced_at')
+    .eq('student_no', target.student_no);
+
+  // 표가 아직 없거나 권한이 없으면 조용히 접어 둡니다 — 면접에 꼭 필요한 자료는 아닙니다.
+  if (error || !data || !data.length) return;
+
+  var rows = data.slice().sort(function (a, z) {
+    var ao = (SUSI_AREA[a.area] || { order: 9 }).order;
+    var zo = (SUSI_AREA[z.area] || { order: 9 }).order;
+    return ao !== zo ? ao - zo : (a.slot || 0) - (z.slot || 0);
+  });
+
+  var when = rows[0].synced_at ? new Date(rows[0].synced_at) : null;
+  document.getElementById('susi-when').textContent = when
+    ? '(' + (when.getMonth() + 1) + '월 ' + when.getDate() + '일에 받아 온 자료)'
+    : '(수시지원계획서 앱)';
+
+  var lastArea = null;
+  list.innerHTML = rows.map(function (r) {
+    var head = '';
+    if (r.area !== lastArea) {
+      lastArea = r.area;
+      head = '<p class="susihead">' + esc((SUSI_AREA[r.area] || {}).label || r.area) + '</p>';
+    }
+    var iv = susiDate(r.interview_date);
+    return head +
+      '<div class="susirow' + (iv ? ' hasiv' : '') + '">' +
+        '<span class="sn">' + (r.slot || '') + '</span>' +
+        '<span class="uni">' + esc(r.uni_name || '') + '</span>' +
+        '<span class="dept">' + esc(r.dept_name || '') + '</span>' +
+        '<span class="adm">' +
+          (r.type_name ? '<span class="tag">' + esc(r.type_name) + '</span> ' : '') +
+          esc(r.admission_name || '') +
+        '</span>' +
+        (iv ? '<span class="iv">면접 ' + esc(iv) + '</span>' : '') +
+      '</div>';
+  }).join('');
+
+  box.hidden = false;
 }
 
 function addQuestion(text, competency) {

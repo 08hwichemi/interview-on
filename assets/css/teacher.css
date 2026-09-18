@@ -502,3 +502,36 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .dataact b{font-size:14px;color:var(--ink)}
 .dataact .hint{margin:4px 0 0;font-size:12.5px;line-height:1.6}
 .dataact .btn{flex:0 0 auto}
+
+/* ── 수시 지원 현황 (수시지원계획서 앱에서 받아 온 것) ──
+   면접 준비 화면에서 «어디에 지원했는지» 를 한눈에 봅니다.
+   면접이 있는 전형은 색을 달리해 눈에 걸리게 합니다 — 그게 오늘 볼 면접이니까요. */
+.susihead{
+  margin:14px 0 6px;font-size:11px;font-weight:700;letter-spacing:.08em;
+  color:var(--ink-3);
+}
+.susihead:first-child{margin-top:2px}
+
+.susirow{
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  padding:8px 12px;border:1px solid var(--line);border-radius:8px;
+  background:var(--surface);margin-bottom:6px;font-size:13.5px;line-height:1.5;
+}
+.susirow.hasiv{border-color:var(--accent-line);background:var(--accent-soft)}
+.susirow .sn{
+  flex:0 0 20px;font-size:11px;font-weight:700;color:var(--ink-3);
+  font-variant-numeric:tabular-nums;
+}
+.susirow .uni{font-weight:700;color:var(--ink)}
+.susirow .dept{color:var(--ink-2)}
+.susirow .adm{flex:1 1 200px;min-width:0;font-size:12px;color:var(--ink-3)}
+.susirow .adm .tag{
+  display:inline-block;padding:1px 6px;border-radius:4px;
+  background:var(--surface-2);border:1px solid var(--line);
+  font-size:11px;font-weight:700;color:var(--ink-2);
+}
+.susirow.hasiv .adm .tag{background:#fff}
+.susirow .iv{
+  flex:0 0 auto;font-size:11.5px;font-weight:700;color:var(--amber);
+  background:var(--amber-soft);border-radius:5px;padding:2px 7px;
+}

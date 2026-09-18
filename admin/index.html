@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 관리자</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-18.3">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-18.4">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-18.3">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-18.4">
 </head>
 <body>
 
@@ -69,6 +69,20 @@
       </div>
 
       <div id="data-counts" class="datagrid"></div>
+
+      <p class="sec" style="margin-top:26px">받아 오기</p>
+      <div class="dataacts">
+        <div class="dataact">
+          <div>
+            <b>수시 지원 자료 새로 받기</b>
+            <p class="hint">수시지원계획서 앱에서 <b>대학명 · 전형 · 학과 · 면접 날짜</b>만 받아 와
+              선생님 면접 준비 화면에 띄웁니다. <b>학번으로 맞춥니다.</b>
+              성적·합불·메모는 받아 오지 않습니다.
+              수시 앱에서 지원을 고치셨으면 여기서 다시 받으세요. 지우는 일이 아닙니다.</p>
+          </div>
+          <button class="btn" id="btn-sync-susi" onclick="syncSusi()">수시 지원 자료 새로 받기</button>
+        </div>
+      </div>
 
       <p class="sec" style="margin-top:26px">지우기</p>
       <div class="dataacts">
@@ -154,9 +168,9 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-18.3"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-18.3"></script>
-<script src="../assets/js/admin-roster.js?v=2026-09-18.3"></script>
+<script src="../assets/js/config.js?v=2026-09-18.4"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-18.4"></script>
+<script src="../assets/js/admin-roster.js?v=2026-09-18.4"></script>
 <script>
   // 확인이 끝나지 않으면 "확인 중..." 이 영영 돌기만 합니다.
   // 왜 멈췄는지 화면에 보여줍니다.

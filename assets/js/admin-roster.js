@@ -449,6 +449,7 @@ async function loadDataCounts() {
   var 학생 = await countRows('students');
   var 면접 = await countRows('interviews');
   var 톡   = await countChats();
+  var 수시 = await countRows('susi_plans');
   var 교사 = null;
   const { count: tc } = await sb.from('profiles')
     .select('*', { count: 'exact', head: true }).in('role', ['teacher', 'admin']);
@@ -459,7 +460,29 @@ async function loadDataCounts() {
            (n === null ? '?' : n) + '</span><span class="k">' + k + '</span></div>';
   }
   box.innerHTML = 칸('학생 계정', 학생) + 칸('교직원 계정', 교사) +
-                  칸('면접 기록', 면접) + 칸('주고받은 톡', 톡);
+                  칸('면접 기록', 면접) + 칸('주고받은 톡', 톡) +
+                  칸('수시 지원 줄', 수시);
+}
+
+// ── 수시 지원 자료 받아 오기 ──
+//
+// 수시지원계획서 앱은 **다른 Supabase 방**에 있습니다. 그 방의 열쇠를 브라우저에
+// 넣으면 누구나 전교생 지원 현황을 볼 수 있게 되므로, 열쇠는 서버 함수 안에만 둡니다.
+// 그래서 화면이 하는 일은 «서버 함수를 부르는 것» 하나뿐입니다.
+//   · 받아 오는 것은 대학명 · 전형 · 학과 · 면접 날짜뿐입니다
+//   · 부를 때마다 우리 쪽 사본을 지우고 새로 채웁니다 (수시 앱이 늘 옳습니다)
+async function syncSusi() {
+  dataBusy('btn-sync-susi', true, '받는 중...');
+  const { data, error } = await sb.rpc('sync_susi_plans');
+  dataBusy('btn-sync-susi', false, '수시 지원 자료 새로 받기');
+
+  if (error) { dataResult('받아 오지 못했습니다: ' + esc(error.message), 'bad'); return; }
+
+  var r = data || {};
+  dataResult('수시 지원 <b>' + (r.rows || 0) + '줄</b>을 받았습니다. ' +
+             '명단과 학번이 맞는 학생은 <b>' + (r.matched_students || 0) + '명</b>입니다.');
+  toast('수시 지원 자료를 받았습니다.', 'ok');
+  loadDataCounts();
 }
 
 // 두 번 묻습니다. 「지웁니다」를 그대로 적어야 넘어갑니다.
