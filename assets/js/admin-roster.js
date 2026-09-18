@@ -6,9 +6,16 @@
 // 초기 비밀번호는 모두 같은 값입니다. 첫 로그인 때 본인 비밀번호로 반드시 바꾸게 되어 있고,
 // 잊은 사람은 명단 오른쪽 «비번초기화» 로 되돌립니다.
 
-// ⚠️ Edge Function 의 INITIAL_PASSWORD 와 같아야 합니다.
+// ⚠️ Edge Function 의 INITIAL_PASSWORD_STUDENT · INITIAL_PASSWORD_TEACHER 와 같아야 합니다.
 //    여기는 단추에 적어 보여주기만 하는 값이고, 실제로 정하는 곳은 서버입니다.
-var INITIAL_PW = '123456';
+//    학생과 선생님이 서로 다릅니다.
+var INITIAL_PW_STUDENT = '111111';
+var INITIAL_PW_TEACHER = '123456';
+
+// 지금 보고 있는 명단(학생/교사)에 맞는 초기 비밀번호
+function initialPw(mode) {
+  return (mode || rosterMode) === 'student' ? INITIAL_PW_STUDENT : INITIAL_PW_TEACHER;
+}
 
 var rosterMode = 'student';   // 'student' | 'teacher' | 'data'
 var isAdmin = false;          // 로그인 확인이 끝나면 admin/index.html 이 채웁니다
@@ -49,7 +56,7 @@ function setRosterMode(mode) {
     ? '30201 홍길동\n30202 김철수\n30203 이영희'
     : '이용휘\n박영희\n최수진';
 
-  document.getElementById('btn-create').textContent = '등록하기 (초기비번 ' + INITIAL_PW + ')';
+  document.getElementById('btn-create').textContent = '등록하기 (초기비번 ' + initialPw(mode) + ')';
   document.getElementById('excel-name').textContent = '';
   document.getElementById('add-problems').hidden = true;
   document.getElementById('add-result').hidden = true;
@@ -238,14 +245,16 @@ async function createAccounts() {
   var created = res.data.created || [];
   var skipped = res.data.skipped || [];
   if (res.data.initial_password) {
-    INITIAL_PW = res.data.initial_password;
-    btn.textContent = '등록하기 (초기비번 ' + INITIAL_PW + ')';
+    // 서버가 실제로 쓴 값을 그대로 받아 둡니다 (여기 적힌 값과 어긋나지 않게)
+    if (rosterMode === 'student') INITIAL_PW_STUDENT = res.data.initial_password;
+    else INITIAL_PW_TEACHER = res.data.initial_password;
+    btn.textContent = '등록하기 (초기비번 ' + initialPw() + ')';
   }
 
   var box = document.getElementById('add-result');
   box.hidden = false;
   box.innerHTML =
-    '<b>' + created.length + '명</b> 등록했습니다. 초기 비밀번호는 <b class="pw">' + esc(INITIAL_PW) + '</b> 입니다.' +
+    '<b>' + created.length + '명</b> 등록했습니다. 초기 비밀번호는 <b class="pw">' + esc(initialPw()) + '</b> 입니다.' +
     (skipped.length
       ? '<ul><li>' + skipped.map(function (s) {
           return esc(s.login_id || s.name) + ' — ' + esc(s.reason);
@@ -260,7 +269,7 @@ async function createAccounts() {
 // ── 비밀번호 초기화 ──
 async function onResetClick(btn) {
   var loginId = btn.dataset.loginId, name = btn.dataset.name;
-  if (!confirm(name + '(' + loginId + ') 님의 비밀번호를 ' + INITIAL_PW + ' 로 되돌릴까요?')) return;
+  if (!confirm(name + '(' + loginId + ') 님의 비밀번호를 ' + initialPw() + ' 로 되돌릴까요?')) return;
 
   btn.disabled = true;
   var res = await callAccountFn({ action: 'reset', login_ids: [loginId] });
@@ -270,8 +279,11 @@ async function onResetClick(btn) {
   var failed = res.data.failed || [];
   if (failed.length) { toast('실패: ' + failed[0].reason, 'bad'); return; }
 
-  if (res.data.initial_password) INITIAL_PW = res.data.initial_password;
-  toast(name + ' 님의 비밀번호를 ' + INITIAL_PW + ' 로 되돌렸습니다.', 'ok');
+  if (res.data.initial_password) {
+    if (rosterMode === 'student') INITIAL_PW_STUDENT = res.data.initial_password;
+    else INITIAL_PW_TEACHER = res.data.initial_password;
+  }
+  toast(name + ' 님의 비밀번호를 ' + initialPw() + ' 로 되돌렸습니다.', 'ok');
   loadRoster();
 }
 

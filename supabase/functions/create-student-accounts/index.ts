@@ -1,7 +1,8 @@
 // 계정 만들기 / 비밀번호 초기화 / 삭제 — 관리자 전용
 //
-// 초기 비밀번호는 학교에서 정한 값 하나로 통일합니다(INITIAL_PASSWORD).
-// 선생님이 한 명 한 명 비밀번호를 나눠줄 필요 없이 "처음엔 123456" 한마디면 되고,
+// 초기 비밀번호는 학교에서 정한 값으로 통일합니다.
+// 학생과 선생님은 서로 다릅니다 — 학생 111111, 선생님 123456.
+// 한 명 한 명 나눠줄 필요 없이 "처음엔 111111" 한마디면 되고,
 // 첫 로그인 때 본인 비밀번호로 반드시 바꾸게 되어 있습니다(must_change_password).
 //
 // 계정 생성에는 service_role 키가 필요한데, 이 키는 절대 브라우저에 들어가면 안 되므로
@@ -13,8 +14,15 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 // 학교에서 정한 초기 비밀번호. 여기만 고치면 전체가 따라갑니다.
-// 화면 쪽 assets/js/admin-roster.js 의 INITIAL_PW 도 같이 고쳐야 단추 글자가 맞습니다.
-const INITIAL_PASSWORD = '123456';
+// ⚠️ 학생과 선생님이 다릅니다. 화면 쪽 assets/js/admin-roster.js 의
+//    INITIAL_PW_STUDENT · INITIAL_PW_TEACHER 도 같이 고쳐야 단추 글자가 맞습니다.
+const INITIAL_PASSWORD_STUDENT = '111111';
+const INITIAL_PASSWORD_TEACHER = '123456';
+
+// 그 사람의 몫에 맞는 초기 비밀번호를 고릅니다. (관리자는 선생님과 같습니다)
+function initialPasswordFor(role: string): string {
+  return role === 'student' ? INITIAL_PASSWORD_STUDENT : INITIAL_PASSWORD_TEACHER;
+}
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -110,8 +118,9 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      const pw = initialPasswordFor(target.role);
       const { error: pwErr } = await admin.auth.admin.updateUserById(target.id, {
-        password: INITIAL_PASSWORD,
+        password: pw,
       });
       if (pwErr) {
         failed.push({ login_id: loginId, reason: pwErr.message });
@@ -121,12 +130,13 @@ Deno.serve(async (req) => {
       // 초기 비밀번호로 돌아갔으니 다음 로그인 때 다시 바꾸게 합니다.
       await admin.from('profiles').update({ must_change_password: true }).eq('id', target.id);
 
-      done.push({ login_id: loginId, name: target.name });
+      done.push({ login_id: loginId, name: target.name, initial_password: pw });
     }
 
     return json({
       action: 'reset',
-      initial_password: INITIAL_PASSWORD,
+      // 여러 몫을 한꺼번에 되돌렸을 수도 있으니, 한 사람일 때만 값을 내려 줍니다
+      initial_password: done.length === 1 ? done[0].initial_password : null,
       done,
       failed,
       done_count: done.length,
@@ -204,6 +214,8 @@ Deno.serve(async (req) => {
     return json({ error: '한 번에 500명까지만 등록할 수 있습니다' }, 400);
   }
 
+  const initialPassword = initialPasswordFor(targetRole);
+
   const created: Array<Record<string, string>> = [];
   const skipped: Array<Record<string, string>> = [];
 
@@ -238,7 +250,7 @@ Deno.serve(async (req) => {
 
     const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
       email,
-      password: INITIAL_PASSWORD,
+      password: initialPassword,
       email_confirm: true, // 확인 메일을 보내지 않습니다
       user_metadata: { login_id: loginId, name },
     });
@@ -289,7 +301,7 @@ Deno.serve(async (req) => {
 
   return json({
     role: targetRole,
-    initial_password: INITIAL_PASSWORD,
+    initial_password: initialPassword,
     created,
     skipped,
     created_count: created.length,
