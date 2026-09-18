@@ -477,3 +477,28 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   /* 줄이 세로로 뒤집히므로 order 로 «지우기» 를 맨 아래에 붙잡아 둡니다 */
   .actionbar .far{margin-left:0;order:-1}
 }
+
+/* ── 관리자: 데이터 관리 ──
+   되돌릴 수 없는 일만 모아 둔 자리라, 단추를 붉게 하고 설명을 옆에 붙입니다. */
+.btn.danger{border-color:#E4C4C4;color:var(--rose);background:var(--surface)}
+.btn.danger:hover{background:var(--rose);border-color:var(--rose);color:#fff}
+.btn.danger:disabled{opacity:.5;cursor:default;background:var(--surface);color:var(--rose)}
+
+.datagrid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px;
+}
+.datacount{
+  border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--surface-2);
+}
+.datacount .n{display:block;font-size:24px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+.datacount .k{font-size:12px;font-weight:600;color:var(--ink-3)}
+
+.dataacts{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.dataact{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--surface);
+}
+.dataact > div{flex:1 1 320px;min-width:0}
+.dataact b{font-size:14px;color:var(--ink)}
+.dataact .hint{margin:4px 0 0;font-size:12.5px;line-height:1.6}
+.dataact .btn{flex:0 0 auto}
