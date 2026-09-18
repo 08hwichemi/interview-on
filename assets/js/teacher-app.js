@@ -685,7 +685,35 @@ async function loadSusi() {
       '</div>';
   }).join('');
 
+  // 접었을 때도 «무엇이 들어 있는지» 는 보이게 합니다.
+  var 면접수 = rows.filter(function (r) { return susiDate(r.interview_date); }).length;
+  document.getElementById('susi-count').textContent =
+    rows.length + '곳' + (면접수 ? ' · 면접 ' + 면접수 + '곳' : '');
+
+  paintSusi();
   box.hidden = false;
+}
+
+// ── 아코디언 ──
+// 준비 화면은 이미 깁니다. 접어 두는 것이 기본이고, 펼친 채로 두면
+// 그 상태가 이 브라우저에 남습니다 — 매번 다시 누르지 않게.
+var susiOpen = (function () {
+  try { return localStorage.getItem('susiOpen') === '1'; } catch (e) { return false; }
+})();
+
+function paintSusi() {
+  var list = document.getElementById('susi');
+  var btn  = document.getElementById('susi-more');
+  if (!list || !btn) return;
+  list.hidden = !susiOpen;
+  btn.textContent = susiOpen ? '접기' : '펼치기';
+  btn.setAttribute('aria-expanded', susiOpen ? 'true' : 'false');
+}
+
+function toggleSusi() {
+  susiOpen = !susiOpen;
+  try { localStorage.setItem('susiOpen', susiOpen ? '1' : '0'); } catch (e) { /* 사생활 보호 모드 */ }
+  paintSusi();
 }
 
 function addQuestion(text, competency) {
