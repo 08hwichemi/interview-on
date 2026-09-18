@@ -750,7 +750,11 @@ function renderQuestions() {
     }).join('');
   }
   renderGreetings();
-  var 빔 = composeQuestions().length === 0;
+  var 전체 = composeQuestions();
+  // 구역 머리줄에 «질문 몇 개» 를 적어 둡니다 (첫인사·끝인사까지 셉니다)
+  var cnt = document.getElementById('q-count');
+  if (cnt) cnt.textContent = 전체.length ? '질문 ' + 전체.length + '개' : '';
+  var 빔 = 전체.length === 0;
   document.getElementById('btn-start').disabled = 빔;
   var save = document.getElementById('btn-save-sheet');
   if (save) {
