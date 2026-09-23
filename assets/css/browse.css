@@ -28,6 +28,11 @@
 .card.expanded .arrow { transform: rotate(90deg); }
 .card-body { display: none; padding: 16px; border-top: 1px solid var(--line); background: white; }
 .card.expanded .card-body { display: block; }
+
+/* 대학별 기출 질문 카드 — 질문 한 줄뿐이라 눌러서 펴는 게 번거롭기만 합니다.
+   처음부터 다 보이게 두고, 누를 일이 없으니 손가락 커서도 뺍니다. */
+.qcard-open .card-header { cursor: default; }
+.qcard-open .qcard-body { display: block; }
 .content-block { margin-bottom: 16px; }
 .content-block:last-child { margin-bottom: 0; }
 .content-title { font-size: 13px; font-weight: bold; color: var(--ink); margin-bottom: 6px; }

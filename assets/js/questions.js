@@ -68,15 +68,18 @@ function renderQuestionList(data) {
     
     for (; i < end; i++) {
       var item = data[i];
-      html += '<div class="card" onclick="toggleCard(this)">';
-      html += '  <div class="card-header"><div>';
+      // 질문은 한 줄뿐이라 눌러서 펴는 실전 면접 후기(질문+답변+팁)와 달리
+      // 누를 때마다 펼쳐야 하면 번거롭기만 합니다. 처음부터 다 보여줍니다.
+      html += '<div class="card qcard-open">';
+      html += '  <div class="card-header">';
       html += '      <div class="card-title">' + (item['대학'] || '') + '</div>';
       html += '      <div class="card-tags">';
       if (item['년도']) html += '<span class="tag">' + item['년도'] + '</span>';
       if (item['c1']) html += '<span class="tag">' + item['c1'] + '</span>';
       if (item['c2']) html += '<span class="tag">' + item['c2'] + '</span>';
-      html += '      </div></div><div class="arrow">▶</div></div>';
-      html += '  <div class="card-body">';
+      html += '      </div>';
+      html += '  </div>';
+      html += '  <div class="card-body qcard-body">';
       html += '    <div class="content-text">' + (item['질문'] || '내용 없음') + '</div>';
       html += '  </div></div>';
     }
