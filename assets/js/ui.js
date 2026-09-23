@@ -92,6 +92,7 @@ function navigateTo(screenId) {
       else if (screenId === 'report-detail') appTitle.innerText = '면접 리포트';
       else if (screenId === 'reviews') appTitle.innerText = '실전 면접 후기';
       else if (screenId === 'questions') appTitle.innerText = '대학별 기출 질문';
+      else if (screenId === 'practice') appTitle.innerText = '답안 연습장';
       else if (screenId === 'interview-setup' || screenId === 'interview-run' || screenId === 'interview-result') {
         appTitle.innerText = '모의 면접 연습';
       }
@@ -104,6 +105,7 @@ function navigateTo(screenId) {
   }
   // 목록은 들어올 때마다 새로 받습니다. 선생님이 방금 보냈을 수 있습니다.
   if (screenId === 'my-reports') loadMyReports();
+  if (screenId === 'practice') practiceStudentEnter();
   window.scrollTo(0, 0);
 
   // ⚠️ 여기서 걸음을 쌓지 않습니다 — 이동수업 앱 원본에도 없습니다.

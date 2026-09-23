@@ -4,13 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-19.1">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-19.2">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-19.1">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-19.1">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-19.1">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-19.1">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-19.1">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-19.2">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-19.2">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-19.2">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-19.2">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-09-19.2">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-19.2">
 </head>
 <body>
 
@@ -112,83 +113,102 @@
             <button class="ghost" id="btn-talk" hidden>💬 이 학생에게 톡</button>
           </div>
 
-          <!-- 면접을 하다가 질문을 고치러 돌아왔을 때만 뜹니다 -->
-          <p class="note info" id="setup-editing" hidden style="margin-top:16px">
-            <b>면접 중입니다.</b> 질문을 고치고 아래 단추로 돌아가시면
-            이미 매긴 평가는 그대로 있습니다. 시계는 잠깐 멈춰 두었습니다.
-          </p>
-
-          <p class="note info" id="sheet-note" hidden style="margin-top:16px">
-            <b>미리 만들어 둔 질문지입니다.</b> <span id="sheet-when"></span> ·
-            고치고 다시 저장하시면 됩니다.
-            <button class="linkbtn danger" onclick="deleteSheet()" style="margin-left:6px">질문지 지우기</button>
-          </p>
-
-          <div id="history-box">
-            <p class="sec" style="margin-top:22px">지난 면접</p>
-            <div id="history"></div>
+          <!-- 학생을 고르면 늘 «면접 준비» 로 열립니다. 답안 연습장은 읽기만 합니다 —
+               쓰는 건 학생 혼자 하는 일입니다 (RLS 가 선생님 쪽 쓰기를 막아 둡니다). -->
+          <div class="prac-tabs" style="margin-top:16px">
+            <button class="prac-tab" id="setup-tab-prep" aria-current="true" onclick="setupGoTab('prep')">면접 준비</button>
+            <button class="prac-tab" id="setup-tab-practice" onclick="setupGoTab('practice')">✍️ 답안 연습장</button>
           </div>
 
-          <!-- 수시지원계획서 앱에서 받아 온 지원 현황. 자료가 없으면 아예 안 뜹니다.
-               머리줄 전체가 단추입니다 — 어디를 눌러도 접히고 펴집니다.
-               «눌러서 펴는 것» 임을 알 수 있게 네모로 묶고 바닥색을 달리했습니다. -->
-          <div id="susi-box" hidden>
-            <div class="susiacc">
-              <button class="susihead" id="susi-more" onclick="toggleSusi()"
-                      aria-expanded="true" aria-controls="susi">
-                <span class="chev" aria-hidden="true">▾</span>
-                <span class="ttl">수시 지원</span>
-                <span class="susin" id="susi-count"></span>
-                <span class="opt" id="susi-when"></span>
-                <span class="grow"></span>
-                <span class="more" id="susi-more-label">접기</span>
-              </button>
-              <div id="susi" class="susibody"></div>
+          <div id="setup-prep">
+            <!-- 면접을 하다가 질문을 고치러 돌아왔을 때만 뜹니다 -->
+            <p class="note info" id="setup-editing" hidden style="margin-top:16px">
+              <b>면접 중입니다.</b> 질문을 고치고 아래 단추로 돌아가시면
+              이미 매긴 평가는 그대로 있습니다. 시계는 잠깐 멈춰 두었습니다.
+            </p>
+
+            <p class="note info" id="sheet-note" hidden style="margin-top:16px">
+              <b>미리 만들어 둔 질문지입니다.</b> <span id="sheet-when"></span> ·
+              고치고 다시 저장하시면 됩니다.
+              <button class="linkbtn danger" onclick="deleteSheet()" style="margin-left:6px">질문지 지우기</button>
+            </p>
+
+            <div id="history-box">
+              <p class="sec" style="margin-top:22px">지난 면접</p>
+              <div id="history"></div>
             </div>
-          </div>
 
-          <!-- 질문지를 만드는 구역. 수시 지원 칸과 같은 네모로 묶어
-               «여기부터 여기까지가 질문지» 임이 보이게 했습니다. -->
-          <div class="qsect">
-            <div class="qsecthead">
-              <span class="ttl">질문지 만들기</span>
-              <span class="susin" id="q-count"></span>
-              <span class="opt">첫인사 · 낼 질문 · 끝인사</span>
-            </div>
-            <div class="qsectbody">
-              <p class="sec">첫인사 <span class="opt">(면접을 여는 질문)</span></p>
-              <p class="hint">고른 것을 다시 누르면 첫인사를 뺍니다. 문장은 그대로 고쳐 쓰셔도 됩니다.</p>
-              <div id="opening-box"></div>
-
-              <p class="sec" style="margin-top:22px">낼 질문</p>
-              <p class="hint">
-                질문마다 <b>무엇을 보는 질문인지</b> 골라 두세요. 리포트에서 역량별로 모아 보여줍니다.
-              </p>
-              <div id="q-list"></div>
-
-              <div class="btnrow" style="margin-top:12px">
-                <button class="btn" onclick="addQuestion('', '기타')">＋ 직접 적기</button>
-                <button class="ghost" onclick="loadCommon('changche', '공동체역량')">창체 질문 3개</button>
-                <button class="ghost" onclick="loadCommon('major', '진로역량')">전공 질문 3개</button>
-                <button class="ghost" onclick="openSaenggibu()">📄 생기부에서 뽑기</button>
+            <!-- 수시지원계획서 앱에서 받아 온 지원 현황. 자료가 없으면 아예 안 뜹니다.
+                 머리줄 전체가 단추입니다 — 어디를 눌러도 접히고 펴집니다.
+                 «눌러서 펴는 것» 임을 알 수 있게 네모로 묶고 바닥색을 달리했습니다. -->
+            <div id="susi-box" hidden>
+              <div class="susiacc">
+                <button class="susihead" id="susi-more" onclick="toggleSusi()"
+                        aria-expanded="true" aria-controls="susi">
+                  <span class="chev" aria-hidden="true">▾</span>
+                  <span class="ttl">수시 지원</span>
+                  <span class="susin" id="susi-count"></span>
+                  <span class="opt" id="susi-when"></span>
+                  <span class="grow"></span>
+                  <span class="more" id="susi-more-label">접기</span>
+                </button>
+                <div id="susi" class="susibody"></div>
               </div>
+            </div>
 
-              <p class="sec" style="margin-top:22px">끝인사 <span class="opt">(면접을 닫는 질문)</span></p>
-              <div id="closing-box"></div>
+            <!-- 질문지를 만드는 구역. 수시 지원 칸과 같은 네모로 묶어
+                 «여기부터 여기까지가 질문지» 임이 보이게 했습니다. -->
+            <div class="qsect">
+              <div class="qsecthead">
+                <span class="ttl">질문지 만들기</span>
+                <span class="susin" id="q-count"></span>
+                <span class="opt">첫인사 · 낼 질문 · 끝인사</span>
+              </div>
+              <div class="qsectbody">
+                <p class="sec">첫인사 <span class="opt">(면접을 여는 질문)</span></p>
+                <p class="hint">고른 것을 다시 누르면 첫인사를 뺍니다. 문장은 그대로 고쳐 쓰셔도 됩니다.</p>
+                <div id="opening-box"></div>
+
+                <p class="sec" style="margin-top:22px">낼 질문</p>
+                <p class="hint">
+                  질문마다 <b>무엇을 보는 질문인지</b> 골라 두세요. 리포트에서 역량별로 모아 보여줍니다.
+                </p>
+                <div id="q-list"></div>
+
+                <div class="btnrow" style="margin-top:12px">
+                  <button class="btn" onclick="addQuestion('', '기타')">＋ 직접 적기</button>
+                  <button class="ghost" onclick="loadCommon('changche', '공동체역량')">창체 질문 3개</button>
+                  <button class="ghost" onclick="loadCommon('major', '진로역량')">전공 질문 3개</button>
+                  <button class="ghost" onclick="openSaenggibu()">📄 생기부에서 뽑기</button>
+                </div>
+
+                <p class="sec" style="margin-top:22px">끝인사 <span class="opt">(면접을 닫는 질문)</span></p>
+                <div id="closing-box"></div>
+              </div>
+            </div>
+
+            <!-- 면접은 학생이 오기 전에 미리 준비합니다.
+                 «질문지 저장» 은 면접을 시작하지 않고 질문만 남겨 둡니다. -->
+            <p class="hint" style="margin-top:22px">
+              면접 날 전에 만들어 두시려면 <b>질문지 저장</b>을 누르세요.
+              나중에 이 학생을 고르기만 하면 이 질문지가 그대로 뜹니다.<br>
+              <b>면접 화면으로 넘어가도 아직 면접은 시작되지 않습니다.</b>
+              진행 화면에서 <b>면접 시작</b>(시계)을 눌러야 그때부터 면접입니다.
+            </p>
+            <div class="actionbar">
+              <button class="ghost" id="btn-save-sheet" onclick="saveSheet()">질문지 저장</button>
+              <button class="btn solid main" id="btn-start" onclick="startInterview()" disabled>질문 완료 · 면접 화면으로 →</button>
             </div>
           </div>
 
-          <!-- 면접은 학생이 오기 전에 미리 준비합니다.
-               «질문지 저장» 은 면접을 시작하지 않고 질문만 남겨 둡니다. -->
-          <p class="hint" style="margin-top:22px">
-            면접 날 전에 만들어 두시려면 <b>질문지 저장</b>을 누르세요.
-            나중에 이 학생을 고르기만 하면 이 질문지가 그대로 뜹니다.<br>
-            <b>면접 화면으로 넘어가도 아직 면접은 시작되지 않습니다.</b>
-            진행 화면에서 <b>면접 시작</b>(시계)을 눌러야 그때부터 면접입니다.
-          </p>
-          <div class="actionbar">
-            <button class="ghost" id="btn-save-sheet" onclick="saveSheet()">질문지 저장</button>
-            <button class="btn solid main" id="btn-start" onclick="startInterview()" disabled>질문 완료 · 면접 화면으로 →</button>
+          <!-- 답안 연습장 — 학생이 스스로 쓴 것을 읽기만 합니다 (practice.js) -->
+          <div id="setup-practice" hidden style="margin-top:16px">
+            <p class="prac-label">학년</p>
+            <div class="prac-chips" id="t-prac-grade"></div>
+            <p class="prac-label">분류</p>
+            <div class="prac-chips" id="t-prac-cat"></div>
+            <p class="prac-label">답안</p>
+            <div id="t-prac-list"></div>
           </div>
         </div>
       </section>
@@ -435,17 +455,18 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-19.1"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-19.1"></script>
-<script src="../assets/js/utils.js?v=2026-09-19.1"></script>
-<script src="../assets/js/api.js?v=2026-09-19.1"></script>
-<script src="../assets/js/browse.js?v=2026-09-19.1"></script>
-<script src="../assets/js/reviews.js?v=2026-09-19.1"></script>
-<script src="../assets/js/questions.js?v=2026-09-19.1"></script>
-<script src="../assets/js/report.js?v=2026-09-19.1"></script>
-<script src="../assets/js/chat.js?v=2026-09-19.1"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-19.1"></script>
-<script src="../assets/js/saenggibu.js?v=2026-09-19.1"></script>
+<script src="../assets/js/config.js?v=2026-09-19.2"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-19.2"></script>
+<script src="../assets/js/utils.js?v=2026-09-19.2"></script>
+<script src="../assets/js/api.js?v=2026-09-19.2"></script>
+<script src="../assets/js/browse.js?v=2026-09-19.2"></script>
+<script src="../assets/js/reviews.js?v=2026-09-19.2"></script>
+<script src="../assets/js/questions.js?v=2026-09-19.2"></script>
+<script src="../assets/js/report.js?v=2026-09-19.2"></script>
+<script src="../assets/js/chat.js?v=2026-09-19.2"></script>
+<script src="../assets/js/practice.js?v=2026-09-19.2"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-19.2"></script>
+<script src="../assets/js/saenggibu.js?v=2026-09-19.2"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);

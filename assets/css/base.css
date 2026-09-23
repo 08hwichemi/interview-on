@@ -182,10 +182,13 @@ html { overflow-y: auto; scrollbar-gutter: stable; }
 /* 홈 화면 메뉴 버튼
    ⚠️ 예전에는 min-height:480px 이었습니다. 화면이 짧은 휴대폰에서는
       머리말 + 480 + 꼬리말이 화면을 넘겨서 저작권 표시가 스크롤해야 보였습니다.
-      이제 남는 자리를 넷이 나눠 가지고, 좁으면 같이 줄어듭니다. */
-.home-grid { display: flex; flex-direction: column; gap: clamp(10px, 2.4vh, 24px); margin-bottom: 0; flex: 1; }
+      이제 남는 자리를 다섯이 나눠 가지고, 좁으면 같이 줄어듭니다.
+      ⚠️ «답안 연습장» 을 다섯 번째로 더했을 때 360×640 에서 다시 넘쳤습니다
+      (버튼마다 바닥(84px)이 있어 다섯 개면 420px + 틈까지 필요했습니다).
+      바닥을 낮춰 다섯 개도 짧은 화면에서 같이 줄어들게 했습니다. */
+.home-grid { display: flex; flex-direction: column; gap: clamp(8px, 2vh, 24px); margin-bottom: 0; flex: 1; }
 .menu-btn {
-  flex: 1 1 0; min-height: 84px;
+  flex: 1 1 0; min-height: 60px;
   background-color: #ffffff; border: 1px solid var(--line); border-radius: 20px;
   padding: clamp(12px, 2.2vh, 24px);
   text-align: left; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 6px 16px rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: flex-start;

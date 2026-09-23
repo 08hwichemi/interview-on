@@ -285,7 +285,7 @@ async function loadStudents() {
 
   const { data, error } = await sb
     .from('students')
-    .select('id, student_no, name, auth_user_id')
+    .select('id, student_no, name, auth_user_id, grade')
     .order('student_no');
 
   if (error) {
@@ -447,6 +447,24 @@ function backToList() {
   loadUnfinished();   // 접은 면접이 '진행중' 이면 다시 이 목록에 뜹니다
 }
 
+// ══════════════ 준비 화면 안의 두 탭 — 면접 준비 / 답안 연습장 ══════════════
+//
+// 답안 연습장은 학생이 혼자 쓰는 곳입니다(practice.js). 선생님은 읽기만 하고,
+// RLS 가 애초에 선생님 쪽 쓰기를 막아 둡니다.
+function setupGoTab(which) {
+  document.getElementById('setup-tab-prep').setAttribute('aria-current', which === 'prep');
+  document.getElementById('setup-tab-practice').setAttribute('aria-current', which === 'practice');
+  document.getElementById('setup-prep').hidden = which !== 'prep';
+  document.getElementById('setup-practice').hidden = which !== 'practice';
+  if (which === 'practice' && target) {
+    practiceBrowseInit(target.id, {
+      gradeBox: document.getElementById('t-prac-grade'),
+      catBox: document.getElementById('t-prac-cat'),
+      list: document.getElementById('t-prac-list')
+    }, target.grade ? String(target.grade) : '전체');
+  }
+}
+
 // ══════════════ 준비 ══════════════
 
 async function pickStudent(id) {
@@ -469,6 +487,7 @@ async function pickStudent(id) {
   resetGreetings();
   renderGreetings();
   renderQuestions();
+  setupGoTab('prep');   // 학생을 새로 고르면 늘 «면접 준비» 탭부터
   show('setup');
   loadSheet();      // 미리 만들어 둔 질문지가 있으면 그대로 펴 놓습니다
   loadHistory();
@@ -879,6 +898,7 @@ async function editQuestions() {
   decomposeQuestions(questions);
   renderGreetings();
   renderQuestions();
+  setupGoTab('prep');
   show('setup');
 }
 
