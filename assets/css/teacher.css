@@ -241,6 +241,13 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .notice-history-body{font-size:13px;color:var(--ink-2);line-height:1.6;overflow-wrap:anywhere}
 .notice-history-body a{color:inherit;font-weight:700}
 
+/* 지난 공지 한 줄 안의 수정·지우기 — 관리자 전용(admin-notice.js) */
+.notice-history-acts{display:flex;gap:4px;margin-top:4px;justify-content:flex-end}
+.notice-history-edit textarea{width:100%;min-height:70px;box-sizing:border-box;padding:8px;
+  border:1px solid var(--line-2);border-radius:6px;font-family:inherit;font-size:13px;resize:vertical}
+.notice-history-edit input[type=text]{width:100%;box-sizing:border-box;padding:8px;
+  border:1px solid var(--line-2);border-radius:6px;font-family:inherit;font-size:13px;margin-top:6px}
+
 /* ── 토스트 ── */
 .toast{
   position:fixed;left:50%;bottom:28px;transform:translate(-50%,14px);

@@ -77,11 +77,25 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   확인('필터 없이 둘 다 보이는가',
        await p.evaluate(() => document.querySelectorAll('#prac-write-list .prac-card').length === 2));
 
+  console.log('\n── 필터 상자 — 처음엔 접힌 채, 마지막 상태를 기억한다 ──');
+  확인('처음엔 접힌 채로 시작하는가', await p.evaluate(() => document.getElementById('fbox-body-write').hidden));
+  확인('접힌 채로도 요약이 보이는가(학년 전체 · 분류 전체)',
+       (await p.textContent('#fbox-summary-write')).indexOf('전체') > -1);
+  await p.click('#fbox-head-write');
+  확인('누르면 펼쳐지는가', await p.evaluate(() => !document.getElementById('fbox-body-write').hidden));
+  // 실제로는 새로고침해도 이어지지만(localStorage), 여기서는 화면을 나갔다 다시 들어와
+  // «새로 그리기» 를 한 번 더 태워 localStorage 에서 다시 읽어 오는지를 봅니다
+  // (진짜 브라우저 새로고침은 이 시험판의 서비스워커 때문에 가짜 서버 라우팅이 깨집니다).
+  await p.click('#prac-tab-browse'); await p.click('#prac-tab-write'); await p.waitForTimeout(150);
+  확인('다시 그려도 펼친 상태가 그대로인가(기기에 기억됨)',
+       await p.evaluate(() => !document.getElementById('fbox-body-write').hidden));
+
   // 학년 «3» 만 고르면 하나만 남아야 합니다.
   await p.click('#prac-write-grade .prac-chip:has-text("3")');
   await p.waitForTimeout(150);
   확인('학년 3만 필터하면 한 장만 남는가',
        await p.evaluate(() => document.querySelectorAll('#prac-write-list .prac-card').length === 1));
+  확인('요약 줄도 골라 둔 학년을 보여주는가', (await p.textContent('#fbox-summary-write')).indexOf('학년 3') > -1);
   // 공통도 같이 켜면(다중선택) 둘 다 다시 보여야 합니다.
   await p.click('#prac-write-grade .prac-chip:has-text("공통")');
   await p.waitForTimeout(150);

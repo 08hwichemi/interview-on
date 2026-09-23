@@ -80,6 +80,46 @@ function practiceMatchFilter(value, selected) {
   return !selected.length || selected.indexOf(value) > -1;
 }
 
+// ── 필터를 담는 접이식 상자 ──
+// 학년·분류 칩이 자리를 많이 차지해서(휴대폰에서 메뉴처럼 찌그러짐), 상자 하나로
+// 묶어 접었다 펼 수 있게 했습니다. 열고 닫은 마지막 상태는 기기에 기억해 두고
+// (localStorage, «which» 별로 따로 — write · browse · teacher), 처음 쓸 때는
+// 접힌 채로 시작합니다.
+function practiceFboxKey(which) { return 'practiceFboxOpen:' + which; }
+
+function practiceFboxIsOpen(which) {
+  try { return localStorage.getItem(practiceFboxKey(which)) === '1'; } catch (e) { return false; }
+}
+
+function practiceToggleFbox(which) {
+  var open = !practiceFboxIsOpen(which);
+  try { localStorage.setItem(practiceFboxKey(which), open ? '1' : '0'); } catch (e) { /* 사생활 보호 모드면 막힐 수 있습니다 */ }
+  practicePaintFboxOpen(which);
+}
+
+function practicePaintFboxOpen(which) {
+  var head = document.getElementById('fbox-head-' + which);
+  var body = document.getElementById('fbox-body-' + which);
+  if (!head || !body) return;
+  var open = practiceFboxIsOpen(which);
+  head.setAttribute('aria-expanded', open);
+  body.hidden = !open;
+}
+
+// 학년 · 분류 몇 개를 골라 뒀는지 접힌 채로도 알 수 있게 한 줄 요약.
+function practiceFboxSummary(which, grades, cats) {
+  var el = document.getElementById('fbox-summary-' + which);
+  if (!el) return;
+  var g = !grades.length ? '전체' : grades.length === 1 ? grades[0] : grades.length + '개';
+  var c = !cats.length ? '전체' : cats.length === 1 ? cats[0] : cats.length + '개';
+  el.textContent = '학년 ' + g + ' · 분류 ' + c;
+}
+
+function practicePaintFbox(which, grades, cats) {
+  practicePaintFboxOpen(which);
+  practiceFboxSummary(which, grades, cats);
+}
+
 // 카드 한 장(읽기 전용) — 교사 화면과 학생 «조회» 탭이 같이 씁니다.
 // canComment 가 있으면(교사) 코멘트 입력칸도 붙습니다. editBtn 이 있으면(학생 조회) «수정» 단추가 붙습니다.
 function practiceCardViewHTML(a, comments, opts) {
@@ -139,7 +179,8 @@ var PB = null;
 async function practiceBrowseInit(studentId, els, opts) {
   opts = opts || {};
   PB = { studentId: studentId, els: els, grades: [], cats: [], allCats: [], answers: [],
-         comments: {}, canComment: !!opts.canComment, editBtn: !!opts.editBtn };
+         comments: {}, canComment: !!opts.canComment, editBtn: !!opts.editBtn,
+         fboxKey: opts.fboxKey || 'browse' };
 
   els.list.innerHTML = '<p class="prac-empty">불러오는 중...</p>';
 
@@ -168,6 +209,7 @@ function practiceBrowseRender() {
   if (!PB) return;
   PB.els.gradeBox.innerHTML = practiceFilterChipsHTML(PRACTICE_GRADES, PB.grades, 'practiceBrowseToggleGrade');
   PB.els.catBox.innerHTML = practiceFilterChipsHTML(PRACTICE_FIXED_CATS.concat(PB.allCats), PB.cats, 'practiceBrowseToggleCat');
+  practicePaintFbox(PB.fboxKey, PB.grades, PB.cats);
 
   var list = PB.answers.filter(function (a) {
     return practiceMatchFilter(a.grade, PB.grades) && practiceMatchFilter(a.category, PB.cats);
@@ -313,6 +355,7 @@ function practiceWriteRenderChips() {
       '</span>';
   }).join('');
   document.getElementById('prac-write-cat').innerHTML = fixedHTML + customHTML;
+  practicePaintFbox('write', PW.grades, PW.cats);
 }
 
 function practiceWriteFiltered() {

@@ -19,6 +19,20 @@
 /* 칩이 «필터» 라는 걸 알려 주는 한 줄. 처음 조작법을 몰라 헤매지 않게. */
 .prac-hint{margin:0 0 4px;font-size:12px;color:var(--ink-3);line-height:1.5}
 
+/* ── 필터 상자(접이식) ──
+   학년·분류 칩을 상자 하나로 묶어, 접으면 한 줄로 줄어듭니다(휴대폰에서 카드가
+   메뉴 버튼처럼 찌그러지지 않게). 열고 닫은 마지막 상태는 기기에 기억해 둡니다
+   (practiceToggleFbox, localStorage) — 다음에 들어와도 그대로 이어집니다. */
+.fbox{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.fbox-head{width:100%;display:flex;align-items:center;gap:8px;padding:11px 13px;
+  background:var(--surface-2);border:0;cursor:pointer;font-family:inherit;text-align:left}
+.fbox-head .chev{font-size:11px;color:var(--ink-3);transition:transform .15s;flex:0 0 auto}
+.fbox-head[aria-expanded="true"] .chev{transform:rotate(90deg)}
+.fbox-head .ttl{font-size:13px;font-weight:800;color:var(--ink)}
+.fbox-head .summary{font-size:11.5px;color:var(--ink-3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fbox-body{padding:4px 13px 13px;border-top:1px solid var(--line)}
+.fbox-body[hidden]{display:none}
+
 /* 학년·분류 칩 — 교사 화면 .chip 과 같은 모양입니다(누르면 먹빛으로 눌림) */
 .prac-chips{display:flex;flex-wrap:wrap;gap:8px}
 .prac-chip{padding:7px 14px;border:1px solid var(--line-2);border-radius:999px;

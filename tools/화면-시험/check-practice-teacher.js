@@ -53,6 +53,11 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   확인('읽기 전용인가(질문·답변 입력칸과 삭제 단추가 없음 — 코멘트 칸은 따로 있어도 됩니다)',
        await p.evaluate(() => document.querySelectorAll('#t-prac-list .prac-q-input, #t-prac-list .prac-a-input, #t-prac-list .prac-del').length === 0));
 
+  console.log('\n── 필터 상자 — 처음엔 접힌 채 ──');
+  확인('처음엔 접힌 채로 시작하는가', await p.evaluate(() => document.getElementById('fbox-body-teacher').hidden));
+  await p.click('#fbox-head-teacher');
+  확인('누르면 펼쳐지는가', await p.evaluate(() => !document.getElementById('fbox-body-teacher').hidden));
+
   await p.click('#t-prac-cat .prac-chip:has-text("창체")');
   await p.waitForTimeout(150);
   확인('창체만 필터하면 한 장만 남는가',

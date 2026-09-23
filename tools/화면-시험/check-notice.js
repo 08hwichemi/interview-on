@@ -89,11 +89,36 @@ function 열기(b, viewport, fake) {
     확인('지난 공지 목록에 새 것부터 둘 다 보이는가',
          histText.indexOf('모의고사') < histText.indexOf('자기소개 초안'), histText.replace(/\s+/g, ' '));
 
+    console.log('\n── 지난 공지 한 줄도 고치거나 지울 수 있다(실수로 잘못 올린 것 바로잡기) ──');
+    var oldRow = p.locator('.notice-history-row', { hasText: '자기소개 초안' });
+    var oldId = await oldRow.getAttribute('data-id');
+    await oldRow.locator('button:has-text("수정")').click();
+    await p.waitForTimeout(150);
+    확인('수정 칸이 원래 내용으로 채워지는가',
+         (await p.inputValue('#nh-content-' + oldId)).indexOf('자기소개 초안') > -1);
+    await p.fill('#nh-content-' + oldId, '이번 주까지 자기소개 초안을 반드시 제출하세요.');
+    await p.click('#nh-edit-' + oldId + ' button:has-text("저장")');
+    await p.waitForTimeout(300);
+    확인('서버 기록도 고쳐지는가',
+         (await 표(p, 'announcement_log')).some(function (r) { return r.content.indexOf('반드시 제출') > -1; }));
+    확인('화면에도 고친 내용이 바로 보이는가',
+         (await p.textContent('#notice-history')).indexOf('반드시 제출') > -1);
+
+    p.once('dialog', function (d) { d.accept(); });
+    await p.locator('.notice-history-row', { hasText: '반드시 제출' }).locator('button:has-text("지우기")').click();
+    await p.waitForTimeout(300);
+    확인('지우면 그 줄만 서버 기록에서 사라지는가',
+         (await 표(p, 'announcement_log')).length === 1 &&
+         !(await 표(p, 'announcement_log')).some(function (r) { return r.content.indexOf('반드시 제출') > -1; }));
+    확인('다른 지난 공지(모의고사)는 그대로인가',
+         (await p.textContent('#notice-history')).indexOf('모의고사') > -1);
+
     p.once('dialog', d => d.accept());
     await p.click('#btn-notice-clear');
     await p.waitForTimeout(300);
     확인('지우면 지금 뜨는 공지 표에서는 사라지는가', (await 표(p, 'announcements')).length === 0);
-    확인('그래도 지난 공지 기록은 그대로 남아 있는가', (await 표(p, 'announcement_log')).length === 2);
+    확인('그래도 지난 공지 기록은 그대로 남아 있는가(한 줄은 아까 지웠으므로 1개)',
+         (await 표(p, 'announcement_log')).length === 1);
 
     확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
     await ctx.close();
@@ -165,6 +190,8 @@ function 열기(b, viewport, fake) {
     확인('홈 화면이 공지 상자로 밀려나지 않는가(더는 자리를 차지하지 않음)',
          await p.evaluate(() => document.getElementById('notice-box') === null));
     확인('🔔 단추에 안읽음 점이 켜져 있는가', await p.evaluate(() => !document.getElementById('notice-dot').hidden));
+    확인('처음 들어왔을 때 토스트로도 알려주는가',
+         (await p.evaluate(() => document.getElementById('toast').textContent)).indexOf('새 공지') > -1);
 
     await p.click('#notice-open');
     await p.waitForTimeout(200);
@@ -180,6 +207,7 @@ function 열기(b, viewport, fake) {
          await p.evaluate(() => document.getElementById('notice-dot').hidden));
 
     // 관리자가 고쳤다고 가정 — updated_at 이 달라지면 다시 «안읽음» 이 되어야 합니다.
+    await p.evaluate(() => { document.getElementById('toast').textContent = ''; });   // 이전 토스트 흔적 지움
     await p.evaluate(() => {
       window.__T.announcements[0].content = '내일 3교시는 모의면접 → 4교시로 변경!';
       window.__T.announcements[0].updated_at = '2026-09-24T00:00:00Z';
@@ -187,6 +215,16 @@ function 열기(b, viewport, fake) {
     });
     await p.waitForTimeout(200);
     확인('고친 공지는 다시 안읽음 점이 뜨는가', await p.evaluate(() => !document.getElementById('notice-dot').hidden));
+    확인('고친 공지도 토스트로 다시 알려주는가',
+         (await p.evaluate(() => document.getElementById('toast').textContent)).indexOf('새 공지') > -1);
+
+    // 열어 본 뒤(=읽음 처리한 뒤)에는, 계속 확인해도(3분마다·탭 복귀 시) 다시 안 띄웁니다.
+    await p.click('#notice-open'); await p.click('#notice-panel-overlay .close-btn');
+    await p.evaluate(() => { document.getElementById('toast').textContent = ''; });
+    await p.evaluate(() => noticeCheckBadge());
+    await p.waitForTimeout(200);
+    확인('읽고 나면 같은 공지로는 토스트가 또 안 뜨는가(성가시지 않게)',
+         (await p.evaluate(() => document.getElementById('toast').textContent)) === '');
 
     확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
     await ctx.close();
@@ -212,6 +250,8 @@ function 열기(b, viewport, fake) {
     확인('홈 메뉴 버튼 5개가 그대로 온전한가(공지 상자가 안 끼어듦)',
          (await p.locator('.home-grid .menu-btn').count()) === 5);
     확인('🔔 단추에 안읽음 점이 켜져 있는가', await p.evaluate(() => !document.getElementById('notice-dot').hidden));
+    확인('학생 화면도 토스트로 알려주는가',
+         (await p.evaluate(() => document.getElementById('toast-message').textContent)).indexOf('새 공지') > -1);
 
     await p.click('#notice-open');
     await p.waitForTimeout(200);

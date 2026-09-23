@@ -467,7 +467,7 @@ function setupGoTab(which) {
       gradeBox: document.getElementById('t-prac-grade'),
       catBox: document.getElementById('t-prac-cat'),
       list: document.getElementById('t-prac-list')
-    }, { canComment: true });
+    }, { canComment: true, fboxKey: 'teacher' });
   }
 }
 

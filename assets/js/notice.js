@@ -22,8 +22,22 @@ async function noticeCheckBadge() {
 
   var seenAt = null;
   try { seenAt = localStorage.getItem('noticeSeenAt'); } catch (e) { /* 사생활 보호 모드면 막힐 수 있습니다 */ }
+  var isUnseen = !!noticeCurrent && seenAt !== noticeCurrent.updated_at;
+
   var dot = document.getElementById('notice-dot');
-  if (dot) dot.hidden = !noticeCurrent || seenAt === noticeCurrent.updated_at;
+  var wasHidden = !dot || dot.hidden;
+  if (dot) dot.hidden = !isUnseen;
+
+  // 안읽음 점이 «막 켜진» 순간(처음 들어왔을 때 포함)에만 토스트로도 한 번 알려 줍니다.
+  // 매번 확인할 때마다(3분마다·탭 돌아올 때마다) 뜨면 성가시므로, 켜져 있던 채로
+  // 다시 확인한 것뿐이면 안 띄웁니다.
+  if (isUnseen && wasHidden) noticeToast('📢 새 공지가 있습니다. 🔔 를 눌러 확인하세요.');
+}
+
+// 학생 앱에는 showToast(), 교사 화면에는 toast() 가 있어 그걸 씁니다.
+function noticeToast(msg) {
+  if (typeof showToast === 'function') showToast(msg, 'info');
+  else if (typeof toast === 'function') toast(msg);
 }
 
 function noticeSafeLink(url) {
