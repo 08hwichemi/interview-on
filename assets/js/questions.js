@@ -51,45 +51,64 @@ async function filterQuestions() {
   renderQuestionList(data);
 }
 
+// 같은 대학·연도·전형이면 질문이 여러 개라도 카드 하나로 묶습니다.
+// (예: 가천대 2027 「학생부종합 – 가천바람개비, 가천 의약학, ...」 한 카테고리에
+// 질문 17개 — 예전엔 카드 17개를 하나하나 눌러 펴야 했습니다.)
+function groupQuestions(data) {
+  var order = [];
+  var groups = {};
+  data.forEach(function (item) {
+    var key = (item['년도'] || '') + '|' + (item['c1'] || '');
+    if (!groups[key]) {
+      groups[key] = { 대학: item['대학'], 년도: item['년도'], c1: item['c1'], items: [] };
+      order.push(key);
+    }
+    groups[key].items.push(item);
+  });
+  return order.map(function (k) { return groups[k]; });
+}
+
 function renderQuestionList(data) {
   var container = document.getElementById('question-list');
   var emptyMsg = document.getElementById('question-empty');
   container.innerHTML = '';
-  
+
   if (!data || data.length === 0) {
     emptyMsg.style.display = 'block'; return;
   }
   emptyMsg.style.display = 'none';
 
+  var groups = groupQuestions(data);
   var i = 0;
   function drawChunk() {
     var html = '';
-    var end = Math.min(i + 15, data.length);
-    
+    var end = Math.min(i + 15, groups.length);
+
     for (; i < end; i++) {
-      var item = data[i];
-      // 질문은 한 줄뿐이라 눌러서 펴는 실전 면접 후기(질문+답변+팁)와 달리
-      // 누를 때마다 펼쳐야 하면 번거롭기만 합니다. 처음부터 다 보여줍니다.
+      var g = groups[i];
       html += '<div class="card qcard-open">';
       html += '  <div class="card-header">';
-      html += '      <div class="card-title">' + (item['대학'] || '') + '</div>';
+      html += '      <div class="card-title">' + (g.대학 || '') + '</div>';
       html += '      <div class="card-tags">';
-      if (item['년도']) html += '<span class="tag">' + item['년도'] + '</span>';
-      if (item['c1']) html += '<span class="tag">' + item['c1'] + '</span>';
-      if (item['c2']) html += '<span class="tag">' + item['c2'] + '</span>';
+      if (g.년도) html += '<span class="tag">' + g.년도 + '</span>';
+      if (g.c1) html += '<span class="tag">' + g.c1 + '</span>';
       html += '      </div>';
       html += '  </div>';
       html += '  <div class="card-body qcard-body">';
-      html += '    <div class="content-text">' + (item['질문'] || '내용 없음') + '</div>';
+      html += g.items.map(function (item, idx) {
+        var c2tag = item['c2'] ? ' <span class="tag">' + item['c2'] + '</span>' : '';
+        return '<div class="qline"><span class="qn">' + (idx + 1) + '.</span> ' +
+               '<span class="qtext">' + (item['질문'] || '내용 없음') + '</span>' + c2tag + '</div>';
+      }).join('');
       html += '  </div></div>';
     }
-    
+
     container.insertAdjacentHTML('beforeend', html);
 
-    if (i < data.length) {
+    if (i < groups.length) {
       setTimeout(drawChunk, 50);
     }
   }
-  
+
   drawChunk();
 }

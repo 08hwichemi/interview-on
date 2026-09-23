@@ -49,12 +49,22 @@ const QUESTIONS = [
     확인('대학을 고르면 세부 필터가 열리는가', await p.evaluate(() => getComputedStyle(document.getElementById('q-sub-filters')).display !== 'none'));
     확인('그 대학의 연도만 뜨는가 (2027, 2026)',
          (await p.evaluate(() => Array.from(document.getElementById('q-year').options).map(o => o.value).join(','))) === '전체,2027,2026');
-    확인('일단 4건(경북대 전체)이 보이는가', await p.evaluate(() => document.querySelectorAll('#question-list .card').length) === 4);
+    확인('일단 4건이지만 같은 연도·전형끼리 묶여 카드 3개인가(2027학생부종합 2건 한 카드 + 2026학생부교과 1건 + 2027인성 1건)',
+         await p.evaluate(() => document.querySelectorAll('#question-list .card').length) === 3);
+    확인('묶인 카드 안에 질문 두 줄이 다 있는가', await p.evaluate(() => document.querySelectorAll('#question-list .qline').length) === 4);
 
     await p.selectOption('#q-year', '2027');
     await p.evaluate(() => updateQFilters('year'));
     await p.waitForTimeout(150);
-    확인('연도를 2027로 좁히면 3건인가(학생부종합 2 + 인성 1)', await p.evaluate(() => document.querySelectorAll('#question-list .card').length) === 3);
+    확인('연도를 2027로 좁히면 카드 2개(학생부종합 묶음 + 인성)인가', await p.evaluate(() => document.querySelectorAll('#question-list .card').length) === 2);
+    확인('학생부종합 카드 하나에 두 질문이 번호 매겨 같이 있는가',
+         await p.evaluate(() => {
+           var card = Array.from(document.querySelectorAll('#question-list .card'))
+             .find(function (c) { return c.textContent.indexOf('학생부종합') > -1; });
+           return !!card && card.textContent.indexOf('전공을 고른 이유는') > -1 &&
+             card.textContent.indexOf('갈등을 풀어 본 경험') > -1 &&
+             card.querySelectorAll('.qline').length === 2;
+         }));
     확인('전형 선택지가 연도에 맞게 좁혀지는가 (학생부종합만 — 「인성」은 전형이 아니라 빠짐)',
          (await p.evaluate(() => Array.from(document.getElementById('q-type1').options).map(o => o.value).join(','))) === '전체,학생부종합');
 
@@ -110,7 +120,7 @@ const QUESTIONS = [
     await p.selectOption('#q-year', '2027');
     await p.evaluate(() => updateQFilters('year'));
     await p.waitForTimeout(150);
-    확인('연도로 좁히면 3건인가', await p.evaluate(() => document.querySelectorAll('#question-list .card').length) === 3);
+    확인('연도로 좁히면 카드 2개(묶여서)인가', await p.evaluate(() => document.querySelectorAll('#question-list .card').length) === 2);
     확인('전형 목록에 「인성」은 안 뜨는가(역량 이름이라 뺌)',
          (await p.evaluate(() => Array.from(document.getElementById('q-type1').options).map(o => o.value))).indexOf('인성') === -1);
 
