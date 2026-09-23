@@ -11,7 +11,9 @@ const QUESTIONS = [
   { id: 'q1', '대학': '경북대', '년도': 2027, '전형/역량1': '학생부종합', '역량2': '전공적합성', '질문': '전공을 고른 이유는?' },
   { id: 'q2', '대학': '경북대', '년도': 2027, '전형/역량1': '학생부종합', '역량2': '인성', '질문': '갈등을 풀어 본 경험은?' },
   { id: 'q3', '대학': '경북대', '년도': 2026, '전형/역량1': '학생부교과', '역량2': '전공적합성', '질문': '지원 동기는?' },
-  { id: 'q4', '대학': '한서대', '년도': 2027, '전형/역량1': '학생부종합', '역량2': '발전가능성', '질문': '앞으로의 계획은?' }
+  { id: 'q4', '대학': '한서대', '년도': 2027, '전형/역량1': '학생부종합', '역량2': '발전가능성', '질문': '앞으로의 계획은?' },
+  // 일부 대학은 전형 이름 대신 역량 이름이 그대로 들어가 있습니다 — 전형 목록에서 뺍니다
+  { id: 'q5', '대학': '경북대', '년도': 2027, '전형/역량1': '인성', '역량2': null, '질문': '봉사활동 경험은?' }
 ];
 
 (async () => {
@@ -47,13 +49,13 @@ const QUESTIONS = [
     확인('대학을 고르면 세부 필터가 열리는가', await p.evaluate(() => getComputedStyle(document.getElementById('q-sub-filters')).display !== 'none'));
     확인('그 대학의 연도만 뜨는가 (2027, 2026)',
          (await p.evaluate(() => Array.from(document.getElementById('q-year').options).map(o => o.value).join(','))) === '전체,2027,2026');
-    확인('일단 3건(경북대 전체)이 보이는가', await p.evaluate(() => document.querySelectorAll('#question-list .card').length) === 3);
+    확인('일단 4건(경북대 전체)이 보이는가', await p.evaluate(() => document.querySelectorAll('#question-list .card').length) === 4);
 
     await p.selectOption('#q-year', '2027');
     await p.evaluate(() => updateQFilters('year'));
     await p.waitForTimeout(150);
-    확인('연도를 2027로 좁히면 2건인가', await p.evaluate(() => document.querySelectorAll('#question-list .card').length) === 2);
-    확인('전형 선택지가 연도에 맞게 좁혀지는가 (학생부종합만)',
+    확인('연도를 2027로 좁히면 3건인가(학생부종합 2 + 인성 1)', await p.evaluate(() => document.querySelectorAll('#question-list .card').length) === 3);
+    확인('전형 선택지가 연도에 맞게 좁혀지는가 (학생부종합만 — 「인성」은 전형이 아니라 빠짐)',
          (await p.evaluate(() => Array.from(document.getElementById('q-type1').options).map(o => o.value).join(','))) === '전체,학생부종합');
 
     await p.selectOption('#q-type1', '학생부종합');
@@ -106,7 +108,9 @@ const QUESTIONS = [
     await p.selectOption('#q-year', '2027');
     await p.evaluate(() => updateQFilters('year'));
     await p.waitForTimeout(150);
-    확인('연도로 좁히면 2건인가', await p.evaluate(() => document.querySelectorAll('#question-list .card').length) === 2);
+    확인('연도로 좁히면 3건인가', await p.evaluate(() => document.querySelectorAll('#question-list .card').length) === 3);
+    확인('전형 목록에 「인성」은 안 뜨는가(역량 이름이라 뺌)',
+         (await p.evaluate(() => Array.from(document.getElementById('q-type1').options).map(o => o.value))).indexOf('인성') === -1);
 
     console.log('\n── 교사 화면(휴대폰): 학생을 고르면 「지난 면접」·「질문지」가 접혀 있는가 ──');
     await p.evaluate(() => goPage('interview'));

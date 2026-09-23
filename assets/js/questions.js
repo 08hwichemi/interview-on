@@ -1,3 +1,9 @@
+// 「전형/역량1」 칸은 원본 자료가 대학마다 달라서, 전형 이름 대신 이런
+// 역량 이름이 그대로 들어간 대학이 있습니다(15곳 안팎). 전형 목록에서는
+// 이런 값을 뺍니다 — 전형이 아니라서 섞이면 헷갈립니다. (자료 자체는 그대로
+// 두고 목록에서만 뺍니다 — 「전체」를 고르면 그 질문도 그대로 나옵니다.)
+var Q_NOT_A_TYPE = ['인성', '전공적합성', '진로역량', '발전가능성', '학업역량', '공동체역량', '지원동기'];
+
 // 연쇄 필터 로직 (대학이 마스터 키) — reviews.js 와 같은 구조
 function updateQFilters(changedLevel) {
   if (!selectedQUniv) return;
@@ -8,7 +14,9 @@ function updateQFilters(changedLevel) {
   var y = document.getElementById('q-year').value;
 
   if (!changedLevel || changedLevel === 'univ' || changedLevel === 'year') {
-    populateSelect('q-type1', getFilteredList(appMeta.q, {u: selectedQUniv, y: y}, 't1'), '전형');
+    var types = getFilteredList(appMeta.q, {u: selectedQUniv, y: y}, 't1')
+      .filter(function (t) { return Q_NOT_A_TYPE.indexOf(t) === -1; });
+    populateSelect('q-type1', types, '전형');
   }
   var t1 = document.getElementById('q-type1').value;
 
