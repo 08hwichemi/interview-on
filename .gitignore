@@ -22,3 +22,6 @@ dist/
 *.bak
 *.backup
 index.html.orig
+
+# 화면 시험이 매번 다시 찍는 디버그용 스크린샷 (tools/화면-시험/check-bar.js)
+tools/화면-시험/bar-fixed-450.png
