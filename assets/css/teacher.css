@@ -550,51 +550,51 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
    그냥 작은 머리표(.sec)만 두었더니 어디부터 어디까지가 한 구역인지,
    또 «눌러서 펴는 것» 인지 아무도 몰랐습니다.
    그래서 네모로 묶고 머리줄 바닥색을 몸통과 달리했습니다. */
-.susiacc,.qsect{
+.susiacc,.qsect,.histacc{
   margin:22px 0 26px;
   border:1px solid var(--line-2);border-radius:9px;overflow:hidden;
   background:var(--surface-2);
 }
-.susihead,.qsecthead{
+.susihead,.qsecthead,.histhead{
   display:flex;align-items:center;gap:8px;width:100%;
   padding:10px 13px;border:0;background:var(--surface-2);
   font-family:inherit;text-align:left;flex-wrap:wrap;
 }
-.susihead .ttl,.qsecthead .ttl{
+.susihead .ttl,.qsecthead .ttl,.histhead .ttl{
   font-size:11px;font-weight:700;letter-spacing:.14em;
   text-transform:uppercase;color:var(--ink-2);white-space:nowrap;
 }
-.susihead .susin,.qsecthead .susin{
+.susihead .susin,.qsecthead .susin,.histhead .susin{
   font-size:11.5px;font-weight:700;color:var(--ink);white-space:nowrap;
 }
-.susihead .opt,.qsecthead .opt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.susihead .opt,.qsecthead .opt,.histhead .opt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* 휴대폰에서는 «언제 받아 온 자료» 를 접습니다 —
    그것까지 넣으면 「접기」 단추가 둘째 줄로 밀립니다 */
 @media (max-width:640px){
-  .susihead .opt,.qsecthead .opt{display:none}
+  .susihead .opt,.qsecthead .opt,.histhead .opt{display:none}
 }
 
-.susibody,.qsectbody{background:var(--surface);border-top:1px solid var(--line-2)}
-.susibody{padding:4px 13px 5px}
+.susibody,.qsectbody,.histbody{background:var(--surface);border-top:1px solid var(--line-2)}
+.susibody,.histbody{padding:4px 13px 5px}
 .susibody .susirow:last-child{border-bottom:0}
 .qsectbody{padding:16px 16px 18px}
 .qsectbody > .sec:first-child{margin-top:0}
 
-/* 수시 쪽 머리줄은 단추입니다 — 어디를 눌러도 접히고 펴집니다 */
-.susihead{cursor:pointer}
-.susihead:hover{background:var(--accent-soft)}
-.susihead .chev{
+/* 수시·질문지·지난 면접 머리줄은 단추입니다 — 어디를 눌러도 접히고 펴집니다 */
+.susihead,.qsecthead,.histhead{cursor:pointer}
+.susihead:hover,.qsecthead:hover,.histhead:hover{background:var(--accent-soft)}
+.susihead .chev,.qsecthead .chev,.histhead .chev{
   flex:0 0 auto;font-size:10px;color:var(--ink-2);
   transition:transform .15s ease;
 }
-.susihead[aria-expanded="false"] .chev{transform:rotate(-90deg)}
-.susihead .more{
+.susihead[aria-expanded="false"] .chev,.qsecthead[aria-expanded="false"] .chev,.histhead[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+.susihead .more,.qsecthead .more,.histhead .more{
   flex:0 0 auto;font-size:11px;font-weight:700;color:var(--ink-2);
   border:1px solid var(--line-2);border-radius:5px;padding:2px 8px;background:var(--surface);
   white-space:nowrap;
 }
-.susihead:hover .more{border-color:var(--ink);color:var(--ink)}
+.susihead:hover .more,.qsecthead:hover .more,.histhead:hover .more{border-color:var(--ink);color:var(--ink)}
 
 .susirow{
   display:flex;align-items:baseline;gap:7px;

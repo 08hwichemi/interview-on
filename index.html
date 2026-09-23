@@ -6,9 +6,9 @@
 
   <title>면접ON</title>
 
-  <link rel="manifest" href="manifest.json?v=2026-09-23.7">
-  <link rel="icon" href="assets/icon-192.png?v=2026-09-23.7">
-  <link rel="apple-touch-icon" href="assets/icon-192.png?v=2026-09-23.7">
+  <link rel="manifest" href="manifest.json?v=2026-09-23.8">
+  <link rel="icon" href="assets/icon-192.png?v=2026-09-23.8">
+  <link rel="apple-touch-icon" href="assets/icon-192.png?v=2026-09-23.8">
   <meta name="theme-color" content="#18181B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <!-- 홈 화면에 담아 열면 상태표시줄이 머리말과 같은 먹빛이 됩니다.
@@ -20,12 +20,12 @@
 
   <!-- 스타일: base = 레이아웃·헤더·로그인·모달 / app = 카드·훈련화면·푸터 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="assets/css/base.css?v=2026-09-23.7">
-  <link rel="stylesheet" href="assets/css/report.css?v=2026-09-23.7">
-  <link rel="stylesheet" href="assets/css/browse.css?v=2026-09-23.7">
-  <link rel="stylesheet" href="assets/css/chat.css?v=2026-09-23.7">
-  <link rel="stylesheet" href="assets/css/practice.css?v=2026-09-23.7">
-  <link rel="stylesheet" href="assets/css/app.css?v=2026-09-23.7">
+  <link rel="stylesheet" href="assets/css/base.css?v=2026-09-23.8">
+  <link rel="stylesheet" href="assets/css/report.css?v=2026-09-23.8">
+  <link rel="stylesheet" href="assets/css/browse.css?v=2026-09-23.8">
+  <link rel="stylesheet" href="assets/css/chat.css?v=2026-09-23.8">
+  <link rel="stylesheet" href="assets/css/practice.css?v=2026-09-23.8">
+  <link rel="stylesheet" href="assets/css/app.css?v=2026-09-23.8">
 </head>
 <body>
 
@@ -290,6 +290,14 @@
           <span>🏫 원하시는 대학을 먼저 선택해 주세요</span>
           <span>▼</span>
         </button>
+
+        <div id="q-sub-filters" class="sub-filters">
+          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <select id="q-year" onchange="updateQFilters('year')"><option value="전체">년도 (전체)</option></select>
+            <select id="q-type1" onchange="updateQFilters('type1')"><option value="전체">전형 (전체)</option></select>
+          </div>
+          <select id="q-type2" onchange="updateQFilters('type2')"><option value="전체">역량2 (전체)</option></select>
+        </div>
       </div>
 
       <div class="browse-main">
@@ -489,21 +497,21 @@
      config.js 가 이걸 써서 클라이언트를 만들므로 반드시 먼저 와야 합니다. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="assets/js/config.js?v=2026-09-23.7"></script>
-<script src="assets/js/update-bar.js?v=2026-09-23.7"></script>
-<script src="assets/js/utils.js?v=2026-09-23.7"></script>
-<script src="assets/js/api.js?v=2026-09-23.7"></script>
-<script src="assets/js/ui.js?v=2026-09-23.7"></script>
-<script src="assets/js/auth.js?v=2026-09-23.7"></script>
-<script src="assets/js/browse.js?v=2026-09-23.7"></script>
-<script src="assets/js/reviews.js?v=2026-09-23.7"></script>
-<script src="assets/js/questions.js?v=2026-09-23.7"></script>
-<script src="assets/js/interview.js?v=2026-09-23.7"></script>
-<script src="assets/js/report.js?v=2026-09-23.7"></script>
-<script src="assets/js/chat.js?v=2026-09-23.7"></script>
-<script src="assets/js/student-report.js?v=2026-09-23.7"></script>
-<script src="assets/js/practice.js?v=2026-09-23.7"></script>
-<script src="assets/js/notice.js?v=2026-09-23.7"></script>
-<script src="assets/js/main.js?v=2026-09-23.7"></script>
+<script src="assets/js/config.js?v=2026-09-23.8"></script>
+<script src="assets/js/update-bar.js?v=2026-09-23.8"></script>
+<script src="assets/js/utils.js?v=2026-09-23.8"></script>
+<script src="assets/js/api.js?v=2026-09-23.8"></script>
+<script src="assets/js/ui.js?v=2026-09-23.8"></script>
+<script src="assets/js/auth.js?v=2026-09-23.8"></script>
+<script src="assets/js/browse.js?v=2026-09-23.8"></script>
+<script src="assets/js/reviews.js?v=2026-09-23.8"></script>
+<script src="assets/js/questions.js?v=2026-09-23.8"></script>
+<script src="assets/js/interview.js?v=2026-09-23.8"></script>
+<script src="assets/js/report.js?v=2026-09-23.8"></script>
+<script src="assets/js/chat.js?v=2026-09-23.8"></script>
+<script src="assets/js/student-report.js?v=2026-09-23.8"></script>
+<script src="assets/js/practice.js?v=2026-09-23.8"></script>
+<script src="assets/js/notice.js?v=2026-09-23.8"></script>
+<script src="assets/js/main.js?v=2026-09-23.8"></script>
 </body>
 </html>

@@ -1,15 +1,31 @@
-// 🛡️ [수정] 연도/역량 필터 로직을 시원하게 날려버렸습니다.
-function updateQFilters() {
+// 연쇄 필터 로직 (대학이 마스터 키) — reviews.js 와 같은 구조
+function updateQFilters(changedLevel) {
   if (!selectedQUniv) return;
-  filterQuestions(); 
+
+  if (!changedLevel || changedLevel === 'univ') {
+    populateSelect('q-year', getFilteredList(appMeta.q, {u: selectedQUniv}, 'y'), '년도');
+  }
+  var y = document.getElementById('q-year').value;
+
+  if (!changedLevel || changedLevel === 'univ' || changedLevel === 'year') {
+    populateSelect('q-type1', getFilteredList(appMeta.q, {u: selectedQUniv, y: y}, 't1'), '전형');
+  }
+  var t1 = document.getElementById('q-type1').value;
+
+  if (!changedLevel || changedLevel === 'univ' || changedLevel === 'year' || changedLevel === 'type1') {
+    populateSelect('q-type2', getFilteredList(appMeta.q, {u: selectedQUniv, y: y, t1: t1}, 't2'), '역량2');
+  }
+  filterQuestions(); // 데이터 요청
 }
 
 async function filterQuestions() {
   if (!selectedQUniv) return;
-  
-  // 🛡️ [수정] 다른 조건은 묻지도 따지지도 않고 오직 '대학' 이름만 수파베이스로 보냅니다!
+
   var params = {
-    '대학': selectedQUniv
+    '대학': selectedQUniv,
+    '년도': document.getElementById('q-year').value,
+    '전형/역량1': document.getElementById('q-type1').value,
+    '역량2': document.getElementById('q-type2').value
   };
 
   document.getElementById('question-list').innerHTML = '<div style="text-align:center; padding:40px; color:var(--ink-3);">데이터를 불러오는 중...</div>';

@@ -495,6 +495,8 @@ async function pickStudent(id) {
   renderQuestions();
   setupGoTab(teacherLastGoTab);   // 마지막으로 보던 탭을 그대로 이어 갑니다
   show('setup');
+  paintHistoryAcc();   // 학생을 고를 때마다 접힌 상태를 다시 맞춥니다 (휴대폰: 접어서 스크롤 줄이기)
+  paintQsect();
   loadSheet();      // 미리 만들어 둔 질문지가 있으면 그대로 펴 놓습니다
   loadHistory();
   loadSusi();       // 수시로 어디에 지원했는지 (있으면)
@@ -577,6 +579,8 @@ async function resumeInterview(id) {
     if (!(a.seconds > 0 || a.good.length || a.bad.length || a.rating || a.memo)) break;
   }
 
+  paintHistoryAcc();
+  paintQsect();
   loadHistory();
   loadSusi();
   document.getElementById('unfinished').hidden = true;
@@ -830,6 +834,53 @@ function toggleSusi() {
   susiOpen = !susiOpen;
   try { localStorage.setItem('susiOpen', susiOpen ? '1' : '0'); } catch (e) { /* 사생활 보호 모드 */ }
   paintSusi();
+}
+
+// 휴대폰(좁은 화면)에서는 학생을 고르면 스크롤이 너무 길어져서,
+// 「지난 면접」과 「질문지 만들기」도 접었다 펼 수 있게 했습니다.
+// 처음 오신 분은: 휴대폰이면 접힌 채로, 넓은 화면이면 펼친 채로 시작합니다.
+// 한 번 누르면 그 상태가 이 브라우저에 남습니다.
+function isNarrowScreen() {
+  try { return window.matchMedia('(max-width:640px)').matches; } catch (e) { return false; }
+}
+function accDefaultOpen(key) {
+  try {
+    var v = localStorage.getItem(key);
+    if (v !== null) return v === '1';
+  } catch (e) { /* 사생활 보호 모드 */ }
+  return !isNarrowScreen();
+}
+
+var historyAccOpen = accDefaultOpen('historyAccOpen');
+function paintHistoryAcc() {
+  var body  = document.getElementById('history');
+  var head  = document.getElementById('history-acc-head');
+  var label = document.getElementById('history-acc-label');
+  if (!body || !head) return;
+  body.hidden = !historyAccOpen;
+  if (label) label.textContent = historyAccOpen ? '접기' : '펼치기';
+  head.setAttribute('aria-expanded', historyAccOpen ? 'true' : 'false');
+}
+function toggleHistoryAcc() {
+  historyAccOpen = !historyAccOpen;
+  try { localStorage.setItem('historyAccOpen', historyAccOpen ? '1' : '0'); } catch (e) { /* 사생활 보호 모드 */ }
+  paintHistoryAcc();
+}
+
+var qsectOpen = accDefaultOpen('qsectOpen');
+function paintQsect() {
+  var body  = document.getElementById('qsect-body');
+  var head  = document.getElementById('qsect-head');
+  var label = document.getElementById('qsect-more-label');
+  if (!body || !head) return;
+  body.hidden = !qsectOpen;
+  if (label) label.textContent = qsectOpen ? '접기' : '펼치기';
+  head.setAttribute('aria-expanded', qsectOpen ? 'true' : 'false');
+}
+function toggleQsect() {
+  qsectOpen = !qsectOpen;
+  try { localStorage.setItem('qsectOpen', qsectOpen ? '1' : '0'); } catch (e) { /* 사생활 보호 모드 */ }
+  paintQsect();
 }
 
 function addQuestion(text, competency) {

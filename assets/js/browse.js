@@ -52,7 +52,8 @@ function selectUniv(univName) {
     selectedQUniv = univName;
     document.getElementById('q-main-univ-btn').innerHTML =
       '<span>🏫 ' + univName + '</span><span>▼</span>';
-    updateQFilters();
+    document.getElementById('q-sub-filters').style.display = 'block';   // 세부 필터 잠금 해제
+    updateQFilters('univ');
   }
   closeUnivModal();
 }

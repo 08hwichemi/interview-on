@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-23.7">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-23.8">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-23.7">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-23.7">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-23.7">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-23.7">
-  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-09-23.7">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-23.7">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-23.8">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-23.8">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-23.8">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-23.8">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-09-23.8">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-23.8">
 </head>
 <body>
 
@@ -137,9 +137,17 @@
               <button class="linkbtn danger" onclick="deleteSheet()" style="margin-left:6px">질문지 지우기</button>
             </p>
 
-            <div id="history-box">
-              <p class="sec" style="margin-top:22px">지난 면접</p>
-              <div id="history"></div>
+            <div id="history-box" style="margin-top:22px">
+              <div class="histacc">
+                <button class="histhead" id="history-acc-head" onclick="toggleHistoryAcc()"
+                        aria-expanded="true" aria-controls="history">
+                  <span class="chev" aria-hidden="true">▾</span>
+                  <span class="ttl">지난 면접</span>
+                  <span class="grow"></span>
+                  <span class="more" id="history-acc-label">접기</span>
+                </button>
+                <div id="history" class="histbody"></div>
+              </div>
             </div>
 
             <!-- 수시지원계획서 앱에서 받아 온 지원 현황. 자료가 없으면 아예 안 뜹니다.
@@ -163,12 +171,16 @@
             <!-- 질문지를 만드는 구역. 수시 지원 칸과 같은 네모로 묶어
                  «여기부터 여기까지가 질문지» 임이 보이게 했습니다. -->
             <div class="qsect">
-              <div class="qsecthead">
+              <button class="qsecthead" id="qsect-head" onclick="toggleQsect()"
+                      aria-expanded="true" aria-controls="qsect-body">
+                <span class="chev" aria-hidden="true">▾</span>
                 <span class="ttl">질문지 만들기</span>
                 <span class="susin" id="q-count"></span>
                 <span class="opt">첫인사 · 낼 질문 · 끝인사</span>
-              </div>
-              <div class="qsectbody">
+                <span class="grow"></span>
+                <span class="more" id="qsect-more-label">접기</span>
+              </button>
+              <div class="qsectbody" id="qsect-body">
                 <p class="sec">첫인사 <span class="opt">(면접을 여는 질문)</span></p>
                 <p class="hint">고른 것을 다시 누르면 첫인사를 뺍니다. 문장은 그대로 고쳐 쓰셔도 됩니다.</p>
                 <div id="opening-box"></div>
@@ -383,6 +395,14 @@
           <button id="q-main-univ-btn" class="main-univ-btn" onclick="openUnivModal('q')">
             <span>🏫 원하시는 대학을 먼저 선택해 주세요</span><span>▼</span>
           </button>
+
+          <div id="q-sub-filters" class="sub-filters">
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+              <select id="q-year" onchange="updateQFilters('year')"><option value="전체">년도 (전체)</option></select>
+              <select id="q-type1" onchange="updateQFilters('type1')"><option value="전체">전형 (전체)</option></select>
+            </div>
+            <select id="q-type2" onchange="updateQFilters('type2')"><option value="전체">역량2 (전체)</option></select>
+          </div>
         </div>
 
         <div class="browse-main">
@@ -517,20 +537,20 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-23.7"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-23.7"></script>
-<script src="../assets/js/utils.js?v=2026-09-23.7"></script>
-<script src="../assets/js/api.js?v=2026-09-23.7"></script>
-<script src="../assets/js/browse.js?v=2026-09-23.7"></script>
-<script src="../assets/js/reviews.js?v=2026-09-23.7"></script>
-<script src="../assets/js/questions.js?v=2026-09-23.7"></script>
-<script src="../assets/js/report.js?v=2026-09-23.7"></script>
-<script src="../assets/js/chat.js?v=2026-09-23.7"></script>
-<script src="../assets/js/practice.js?v=2026-09-23.7"></script>
-<script src="../assets/js/notice.js?v=2026-09-23.7"></script>
-<script src="../assets/js/admin-notice.js?v=2026-09-23.7"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-23.7"></script>
-<script src="../assets/js/saenggibu.js?v=2026-09-23.7"></script>
+<script src="../assets/js/config.js?v=2026-09-23.8"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-23.8"></script>
+<script src="../assets/js/utils.js?v=2026-09-23.8"></script>
+<script src="../assets/js/api.js?v=2026-09-23.8"></script>
+<script src="../assets/js/browse.js?v=2026-09-23.8"></script>
+<script src="../assets/js/reviews.js?v=2026-09-23.8"></script>
+<script src="../assets/js/questions.js?v=2026-09-23.8"></script>
+<script src="../assets/js/report.js?v=2026-09-23.8"></script>
+<script src="../assets/js/chat.js?v=2026-09-23.8"></script>
+<script src="../assets/js/practice.js?v=2026-09-23.8"></script>
+<script src="../assets/js/notice.js?v=2026-09-23.8"></script>
+<script src="../assets/js/admin-notice.js?v=2026-09-23.8"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-23.8"></script>
+<script src="../assets/js/saenggibu.js?v=2026-09-23.8"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
