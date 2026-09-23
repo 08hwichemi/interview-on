@@ -32,6 +32,11 @@ NODE_PATH=/opt/node22/lib/node_modules /opt/node22/bin/node check-susi.js
 | `check-reopen.js` | 지난 리포트 다시 열기 — 첫인사·끝인사가 제자리로 | `stub4` |
 | `check-back.js` | 뒤로가기 막음 — 걸음 쌓기 · 종료 묻기 | `stub4` |
 | `check-bar.js` | 새 판 알림 띠 — 높이 · 머리줄을 안 덮는지 | `stub4` |
+| `check-resume.js` | 면접 도중 창이 닫혔을 때 이어서 하기 — 목록에 뜨는가 · 평가·질문이 그대로인가 · 시계는 멈춰 있는가 | `stub5` |
+
+⚠️ **`check-back.js` 는 지금 저장소 판에서 늘 실패합니다** (`#loading` 칸이 클릭을
+가로막습니다). 옮겨 왔을 때부터 그랬던 것으로, `git stash` 로 확인했습니다 —
+이 파일을 손보지 않아도 실패하니 **다른 검사를 고칠 때 이 실패를 신경 쓰지 마세요.**
 
 `shot-susi.js` · `shot-setup.js` 는 검사가 아니라 **화면을 사진으로 찍는** 것입니다
 (`setup-1100.png` 처럼 옆에 떨어집니다). 모양을 눈으로 볼 때 씁니다.

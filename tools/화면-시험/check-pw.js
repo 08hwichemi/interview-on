@@ -1,7 +1,6 @@
 const { chromium } = require('playwright');
 const fs=require('fs'), path=require('path');
-const SP='/tmp/claude-0/-home-user-interview-on/92b76a30-44fa-522b-a2ab-054f7cf04b3d/scratchpad';
-const SB = fs.readFileSync(path.join(SP,'stub5.js'),'utf8');
+const SB = fs.readFileSync(path.join(__dirname,'stub5.js'),'utf8');
 let 실패=0;
 function 확인(무엇, ok, 덧){ console.log((ok?'  ✓ ':'  ✗ ')+무엇+(덧?'  → '+덧:'')); if(!ok)실패++; }
 (async () => {

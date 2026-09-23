@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-18.8">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-19.1">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-18.8">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-18.8">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-18.8">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-18.8">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-18.8">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-19.1">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-19.1">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-19.1">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-19.1">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-19.1">
 </head>
 <body>
 
@@ -93,6 +93,11 @@
           <p class="hint" style="margin:0">
             왼쪽에서 <b>학생을 고르세요.</b> 반으로 추리거나 학번·이름으로 찾을 수 있습니다.
           </p>
+          <!-- 창이 닫혀 끝내지 못한 면접. 없으면 안 뜹니다 -->
+          <div class="note warn" id="unfinished" hidden>
+            <b>끝내지 못한 면접이 있습니다.</b> 눌러서 하던 자리부터 이어 가세요.
+            <div class="rows" id="unfinished-list" style="margin-top:8px"></div>
+          </div>
         </div>
       </section>
 
@@ -113,7 +118,6 @@
             이미 매긴 평가는 그대로 있습니다. 시계는 잠깐 멈춰 두었습니다.
           </p>
 
-          <!-- 미리 저장해 둔 질문지를 불러왔을 때만 뜹니다 -->
           <p class="note info" id="sheet-note" hidden style="margin-top:16px">
             <b>미리 만들어 둔 질문지입니다.</b> <span id="sheet-when"></span> ·
             고치고 다시 저장하시면 됩니다.
@@ -431,17 +435,17 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-18.8"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-18.8"></script>
-<script src="../assets/js/utils.js?v=2026-09-18.8"></script>
-<script src="../assets/js/api.js?v=2026-09-18.8"></script>
-<script src="../assets/js/browse.js?v=2026-09-18.8"></script>
-<script src="../assets/js/reviews.js?v=2026-09-18.8"></script>
-<script src="../assets/js/questions.js?v=2026-09-18.8"></script>
-<script src="../assets/js/report.js?v=2026-09-18.8"></script>
-<script src="../assets/js/chat.js?v=2026-09-18.8"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-18.8"></script>
-<script src="../assets/js/saenggibu.js?v=2026-09-18.8"></script>
+<script src="../assets/js/config.js?v=2026-09-19.1"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-19.1"></script>
+<script src="../assets/js/utils.js?v=2026-09-19.1"></script>
+<script src="../assets/js/api.js?v=2026-09-19.1"></script>
+<script src="../assets/js/browse.js?v=2026-09-19.1"></script>
+<script src="../assets/js/reviews.js?v=2026-09-19.1"></script>
+<script src="../assets/js/questions.js?v=2026-09-19.1"></script>
+<script src="../assets/js/report.js?v=2026-09-19.1"></script>
+<script src="../assets/js/chat.js?v=2026-09-19.1"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-19.1"></script>
+<script src="../assets/js/saenggibu.js?v=2026-09-19.1"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
@@ -511,7 +515,8 @@
     document.getElementById('chat-open').hidden = false;
     startChat({ id: me.id, role: 'teacher', name: me.name });
 
-    loadStudents();
+    await loadStudents();
+    loadUnfinished();   // 창이 닫혀 끝내지 못한 면접이 있으면 첫 화면에 띄웁니다
   })().catch(function (e) {
     console.error(e);
     var detail = String((e && e.message) || e);

@@ -444,6 +444,7 @@ function backToList() {
   document.getElementById('finish-note').value = '';
   renderStudents();
   show('empty');
+  loadUnfinished();   // 접은 면접이 '진행중' 이면 다시 이 목록에 뜹니다
 }
 
 // ══════════════ 준비 ══════════════
@@ -472,6 +473,92 @@ async function pickStudent(id) {
   loadSheet();      // 미리 만들어 둔 질문지가 있으면 그대로 펴 놓습니다
   loadHistory();
   loadSusi();       // 수시로 어디에 지원했는지 (있으면)
+}
+
+// ══════════════ 끝내지 못한 면접 이어서 하기 ══════════════
+//
+// 면접 도중 컴퓨터가 꺼지거나 창을 닫으면 그 면접은 서버에 status='진행중' 인
+// 채로 남습니다. 선생님이 다시 들어와도 어느 학생이었는지 저절로는 못 찾으므로,
+// 아무도 안 고른 첫 화면에 그런 면접을 모아 보여 주고 눌러서 이어 가게 합니다.
+async function loadUnfinished() {
+  var box = document.getElementById('unfinished');
+  var list = document.getElementById('unfinished-list');
+  if (!box || !list || !me) return;
+  box.hidden = true;
+
+  const { data, error } = await sb.from('interviews')
+    .select('id, student_id, started_at')
+    .eq('teacher_id', me.id).eq('status', '진행중')
+    .order('started_at', { ascending: false });
+  // 못 읽어도 화면은 그냥 써야 하니 조용히 넘어갑니다.
+  if (error || !data || !data.length) return;
+
+  list.innerHTML = data.map(function (iv) {
+    var s = students.filter(function (x) { return x.id === iv.student_id; })[0];
+    var who = s ? (s.student_no + ' ' + s.name) : '(알 수 없는 학생)';
+    var d = new Date(iv.started_at);
+    return '<button class="row pickable" onclick="resumeInterview(\'' + iv.id + '\')">' +
+      '<span class="who">' +
+        '<span class="nm">' + esc(who) + '</span>' +
+        '<span class="sub">' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 시작</span>' +
+      '</span>' +
+      '<span class="acts"><span class="go">이어서 하기 →</span></span></button>';
+  }).join('');
+  box.hidden = false;
+}
+
+// 창이 닫혀 끝내지 못한 면접을 되찾아 진행 화면으로 돌아갑니다.
+// ⚠️ 그동안 창이 얼마나 오래 닫혀 있었는지는 서버에 안 남아 있어 알 길이 없습니다
+//    (실시간으로 흐르는 시계는 브라우저 안에서만 돕니다 — docs/할-일.md 의
+//    «학생 폰에 면접 시간 띄우기» 아이디어가 해결책입니다). 그래서 시계는 멈춘
+//    채로 두고, 「면접 전체」시간은 이미 매긴 질문들의 시간을 더한 값으로
+//    다시 채웁니다 — 정확하진 않아도 0 보다는 낫습니다.
+async function resumeInterview(id) {
+  var r = await fetchReport(id);
+  if (r.error) { toast('불러오지 못했습니다: ' + r.error, 'bad'); return; }
+  var iv = r.interview;
+
+  target = students.filter(function (s) { return s.id === iv.student_id; })[0] ||
+           { id: iv.student_id, student_no: '', name: '(알 수 없음)' };
+  renderStudents();
+  document.getElementById('target-name').textContent = target.student_no + ' ' + target.name;
+  var talk = document.getElementById('btn-talk');
+  talk.hidden = !target.auth_user_id;
+  talk.onclick = function () { openChatRoom(target.auth_user_id, target.student_no + ' ' + target.name); };
+
+  questions = putBackSlots((r.answers || []).map(function (a) {
+    return { text: a.question, competency: a.competency };
+  }));
+  answers = (r.answers || []).map(function (a) {
+    return { seconds: a.seconds || 0, good: a.good_tags || [], bad: a.bad_tags || [],
+             rating: a.rating || null, memo: a.memo || '' };
+  });
+  grades = iv.grades || {};
+
+  interviewId = id;
+  sheetId = null; sheetSavedAt = null;
+  editingMid = false;
+  liveInterview = true;
+  startedOnce = true;      // 이미 «면접 시작» 을 한 번 눌렀던 면접이라, 다음엔 «이어서» 로 뜹니다
+  totalSeconds = answers.reduce(function (n, a) { return n + a.seconds; }, 0);
+  stopTicking();
+  paintTotal();
+
+  // 아직 아무것도 안 매긴 첫 질문부터 이어 갑니다. 다 매겼으면 마지막 질문에 둡니다.
+  qIndex = 0;
+  for (var i = 0; i < answers.length; i++) {
+    qIndex = i;
+    var a = answers[i];
+    if (!(a.seconds > 0 || a.good.length || a.bad.length || a.rating || a.memo)) break;
+  }
+
+  loadHistory();
+  loadSusi();
+  document.getElementById('unfinished').hidden = true;
+
+  show('run');
+  showQuestion();
+  toast('이어서 진행합니다. 시계를 눌러야 다시 흐릅니다.', 'ok');
 }
 
 // ══════════════ 미리 만들어 두는 질문지 ══════════════
