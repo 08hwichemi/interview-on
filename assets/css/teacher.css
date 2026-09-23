@@ -233,11 +233,14 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .notice-modal input[type=text]{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line-2);border-radius:8px;font-family:inherit;font-size:14px;margin-top:10px}
 .notice-modal .btnrow{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 
-/* 지난 공지 목록 — 새 것부터, 최근 30개 */
-.notice-history{max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:8px}
+/* 지난 공지 목록 — 새 것부터, 최근 30개. 지금 뜨는 줄(active)은 도드라지게 표시합니다 */
+.notice-history{max-height:280px;overflow-y:auto;border:1px solid var(--line);border-radius:8px}
 .notice-history-row{padding:9px 12px;border-bottom:1px solid var(--line)}
 .notice-history-row:last-child{border-bottom:0}
+.notice-history-row.active{background:var(--amber-soft)}
 .notice-history-when{font-size:11.5px;color:var(--ink-3);margin-bottom:3px}
+.notice-history-row.active .notice-history-when{color:var(--amber)}
+.notice-history-when b{color:var(--amber)}
 .notice-history-body{font-size:13px;color:var(--ink-2);line-height:1.6;overflow-wrap:anywhere}
 .notice-history-body a{color:inherit;font-weight:700}
 
