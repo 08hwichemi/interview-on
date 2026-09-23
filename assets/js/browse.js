@@ -18,7 +18,7 @@ async function loadBrowseMeta() {
     return { y: d['년도'], u: d['대학'], t: d['세부유형'], m: d['모집단위'] };
   });
   appMeta.q = qData.map(function (d) {
-    return { y: d['년도'], u: d['대학'], t1: d['전형/역량1'], t2: d['역량2'] };
+    return { y: d['년도'], u: d['대학'], t1: d['전형_역량1'], t2: d['역량2'] };
   });
 }
 

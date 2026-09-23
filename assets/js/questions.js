@@ -1,4 +1,4 @@
-// 「전형/역량1」 칸은 원본 자료가 대학마다 달라서, 전형 이름 대신 이런
+// 「전형_역량1」 칸은 원본 자료가 대학마다 달라서, 전형 이름 대신 이런
 // 역량 이름이 그대로 들어간 대학이 있습니다(15곳 안팎). 전형 목록에서는
 // 이런 값을 뺍니다 — 전형이 아니라서 섞이면 헷갈립니다. (자료 자체는 그대로
 // 두고 목록에서만 뺍니다 — 「전체」를 고르면 그 질문도 그대로 나옵니다.)
@@ -32,7 +32,7 @@ async function filterQuestions() {
   var params = {
     '대학': selectedQUniv,
     '년도': document.getElementById('q-year').value,
-    '전형/역량1': document.getElementById('q-type1').value,
+    '전형_역량1': document.getElementById('q-type1').value,
     '역량2': document.getElementById('q-type2').value
   };
 
@@ -43,7 +43,7 @@ async function filterQuestions() {
   
   // 수파베이스 컬럼명과 기존 화면 렌더링 키값 맞추기
   data = data.map(function(item) {
-    item['c1'] = item['전형/역량1']; 
+    item['c1'] = item['전형_역량1']; 
     item['c2'] = item['역량2'];
     return item;
   });
