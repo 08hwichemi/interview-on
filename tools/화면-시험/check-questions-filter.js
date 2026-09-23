@@ -185,6 +185,49 @@ const QUESTIONS = [
     await ctx.close();
   }
 
+  // ── 4) 표가 1000줄을 넘으면(수파베이스 한 번 응답 최대치) 년도가 잘리지 않는가 ──
+  // 실제로 있었던 문제: 표 전체를 한 번에 받다가 1000줄에서 잘려서, 최신 연도만
+  // 1000줄을 다 채우면 그보다 옛날 연도가 통째로 안 보였습니다(년도 드롭다운에
+  // 최신 연도만 뜸). fetchAllRows() 가 1000줄씩 끊어 받아 이어 붙이는지 확인합니다.
+  {
+    var 대량질문 = [];
+    for (var i = 0; i < 1100; i++) {
+      대량질문.push({ id: 'big' + i, '대학': '더미대', '년도': 2027, '전형_역량1': '전형' + (i % 5), '역량2': null, '질문': '질문 ' + i });
+    }
+    대량질문.push({ id: 'old1', '대학': '더미대', '년도': 2020, '전형_역량1': '옛전형', '역량2': null, '질문': '옛날 질문' });
+
+    const ctx = await b.newContext({ viewport: { width: 420, height: 900 } });
+    await ctx.route('**/supabase-js*/**', r => r.fulfill({ contentType: 'application/javascript', body: SB }));
+    await ctx.route('**/pretendard*', r => r.fulfill({ contentType: 'text/css', body: '' }));
+    await ctx.addInitScript((Q) => {
+      window.__FAKE__ = {
+        rows: {
+          profiles: [{ id: 'u1', role: 'student', name: '고다윤', login_id: '30101',
+                       school_id: '9bf9d65d-9cb0-428b-90a5-0c4b868dc40c', must_change_password: false }],
+          students: [{ id: 's1', student_no: '30101', name: '고다윤', auth_user_id: 'u1', grade: 3 }],
+          reviews: [], questions: Q, practice_categories: [], practice_answers: [], practice_comments: []
+        }
+      };
+    }, 대량질문);
+    const p = await ctx.newPage();
+    const errs = []; p.on('pageerror', e => errs.push(e.message));
+    await p.goto('http://127.0.0.1:8777/'); await p.waitForSelector('#screen-home.active', { timeout: 15000 });
+
+    console.log('\n── 표가 1000줄을 넘어도 다 받아지는가 ──');
+    확인('appMeta.q 가 1101줄 다 있는가(1000줄에서 안 잘림)',
+         (await p.evaluate(() => appMeta.q.length)) === 1101);
+
+    await p.click('.menu-btn:has-text("대학별 기출 질문")');
+    await p.waitForSelector('#screen-questions.active');
+    await p.evaluate(() => selectUniv('더미대'));
+    await p.waitForTimeout(150);
+    확인('오래된 2020년도 옛 자료도 년도 드롭다운에 뜨는가',
+         (await p.evaluate(() => Array.from(document.getElementById('q-year').options).map(o => o.value))).indexOf('2020') > -1);
+
+    확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
+    await ctx.close();
+  }
+
   await b.close();
   console.log(실패 ? '\n❌ ' + 실패 + '개 실패' : '\n✅ 모두 통과');
   process.exit(실패 ? 1 : 0);

@@ -57,6 +57,7 @@ window.supabase = {
         or(expr) { st.or = expr; return b; },
         order(col, opts) { st.orderBy = col; st.orderAsc = !opts || opts.ascending !== false; return b; },
         limit(n) { st.limit = n; return b; },
+        range(from, to) { st.rangeFrom = from; st.rangeTo = to; return b; },
         single() { return run().then(function (r) { return { data: (r.data || [])[0] || null, error: r.error }; }); },
         maybeSingle() { return b.single(); },
         then(res, rej) {
@@ -110,6 +111,7 @@ window.supabase = {
           });
         }
         if (st.limit) list = list.slice(0, st.limit);
+        if (st.rangeFrom != null) list = list.slice(st.rangeFrom, st.rangeTo + 1);
         return Promise.resolve({ data: list, error: null });
       }
 

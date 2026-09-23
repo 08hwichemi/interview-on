@@ -55,6 +55,7 @@ window.supabase = {
         eq(k,v) { st['eq_'+k]=v; return b; },
         neq(k,v) { st['ne_'+k]=v; return b; },
         limit(n) { st.limit=n; return b; },
+        range(from, to) { st.rangeFrom=from; st.rangeTo=to; return b; },
         in(k,vals) { st['in_'+k]=vals; return b; },
         or(expr) { st.or = expr; return b; },
         order(col, opts) { st.orderBy=col; st.orderAsc = !opts || opts.ascending !== false; return b; },
@@ -130,6 +131,7 @@ window.supabase = {
             });
           }
           if (st.limit) rows = rows.slice(0, st.limit);
+          if (st.rangeFrom != null) rows = rows.slice(st.rangeFrom, st.rangeTo + 1);
           return Promise.resolve({data:rows,error:null}).then(res,rej);
         }
       };
