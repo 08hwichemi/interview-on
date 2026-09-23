@@ -212,6 +212,20 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .note li{margin:3px 0}
 .note b.pw{font-variant-numeric:tabular-nums;letter-spacing:2px;font-size:15px}
 
+/* 관리자 공지(notice.js) — 위 .note.warn 을 그대로 쓰되, 닫기 단추와 링크만 더합니다 */
+#notice-box{position:relative;padding-right:30px}
+#notice-box .notice-x{position:absolute;top:6px;right:8px;background:none;border:0;font-size:18px;line-height:1;cursor:pointer;color:inherit;opacity:.6}
+#notice-box .notice-x:hover{opacity:1}
+#notice-box a{color:inherit;font-weight:700;text-decoration:underline}
+
+/* ── 관리자: 공지 관리 작은 창 (admin/index.html) ── */
+.notice-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:none;justify-content:center;align-items:center;padding:16px}
+.notice-modal{background:#fff;width:100%;max-width:480px;border-radius:14px;padding:22px;box-sizing:border-box}
+.notice-modal h3{margin:0 0 14px;font-size:17px}
+.notice-modal textarea{width:100%;min-height:110px;box-sizing:border-box;padding:10px;border:1px solid var(--line-2);border-radius:8px;font-family:inherit;font-size:14px;resize:vertical}
+.notice-modal input[type=text]{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line-2);border-radius:8px;font-family:inherit;font-size:14px;margin-top:10px}
+.notice-modal .btnrow{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
 /* ── 토스트 ── */
 .toast{
   position:fixed;left:50%;bottom:28px;transform:translate(-50%,14px);

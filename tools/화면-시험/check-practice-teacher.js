@@ -73,14 +73,25 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   확인('화면에 바로 보이는가',
        (await p.locator('#t-prac-list .prac-card', { hasText: '자기소개' }).textContent()).indexOf('자신감 있게') > -1);
 
-  console.log('\n── 다른 학생을 고르면 다시 «면접 준비» 로 ──');
+  console.log('\n── 다른 학생을 골라도 «답안 연습장» 탭을 그대로 이어 가는가 ──');
   await p.evaluate(async () => {
     window.__T.students.push({ id: 's2', student_no: '30102', name: '김서준', auth_user_id: null, grade: 3, class_no: 1 });
     await loadStudents();
     await pickStudent('s2');
   });
   await p.waitForTimeout(300);
-  확인('«면접 준비» 로 되돌아오는가', await p.evaluate(() => !document.getElementById('setup-prep').hidden));
+  확인('«답안 연습장» 탭이 그대로 열려 있는가(귀찮게 다시 안 눌러도 됨)',
+       await p.evaluate(() => !document.getElementById('setup-practice').hidden));
+
+  console.log('\n── «면접 준비» 로 직접 돌아가면 그다음 학생도 «면접 준비» 부터 ──');
+  await p.evaluate(async () => {
+    document.getElementById('setup-tab-prep').click();
+    window.__T.students.push({ id: 's3', student_no: '30103', name: '이하늘', auth_user_id: null, grade: 3, class_no: 1 });
+    await loadStudents();
+    await pickStudent('s3');
+  });
+  await p.waitForTimeout(300);
+  확인('«면접 준비» 탭이 그대로 열려 있는가', await p.evaluate(() => !document.getElementById('setup-prep').hidden));
 
   확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
   await b.close();

@@ -550,6 +550,70 @@ async function practiceEditCategory(name) {
   }
 }
 
+// ══════════════ 내려받기 — 엑셀로 저장 · 인쇄 (학생·교사 화면 공통) ══════════════
+//
+// 선생님이 이미 쓰시던 "면접 질문지" 엑셀 양식(연번·학년·종류·질문·답변)에 맞춰
+// 내려받습니다. 지금 걸어 둔 필터와 상관없이 그 학생의 답안 전부를 담습니다.
+function practiceExportSort(list) {
+  return list.slice().sort(function (a, b) {
+    var gi = PRACTICE_GRADES.indexOf(a.grade) - PRACTICE_GRADES.indexOf(b.grade);
+    if (gi) return gi;
+    if (a.category !== b.category) return a.category < b.category ? -1 : 1;
+    return new Date(a.created_at) - new Date(b.created_at);
+  });
+}
+
+async function practiceDownloadExcel(studentId, label) {
+  if (!window.XLSX) { toast_or_alert('엑셀 기능을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'); return; }
+  var list = practiceExportSort(await fetchPracticeAnswers(studentId));
+  if (!list.length) { toast_or_alert('내려받을 답안이 없습니다.'); return; }
+
+  var aoa = [['', '면접 질문지'], [], ['', '연번', '학년', '종류', '질문', '답변']];
+  list.forEach(function (a, i) { aoa.push(['', i + 1, a.grade, a.category, a.question || '', a.answer || '']); });
+
+  var ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = [{ s: { r: 0, c: 1 }, e: { r: 0, c: 5 } }];
+  ws['!cols'] = [{ wch: 2 }, { wch: 6 }, { wch: 6 }, { wch: 10 }, { wch: 40 }, { wch: 60 }];
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '면접 질문지');
+  XLSX.writeFile(wb, (label || '면접질문지') + '_면접질문지.xlsx');
+}
+
+function practicePrintRowsHTML(list) {
+  return list.map(function (a, i) {
+    return '<tr><td>' + (i + 1) + '</td><td>' + esc(a.grade) + '</td><td>' + esc(a.category) + '</td>' +
+      '<td>' + esc(a.question || '').replace(/\n/g, '<br>') + '</td>' +
+      '<td>' + esc(a.answer || '').replace(/\n/g, '<br>') + '</td></tr>';
+  }).join('');
+}
+
+async function practicePrintView(studentId, label) {
+  var list = practiceExportSort(await fetchPracticeAnswers(studentId));
+  if (!list.length) { toast_or_alert('인쇄할 답안이 없습니다.'); return; }
+  var win = window.open('', '_blank');
+  if (!win) { toast_or_alert('팝업이 막혀 있습니다. 팝업 차단을 풀고 다시 시도해 주세요.'); return; }
+  win.document.write(
+    '<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>' + esc(label || '면접 질문지') + '</title>' +
+    '<style>' +
+      'body{font-family:"Malgun Gothic",sans-serif;padding:24px;color:#111}' +
+      'h1{font-size:18px;margin:0 0 4px}' +
+      'p.sub{color:#666;margin:0 0 16px;font-size:13px}' +
+      'table{width:100%;border-collapse:collapse;table-layout:fixed}' +
+      'th,td{border:1px solid #999;padding:6px 8px;font-size:12px;vertical-align:top;word-break:break-word}' +
+      'th{background:#f2f2f2}' +
+      'td:nth-child(1),td:nth-child(2){width:44px;text-align:center}' +
+      'td:nth-child(3){width:70px;text-align:center}' +
+      '@media print{@page{size:A4 landscape;margin:14mm}}' +
+    '</style></head><body>' +
+    '<h1>면접 질문지</h1><p class="sub">' + esc(label || '') + '</p>' +
+    '<table><thead><tr><th>연번</th><th>학년</th><th>종류</th><th>질문</th><th>답변</th></tr></thead>' +
+    '<tbody>' + practicePrintRowsHTML(list) + '</tbody></table>' +
+    '<script>window.onload = function () { window.print(); };<\/script>' +
+    '</body></html>'
+  );
+  win.document.close();
+}
+
 // 학생 앱에는 showToast(), 교사 화면에는 toast() 가 있어 그걸 씁니다. 둘 다 없으면 alert 로.
 function toast_or_alert(msg) {
   if (typeof showToast === 'function') showToast(msg, 'error');
@@ -564,6 +628,11 @@ function toast_or_alert(msg) {
 var practiceMyStudentId = null;
 var practiceMyGrade = '공통';
 var practiceActiveTab = 'write';
+
+// 내려받기 파일 이름에 쓸 이름표.
+function practiceMyLabel() {
+  return (typeof currentUser !== 'undefined' && currentUser && (currentUser.name || currentUser.login_id)) || '나';
+}
 
 async function practiceStudentEnter() {
   if (!practiceMyStudentId) {

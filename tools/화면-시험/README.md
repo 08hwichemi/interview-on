@@ -36,6 +36,8 @@ NODE_PATH=/opt/node22/lib/node_modules /opt/node22/bin/node check-susi.js
 | `check-practice-student.js` | 답안 연습장(학생) — 새 질문 모달 · 다중선택 필터 · 자동저장 · 커스텀 분류 · 조회→수정 넘기기 | `stub5` |
 | `check-practice-teacher.js` | 답안 연습장(교사) — 「면접 준비/답안 연습장」 두 탭 · 읽기 전용 · 다중선택 필터 · 코멘트 남기기 | `stub5` |
 | `check-practice-badge.js` | 답안 연습장 코멘트 안읽음 빨간 숫자 — 홈 배지 · 열면 읽음 표시 · 다시 열면 사라짐 | `stub5` |
+| `check-notice.js` | 관리자 공지 — 올리기·다시 열면 채워짐·지우기, 학생·교사 홈에 뜨고 닫으면 같은 공지는 다시 안 뜸 | `stub5` |
+| `check-practice-export.js` | 답안 연습장 엑셀로 저장·인쇄 — 학생·교사 화면 모두, 필터와 상관없이 전부 담기는가 | `stub5` |
 
 ⚠️ **`check-back.js` 는 지금 저장소 판에서 늘 실패합니다** (`#loading` 칸이 클릭을
 가로막습니다). 옮겨 왔을 때부터 그랬던 것으로, `git stash` 로 확인했습니다 —

@@ -451,7 +451,13 @@ function backToList() {
 //
 // 답안(질문·답변)은 학생이 혼자 쓰는 곳입니다(practice.js) — 선생님은 못 쓰고 못 지웁니다.
 // 코멘트는 선생님이 답니다 — RLS 가 그렇게 갈라 둡니다.
+// 마지막으로 보던 탭을 기억해 둡니다 — «답안 연습장» 을 보다가 다른 학생을 고르면
+// 그 학생의 같은 탭이 바로 뜹니다(pickStudent 가 씁니다). 면접 도중 질문을 고치러
+// 돌아올 때는(editQuestions) 이 기억과 상관없이 늘 «면접 준비» 로 갑니다.
+var teacherLastGoTab = 'prep';
+
 function setupGoTab(which) {
+  teacherLastGoTab = which;
   document.getElementById('setup-tab-prep').setAttribute('aria-current', which === 'prep');
   document.getElementById('setup-tab-practice').setAttribute('aria-current', which === 'practice');
   document.getElementById('setup-prep').hidden = which !== 'prep';
@@ -487,7 +493,7 @@ async function pickStudent(id) {
   resetGreetings();
   renderGreetings();
   renderQuestions();
-  setupGoTab('prep');   // 학생을 새로 고르면 늘 «면접 준비» 탭부터
+  setupGoTab(teacherLastGoTab);   // 마지막으로 보던 탭을 그대로 이어 갑니다
   show('setup');
   loadSheet();      // 미리 만들어 둔 질문지가 있으면 그대로 펴 놓습니다
   loadHistory();

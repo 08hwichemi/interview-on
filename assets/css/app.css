@@ -32,6 +32,12 @@
 .file-btn { flex: 1; padding: 10px; font-size: 13px; font-weight: bold; border-radius: 8px; cursor: pointer; text-align: center; border: 1px solid var(--line-2); background: white; color: var(--ink-2); }
 .notice-banner { background: var(--amber-soft); border: 1px solid #EBD9B4; padding: 12px; border-radius: 8px; font-size: 13px; color: var(--amber); margin-bottom: 16px; line-height: 1.5; }
 
+/* 관리자 공지(notice.js) — 위 .notice-banner 를 그대로 쓰되, 닫기 단추와 링크만 더합니다 */
+#notice-box { position: relative; padding-right: 30px; }
+#notice-box .notice-x { position: absolute; top: 6px; right: 8px; background: none; border: 0; font-size: 18px; line-height: 1; cursor: pointer; color: inherit; opacity: .6; }
+#notice-box .notice-x:hover { opacity: 1; }
+#notice-box a { color: inherit; font-weight: 700; text-decoration: underline; }
+
 .result-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
 .result-table th, .result-table td { padding: 12px; border-bottom: 1px solid var(--line); text-align: left; }
 .result-table th { background: var(--surface-2); font-weight: bold; color: var(--ink-2); }

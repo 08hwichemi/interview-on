@@ -6,9 +6,9 @@
 
   <title>면접ON</title>
 
-  <link rel="manifest" href="manifest.json?v=2026-09-19.3">
-  <link rel="icon" href="assets/icon-192.png?v=2026-09-19.3">
-  <link rel="apple-touch-icon" href="assets/icon-192.png?v=2026-09-19.3">
+  <link rel="manifest" href="manifest.json?v=2026-09-23.1">
+  <link rel="icon" href="assets/icon-192.png?v=2026-09-23.1">
+  <link rel="apple-touch-icon" href="assets/icon-192.png?v=2026-09-23.1">
   <meta name="theme-color" content="#18181B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <!-- 홈 화면에 담아 열면 상태표시줄이 머리말과 같은 먹빛이 됩니다.
@@ -20,12 +20,12 @@
 
   <!-- 스타일: base = 레이아웃·헤더·로그인·모달 / app = 카드·훈련화면·푸터 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="assets/css/base.css?v=2026-09-19.3">
-  <link rel="stylesheet" href="assets/css/report.css?v=2026-09-19.3">
-  <link rel="stylesheet" href="assets/css/browse.css?v=2026-09-19.3">
-  <link rel="stylesheet" href="assets/css/chat.css?v=2026-09-19.3">
-  <link rel="stylesheet" href="assets/css/practice.css?v=2026-09-19.3">
-  <link rel="stylesheet" href="assets/css/app.css?v=2026-09-19.3">
+  <link rel="stylesheet" href="assets/css/base.css?v=2026-09-23.1">
+  <link rel="stylesheet" href="assets/css/report.css?v=2026-09-23.1">
+  <link rel="stylesheet" href="assets/css/browse.css?v=2026-09-23.1">
+  <link rel="stylesheet" href="assets/css/chat.css?v=2026-09-23.1">
+  <link rel="stylesheet" href="assets/css/practice.css?v=2026-09-23.1">
+  <link rel="stylesheet" href="assets/css/app.css?v=2026-09-23.1">
 </head>
 <body>
 
@@ -111,6 +111,8 @@
   </div>
 
   <div id="screen-home" class="screen">
+    <!-- 관리자가 올린 공지 (notice.js). 없으면 안 뜹니다 -->
+    <div class="notice-banner" id="notice-box" hidden></div>
     <div class="home-grid">
       <button class="menu-btn" onclick="navigateTo('reviews')">
         <span class="menu-icon">📝</span>
@@ -165,6 +167,11 @@
     <div class="prac-tabs">
       <button class="prac-tab" id="prac-tab-write" aria-current="true" onclick="practiceGoTab('write')">✍️ 작성</button>
       <button class="prac-tab" id="prac-tab-browse" onclick="practiceGoTab('browse')">📖 조회</button>
+    </div>
+
+    <div class="prac-export">
+      <button onclick="practiceDownloadExcel(practiceMyStudentId, practiceMyLabel())">⬇️ 엑셀로 저장</button>
+      <button onclick="practicePrintView(practiceMyStudentId, practiceMyLabel())">🖨️ 인쇄</button>
     </div>
 
     <div id="prac-write">
@@ -448,21 +455,23 @@
      ※ 화면의 onclick="..." 이 이 함수들을 직접 부르므로 type="module" 을 쓰면 안 됩니다. -->
 <!-- Supabase SDK. 로그인 세션 유지와 토큰 갱신을 대신 처리해 줍니다.
      config.js 가 이걸 써서 클라이언트를 만들므로 반드시 먼저 와야 합니다. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="assets/js/config.js?v=2026-09-19.3"></script>
-<script src="assets/js/update-bar.js?v=2026-09-19.3"></script>
-<script src="assets/js/utils.js?v=2026-09-19.3"></script>
-<script src="assets/js/api.js?v=2026-09-19.3"></script>
-<script src="assets/js/ui.js?v=2026-09-19.3"></script>
-<script src="assets/js/auth.js?v=2026-09-19.3"></script>
-<script src="assets/js/browse.js?v=2026-09-19.3"></script>
-<script src="assets/js/reviews.js?v=2026-09-19.3"></script>
-<script src="assets/js/questions.js?v=2026-09-19.3"></script>
-<script src="assets/js/interview.js?v=2026-09-19.3"></script>
-<script src="assets/js/report.js?v=2026-09-19.3"></script>
-<script src="assets/js/chat.js?v=2026-09-19.3"></script>
-<script src="assets/js/student-report.js?v=2026-09-19.3"></script>
-<script src="assets/js/practice.js?v=2026-09-19.3"></script>
-<script src="assets/js/main.js?v=2026-09-19.3"></script>
+<script src="assets/js/config.js?v=2026-09-23.1"></script>
+<script src="assets/js/update-bar.js?v=2026-09-23.1"></script>
+<script src="assets/js/utils.js?v=2026-09-23.1"></script>
+<script src="assets/js/api.js?v=2026-09-23.1"></script>
+<script src="assets/js/ui.js?v=2026-09-23.1"></script>
+<script src="assets/js/auth.js?v=2026-09-23.1"></script>
+<script src="assets/js/browse.js?v=2026-09-23.1"></script>
+<script src="assets/js/reviews.js?v=2026-09-23.1"></script>
+<script src="assets/js/questions.js?v=2026-09-23.1"></script>
+<script src="assets/js/interview.js?v=2026-09-23.1"></script>
+<script src="assets/js/report.js?v=2026-09-23.1"></script>
+<script src="assets/js/chat.js?v=2026-09-23.1"></script>
+<script src="assets/js/student-report.js?v=2026-09-23.1"></script>
+<script src="assets/js/practice.js?v=2026-09-23.1"></script>
+<script src="assets/js/notice.js?v=2026-09-23.1"></script>
+<script src="assets/js/main.js?v=2026-09-23.1"></script>
 </body>
 </html>
