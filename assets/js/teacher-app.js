@@ -424,6 +424,31 @@ function renderRailProgress() {
   }).join('');
 }
 
+// ── 왼쪽 학생 명단 접기(휴대폰) ──
+// 칸이 쌓이는 900px 이하에서는 명단이 준비 화면 위에 옵니다. 학생을 고르면
+// 자동으로 접어서 준비 화면까지 스크롤을 덜 내리게 합니다(넓은 화면은 CSS가
+// 아예 단추를 숨겨서 이 상태와 상관없이 늘 펼쳐진 채로 보입니다).
+function isNarrowRail() {
+  try { return window.matchMedia('(max-width:900px)').matches; } catch (e) { return false; }
+}
+var railFolded = false;
+function paintRailFold() {
+  var wrap = document.getElementById('rail-students');
+  var btn = document.getElementById('rail-fold-btn');
+  var label = document.getElementById('rail-fold-label');
+  var who = document.getElementById('rail-fold-who');
+  if (!wrap || !btn) return;
+  wrap.classList.toggle('has-target', !!target);
+  wrap.classList.toggle('folded', railFolded);
+  btn.setAttribute('aria-expanded', railFolded ? 'false' : 'true');
+  if (label) label.textContent = railFolded ? '펼치기' : '접기';
+  if (who) who.textContent = target ? target.student_no + ' ' + target.name : '';
+}
+function toggleRailFold() {
+  railFolded = !railFolded;
+  paintRailFold();
+}
+
 // 면접을 접고 학생 목록으로 돌아갑니다.
 // 예전에는 리포트 화면 위쪽의 작은 «닫기» 하나뿐이라 돌아갈 길을 못 찾았습니다.
 function backToList() {
@@ -443,6 +468,8 @@ function backToList() {
   resetGreetings();
   document.getElementById('finish-note').value = '';
   renderStudents();
+  railFolded = false;   // 목록으로 돌아왔으니 접힘도 도로 풉니다
+  paintRailFold();
   show('empty');
   loadUnfinished();   // 접은 면접이 '진행중' 이면 다시 이 목록에 뜹니다
 }
@@ -480,6 +507,8 @@ async function pickStudent(id) {
   if (!target) return;
 
   renderStudents();   // 고른 줄 표시
+  railFolded = isNarrowRail();   // 휴대폰에서는 고르자마자 명단을 접습니다
+  paintRailFold();
   document.getElementById('target-name').textContent = target.student_no + ' ' + target.name;
   // 이 학생에게 바로 말을 걸 수 있습니다. 계정이 없으면 단추를 숨깁니다.
   var talk = document.getElementById('btn-talk');
@@ -548,6 +577,8 @@ async function resumeInterview(id) {
   target = students.filter(function (s) { return s.id === iv.student_id; })[0] ||
            { id: iv.student_id, student_no: '', name: '(알 수 없음)' };
   renderStudents();
+  railFolded = isNarrowRail();
+  paintRailFold();
   document.getElementById('target-name').textContent = target.student_no + ' ' + target.name;
   var talk = document.getElementById('btn-talk');
   talk.hidden = !target.auth_user_id;

@@ -390,6 +390,38 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .railpane{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
 .raillist{overflow-y:auto;padding:6px;flex:1 1 auto;min-height:0}
 
+/* ── 왼쪽 학생 명단 접기(휴대폰) ──
+   칸이 쌓이는 900px 이하에서는 명단이 준비 화면 «위»에 옵니다. 학생을 고른
+   뒤에도 명단이 그대로 펼쳐져 있으면 그만큼 스크롤을 더 내려야 준비 화면이
+   보입니다. 그래서 학생을 고르면 이 단추로 접어 두고, 단추를 다시 누르면
+   폅니다. 컴퓨터(사이드바로 붙어 있을 때)는 접을 필요가 없어 안 보입니다. */
+.railfold{
+  display:none;flex:0 0 auto;align-items:center;gap:8px;width:100%;
+  padding:10px 16px;border:0;border-bottom:1px solid var(--line);
+  background:var(--surface-2);font-family:inherit;text-align:left;cursor:pointer;
+}
+@media(max-width:900px){
+  #rail-students.has-target .railfold{display:flex}
+}
+.railfold:hover{background:var(--accent-soft)}
+.railfold .chev{flex:0 0 auto;font-size:10px;color:var(--ink-2);transition:transform .15s ease}
+.railfold[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+.railfold .ttl{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);white-space:nowrap}
+.railfold .who{font-size:12.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.railfold .more{
+  flex:0 0 auto;font-size:11px;font-weight:700;color:var(--ink-2);
+  border:1px solid var(--line-2);border-radius:5px;padding:2px 8px;background:var(--surface);white-space:nowrap;
+}
+.railfold:hover .more{border-color:var(--ink);color:var(--ink)}
+
+@media(max-width:900px){
+  #rail-students.folded .railhead .sec,
+  #rail-students.folded #search,
+  #rail-students.folded #class-chips,
+  #rail-students.folded #fav-box,
+  #rail-students.folded #student-list{display:none}
+}
+
 /* ── 담당 학생 (별표) ──
    전교생 명단에서 매번 우리 반 학생을 찾아 내리지 않도록,
    별표를 눌러 둔 학생을 명단 맨 위에 따로 모아 둡니다. */
