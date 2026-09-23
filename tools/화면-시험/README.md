@@ -33,8 +33,9 @@ NODE_PATH=/opt/node22/lib/node_modules /opt/node22/bin/node check-susi.js
 | `check-back.js` | 뒤로가기 막음 — 걸음 쌓기 · 종료 묻기 | `stub4` |
 | `check-bar.js` | 새 판 알림 띠 — 높이 · 머리줄을 안 덮는지 | `stub4` |
 | `check-resume.js` | 면접 도중 창이 닫혔을 때 이어서 하기 — 목록에 뜨는가 · 평가·질문이 그대로인가 · 시계는 멈춰 있는가 | `stub5` |
-| `check-practice-student.js` | 답안 연습장(학생) — 자동저장(멈추면·blur) · 학년/분류 칩 · 커스텀 분류 만들기 · 비우면 지워짐 · 조회 | `stub5` |
-| `check-practice-teacher.js` | 답안 연습장(교사) — 「면접 준비/답안 연습장」 두 탭 · 읽기 전용 · 학생 바꾸면 준비 탭으로 | `stub5` |
+| `check-practice-student.js` | 답안 연습장(학생) — 새 질문 모달 · 다중선택 필터 · 자동저장 · 커스텀 분류 · 조회→수정 넘기기 | `stub5` |
+| `check-practice-teacher.js` | 답안 연습장(교사) — 「면접 준비/답안 연습장」 두 탭 · 읽기 전용 · 다중선택 필터 · 코멘트 남기기 | `stub5` |
+| `check-practice-badge.js` | 답안 연습장 코멘트 안읽음 빨간 숫자 — 홈 배지 · 열면 읽음 표시 · 다시 열면 사라짐 | `stub5` |
 
 ⚠️ **`check-back.js` 는 지금 저장소 판에서 늘 실패합니다** (`#loading` 칸이 클릭을
 가로막습니다). 옮겨 왔을 때부터 그랬던 것으로, `git stash` 로 확인했습니다 —

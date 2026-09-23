@@ -1,9 +1,11 @@
-// 답안 연습장 — 교사 쪽 (학생을 고르면 «면접 준비 / 답안 연습장» 두 탭, 읽기 전용)
+// 답안 연습장 — 교사 쪽 (다중선택 필터 · 읽기 전용 · 코멘트 남기기)
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const SB = fs.readFileSync(path.join(__dirname, 'stub5.js'), 'utf8');
 let 실패 = 0;
 function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무엇 + (덧 ? '  → ' + 덧 : '')); if (!ok) 실패++; }
+
+const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
 
 (async () => {
   const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
@@ -24,7 +26,8 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
           { id: 'a2', student_id: 's1', grade: '3', category: '창체',
             question: '창체 활동에서 기억에 남는 것은?', answer: '학급 자치회 활동입니다.',
             created_at: '2026-09-20T02:00:00Z', updated_at: '2026-09-20T02:00:00Z' }
-        ]
+        ],
+        practice_comments: []
       }
     };
   });
@@ -40,24 +43,35 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
   확인('면접 준비가 보이는가', await p.evaluate(() => !document.getElementById('setup-prep').hidden));
   확인('답안 연습장은 접혀 있는가', await p.evaluate(() => document.getElementById('setup-practice').hidden));
 
-  console.log('\n── 답안 연습장 탭으로 ──');
+  console.log('\n── 답안 연습장 탭 — 필터 없이 전부 보임 ──');
   await p.click('#setup-tab-practice');
   await p.waitForTimeout(300);
-  확인('면접 준비는 접히는가', await p.evaluate(() => document.getElementById('setup-prep').hidden));
-  확인('학생이 만든 분류(창체)가 보이는가',
+  확인('두 답안이 다 보이는가(필터 안 골랐으므로)',
+       await p.evaluate(() => document.querySelectorAll('#t-prac-list .prac-card').length === 2));
+  확인('학생이 만든 분류(창체)가 필터 칩에 있는가',
        (await p.evaluate(() => document.getElementById('t-prac-cat').textContent)).indexOf('창체') > -1);
-
-  await p.click('#t-prac-cat .prac-chip:has-text("인성")');
-  await p.waitForTimeout(150);
-  확인('인성 답안이 보이는가',
-       (await p.evaluate(() => document.getElementById('t-prac-list').textContent)).indexOf('자기소개') > -1);
-  확인('읽기 전용인가(입력칸 없음)',
-       await p.evaluate(() => document.querySelectorAll('#t-prac-list textarea, #t-prac-list button.prac-del').length === 0));
+  확인('읽기 전용인가(질문·답변 입력칸과 삭제 단추가 없음 — 코멘트 칸은 따로 있어도 됩니다)',
+       await p.evaluate(() => document.querySelectorAll('#t-prac-list .prac-q-input, #t-prac-list .prac-a-input, #t-prac-list .prac-del').length === 0));
 
   await p.click('#t-prac-cat .prac-chip:has-text("창체")');
   await p.waitForTimeout(150);
-  확인('창체 답안이 보이는가',
-       (await p.evaluate(() => document.getElementById('t-prac-list').textContent)).indexOf('학급 자치회') > -1);
+  확인('창체만 필터하면 한 장만 남는가',
+       await p.evaluate(() => document.querySelectorAll('#t-prac-list .prac-card').length === 1));
+  await p.click('#t-prac-cat .prac-chip:has-text("창체")');   // 필터 도로 끄기
+  await p.waitForTimeout(150);
+
+  console.log('\n── 코멘트 남기기 ──');
+  await p.click('#t-prac-list .prac-card:has-text("자기소개") .prac-comment-toggle');
+  await p.waitForTimeout(150);
+  확인('코멘트 입력칸이 보이는가(교사만)', await p.evaluate(() => !!document.querySelector('#t-prac-list textarea')));
+  await p.fill('#t-prac-list .prac-card:has-text("자기소개") textarea', '자신감 있게 잘 썼습니다.');
+  await p.click('#t-prac-list .prac-card:has-text("자기소개") button:has-text("코멘트 남기기")');
+  await p.waitForTimeout(300);
+  var comments = await 표(p, 'practice_comments');
+  확인('서버에 코멘트가 쌓였는가', comments.length === 1 && comments[0].content === '자신감 있게 잘 썼습니다.');
+  확인('그 선생님 이름이 남는가', comments[0].teacher_name === '이용휘');
+  확인('화면에 바로 보이는가',
+       (await p.locator('#t-prac-list .prac-card', { hasText: '자기소개' }).textContent()).indexOf('자신감 있게') > -1);
 
   console.log('\n── 다른 학생을 고르면 다시 «면접 준비» 로 ──');
   await p.evaluate(async () => {

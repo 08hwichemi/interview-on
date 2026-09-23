@@ -449,8 +449,8 @@ function backToList() {
 
 // ══════════════ 준비 화면 안의 두 탭 — 면접 준비 / 답안 연습장 ══════════════
 //
-// 답안 연습장은 학생이 혼자 쓰는 곳입니다(practice.js). 선생님은 읽기만 하고,
-// RLS 가 애초에 선생님 쪽 쓰기를 막아 둡니다.
+// 답안(질문·답변)은 학생이 혼자 쓰는 곳입니다(practice.js) — 선생님은 못 쓰고 못 지웁니다.
+// 코멘트는 선생님이 답니다 — RLS 가 그렇게 갈라 둡니다.
 function setupGoTab(which) {
   document.getElementById('setup-tab-prep').setAttribute('aria-current', which === 'prep');
   document.getElementById('setup-tab-practice').setAttribute('aria-current', which === 'practice');
@@ -461,7 +461,7 @@ function setupGoTab(which) {
       gradeBox: document.getElementById('t-prac-grade'),
       catBox: document.getElementById('t-prac-cat'),
       list: document.getElementById('t-prac-list')
-    }, target.grade ? String(target.grade) : '전체');
+    }, { canComment: true });
   }
 }
 

@@ -182,6 +182,7 @@ async function enterApp() {
   setBusy(false);
   navigateTo('home');
   watchReports();   // 선생님이 리포트를 보내면 홈에 빨간 숫자가 붙습니다
+  practiceWatchComments();   // 선생님이 답안 연습장에 코멘트를 달면 홈에 빨간 숫자가 붙습니다
 
   // 톡은 어느 화면에서나 쓸 수 있게 머리말에 있습니다
   document.getElementById('chat-open').hidden = false;
