@@ -601,12 +601,16 @@ async function practicePrintView(studentId, label) {
       'table{width:100%;border-collapse:collapse;table-layout:fixed}' +
       'th,td{border:1px solid #999;padding:6px 8px;font-size:12px;vertical-align:top;word-break:break-word}' +
       'th{background:#f2f2f2}' +
-      'td:nth-child(1),td:nth-child(2){width:44px;text-align:center}' +
-      'td:nth-child(3){width:70px;text-align:center}' +
+      'td:nth-child(1),td:nth-child(2),td:nth-child(3){text-align:center}' +
       '@media print{@page{size:A4 landscape;margin:14mm}}' +
     '</style></head><body>' +
     '<h1>면접 질문지</h1><p class="sub">' + esc(label || '') + '</p>' +
-    '<table><thead><tr><th>연번</th><th>학년</th><th>종류</th><th>질문</th><th>답변</th></tr></thead>' +
+    // table-layout:fixed 는 첫 줄(머리글) 셀 너비를 기준으로 칸을 나누므로, td 에만
+    // 너비를 줘 봐야 안 먹습니다. colgroup 으로 직접 칸 너비를 정해야 질문·답변이
+    // 실제로 넓게 인쇄됩니다.
+    '<table><colgroup><col style="width:6%"><col style="width:7%"><col style="width:11%">' +
+      '<col style="width:30%"><col style="width:46%"></colgroup>' +
+    '<thead><tr><th>연번</th><th>학년</th><th>종류</th><th>질문</th><th>답변</th></tr></thead>' +
     '<tbody>' + practicePrintRowsHTML(list) + '</tbody></table>' +
     '<script>window.onload = function () { window.print(); };<\/script>' +
     '</body></html>'

@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-23.3">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-23.4">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-23.3">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-23.3">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-23.3">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-23.3">
-  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-09-23.3">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-23.3">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-23.4">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-23.4">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-23.4">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-23.4">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-09-23.4">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-23.4">
 </head>
 <body>
 
@@ -46,6 +46,8 @@
       <span class="ub-name" id="t-user-name"></span>
       <span class="ub-role" id="t-user-role"></span>
       <button class="chatbtn" id="chat-open" onclick="openChatList()" hidden>💬 톡<span class="chat-badge" id="chat-badge" hidden></span></button>
+      <!-- 관리자가 올린 공지 (notice.js) — 누구나 눌러서 지금 공지·지난 공지를 봅니다 -->
+      <button class="ghost" id="notice-open" onclick="noticeOpenPanel()">🔔<span class="chat-badge notice-dot" id="notice-dot" hidden></span></button>
       <!-- 관리자에게만 보입니다 — 명단 관리로 안 건너가도 여기서 바로 공지를 올릴 수 있게 -->
       <button class="ghost" id="notice-admin-btn" onclick="openNoticeModal()" hidden>📢 공지</button>
       <a class="ghost" id="admin-link" href="../admin/" style="text-decoration:none" hidden>명단 관리</a>
@@ -96,9 +98,6 @@
           <p class="hint" style="margin:0">
             왼쪽에서 <b>학생을 고르세요.</b> 반으로 추리거나 학번·이름으로 찾을 수 있습니다.
           </p>
-          <!-- 관리자가 올린 공지 (notice.js). 없으면 안 뜹니다 -->
-          <div class="note warn" id="notice-box" hidden></div>
-
           <!-- 창이 닫혀 끝내지 못한 면접. 없으면 안 뜹니다 -->
           <div class="note warn" id="unfinished" hidden>
             <b>끝내지 못한 면접이 있습니다.</b> 눌러서 하던 자리부터 이어 가세요.
@@ -489,24 +488,35 @@
   </div>
 </div>
 
+<!-- 공지 보기(누구나) — 지금 공지 · 지난 공지 (notice.js). 학생 앱과 같은 창입니다. -->
+<div id="notice-panel-overlay" class="modal-overlay">
+  <div class="modal-content prac-modal">
+    <div class="modal-header">
+      <h3>공지</h3>
+      <button class="close-btn" onclick="noticeClosePanel()">✕</button>
+    </div>
+    <div class="prac-modal-body" id="notice-panel-body"></div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-23.3"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-23.3"></script>
-<script src="../assets/js/utils.js?v=2026-09-23.3"></script>
-<script src="../assets/js/api.js?v=2026-09-23.3"></script>
-<script src="../assets/js/browse.js?v=2026-09-23.3"></script>
-<script src="../assets/js/reviews.js?v=2026-09-23.3"></script>
-<script src="../assets/js/questions.js?v=2026-09-23.3"></script>
-<script src="../assets/js/report.js?v=2026-09-23.3"></script>
-<script src="../assets/js/chat.js?v=2026-09-23.3"></script>
-<script src="../assets/js/practice.js?v=2026-09-23.3"></script>
-<script src="../assets/js/notice.js?v=2026-09-23.3"></script>
-<script src="../assets/js/admin-notice.js?v=2026-09-23.3"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-23.3"></script>
-<script src="../assets/js/saenggibu.js?v=2026-09-23.3"></script>
+<script src="../assets/js/config.js?v=2026-09-23.4"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-23.4"></script>
+<script src="../assets/js/utils.js?v=2026-09-23.4"></script>
+<script src="../assets/js/api.js?v=2026-09-23.4"></script>
+<script src="../assets/js/browse.js?v=2026-09-23.4"></script>
+<script src="../assets/js/reviews.js?v=2026-09-23.4"></script>
+<script src="../assets/js/questions.js?v=2026-09-23.4"></script>
+<script src="../assets/js/report.js?v=2026-09-23.4"></script>
+<script src="../assets/js/chat.js?v=2026-09-23.4"></script>
+<script src="../assets/js/practice.js?v=2026-09-23.4"></script>
+<script src="../assets/js/notice.js?v=2026-09-23.4"></script>
+<script src="../assets/js/admin-notice.js?v=2026-09-23.4"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-23.4"></script>
+<script src="../assets/js/saenggibu.js?v=2026-09-23.4"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
@@ -581,7 +591,7 @@
 
     await loadStudents();
     loadUnfinished();   // 창이 닫혀 끝내지 못한 면접이 있으면 첫 화면에 띄웁니다
-    noticeWatch();      // 관리자가 올린 공지가 있으면 첫 화면에 띄웁니다
+    noticeWatch();      // 머리말 🔔 단추에 안읽음 점을 켜 둡니다
   })().catch(function (e) {
     console.error(e);
     var detail = String((e && e.message) || e);

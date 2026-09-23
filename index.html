@@ -6,9 +6,9 @@
 
   <title>면접ON</title>
 
-  <link rel="manifest" href="manifest.json?v=2026-09-23.3">
-  <link rel="icon" href="assets/icon-192.png?v=2026-09-23.3">
-  <link rel="apple-touch-icon" href="assets/icon-192.png?v=2026-09-23.3">
+  <link rel="manifest" href="manifest.json?v=2026-09-23.4">
+  <link rel="icon" href="assets/icon-192.png?v=2026-09-23.4">
+  <link rel="apple-touch-icon" href="assets/icon-192.png?v=2026-09-23.4">
   <meta name="theme-color" content="#18181B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <!-- 홈 화면에 담아 열면 상태표시줄이 머리말과 같은 먹빛이 됩니다.
@@ -20,12 +20,12 @@
 
   <!-- 스타일: base = 레이아웃·헤더·로그인·모달 / app = 카드·훈련화면·푸터 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="assets/css/base.css?v=2026-09-23.3">
-  <link rel="stylesheet" href="assets/css/report.css?v=2026-09-23.3">
-  <link rel="stylesheet" href="assets/css/browse.css?v=2026-09-23.3">
-  <link rel="stylesheet" href="assets/css/chat.css?v=2026-09-23.3">
-  <link rel="stylesheet" href="assets/css/practice.css?v=2026-09-23.3">
-  <link rel="stylesheet" href="assets/css/app.css?v=2026-09-23.3">
+  <link rel="stylesheet" href="assets/css/base.css?v=2026-09-23.4">
+  <link rel="stylesheet" href="assets/css/report.css?v=2026-09-23.4">
+  <link rel="stylesheet" href="assets/css/browse.css?v=2026-09-23.4">
+  <link rel="stylesheet" href="assets/css/chat.css?v=2026-09-23.4">
+  <link rel="stylesheet" href="assets/css/practice.css?v=2026-09-23.4">
+  <link rel="stylesheet" href="assets/css/app.css?v=2026-09-23.4">
 </head>
 <body>
 
@@ -46,6 +46,8 @@
     <div class="branding">
       <!-- 어느 화면에서나 누를 수 있게 머리말에 둡니다 (chat.js) -->
       <button class="chatbtn" id="chat-open" onclick="openChatList()" hidden>💬<span class="chat-label"> 톡</span><span class="chat-badge" id="chat-badge" hidden></span></button>
+      <!-- 관리자가 올린 공지 (notice.js). 홈 화면을 밀어내지 않게 상자 대신 단추로 둡니다. -->
+      <button class="chatbtn" id="notice-open" onclick="noticeOpenPanel()">🔔<span class="chat-badge notice-dot" id="notice-dot" hidden></span></button>
       <span id="header-user-name"></span>
       <button class="logout-btn" onclick="logout()" title="로그아웃">로그아웃</button>
     </div>
@@ -111,8 +113,6 @@
   </div>
 
   <div id="screen-home" class="screen">
-    <!-- 관리자가 올린 공지 (notice.js). 없으면 안 뜹니다 -->
-    <div class="notice-banner" id="notice-box" hidden></div>
     <div class="home-grid">
       <button class="menu-btn" onclick="navigateTo('reviews')">
         <span class="menu-icon">📝</span>
@@ -211,6 +211,17 @@
         <div class="prac-chips" id="prac-modal-cat"></div>
         <button class="action-btn" style="margin-top:20px" onclick="practiceConfirmNewCard()">만들기</button>
       </div>
+    </div>
+  </div>
+
+  <!-- 공지 보기 — 지금 공지 · 지난 공지 (notice.js). 누구나 언제든 다시 볼 수 있습니다. -->
+  <div id="notice-panel-overlay" class="modal-overlay">
+    <div class="modal-content prac-modal">
+      <div class="modal-header">
+        <h3>공지</h3>
+        <button class="close-btn" onclick="noticeClosePanel()">✕</button>
+      </div>
+      <div class="prac-modal-body" id="notice-panel-body"></div>
     </div>
   </div>
 
@@ -457,21 +468,21 @@
      config.js 가 이걸 써서 클라이언트를 만들므로 반드시 먼저 와야 합니다. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="assets/js/config.js?v=2026-09-23.3"></script>
-<script src="assets/js/update-bar.js?v=2026-09-23.3"></script>
-<script src="assets/js/utils.js?v=2026-09-23.3"></script>
-<script src="assets/js/api.js?v=2026-09-23.3"></script>
-<script src="assets/js/ui.js?v=2026-09-23.3"></script>
-<script src="assets/js/auth.js?v=2026-09-23.3"></script>
-<script src="assets/js/browse.js?v=2026-09-23.3"></script>
-<script src="assets/js/reviews.js?v=2026-09-23.3"></script>
-<script src="assets/js/questions.js?v=2026-09-23.3"></script>
-<script src="assets/js/interview.js?v=2026-09-23.3"></script>
-<script src="assets/js/report.js?v=2026-09-23.3"></script>
-<script src="assets/js/chat.js?v=2026-09-23.3"></script>
-<script src="assets/js/student-report.js?v=2026-09-23.3"></script>
-<script src="assets/js/practice.js?v=2026-09-23.3"></script>
-<script src="assets/js/notice.js?v=2026-09-23.3"></script>
-<script src="assets/js/main.js?v=2026-09-23.3"></script>
+<script src="assets/js/config.js?v=2026-09-23.4"></script>
+<script src="assets/js/update-bar.js?v=2026-09-23.4"></script>
+<script src="assets/js/utils.js?v=2026-09-23.4"></script>
+<script src="assets/js/api.js?v=2026-09-23.4"></script>
+<script src="assets/js/ui.js?v=2026-09-23.4"></script>
+<script src="assets/js/auth.js?v=2026-09-23.4"></script>
+<script src="assets/js/browse.js?v=2026-09-23.4"></script>
+<script src="assets/js/reviews.js?v=2026-09-23.4"></script>
+<script src="assets/js/questions.js?v=2026-09-23.4"></script>
+<script src="assets/js/interview.js?v=2026-09-23.4"></script>
+<script src="assets/js/report.js?v=2026-09-23.4"></script>
+<script src="assets/js/chat.js?v=2026-09-23.4"></script>
+<script src="assets/js/student-report.js?v=2026-09-23.4"></script>
+<script src="assets/js/practice.js?v=2026-09-23.4"></script>
+<script src="assets/js/notice.js?v=2026-09-23.4"></script>
+<script src="assets/js/main.js?v=2026-09-23.4"></script>
 </body>
 </html>

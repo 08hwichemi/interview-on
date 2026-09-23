@@ -75,6 +75,9 @@ async function saveNotice() {
 
   toast('공지를 올렸습니다.');
   closeNoticeModal();
+  // teacher/index.html 에는 머리말 🔔 단추(notice.js)가 같이 있습니다 — 안읽음 점을
+  // 바로 갱신합니다. admin/index.html 에는 그 단추가 없어 이 함수 자체가 없습니다.
+  if (typeof noticeCheckBadge === 'function') noticeCheckBadge();
 }
 
 async function clearNotice() {
@@ -86,6 +89,7 @@ async function clearNotice() {
   renderNoticePreview();
   toast('공지를 지웠습니다.');
   closeNoticeModal();
+  if (typeof noticeCheckBadge === 'function') noticeCheckBadge();
 }
 
 // ── 지난 공지 ── 최근 30개까지, 새 것부터.

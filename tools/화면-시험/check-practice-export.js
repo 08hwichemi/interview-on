@@ -79,6 +79,12 @@ async function 열기(b, viewport, fake) {
     확인('인쇄 표에 두 줄이 담기는가', (await popup.locator('tbody tr').count()) === 2);
     확인('불러오자마자 인쇄를 불렀는가', await popup.evaluate(() => window.__printed === true));
 
+    // 질문·답변 칸이 연번·학년·종류보다 훨씬 넓어야 합니다(colgroup 이 실제로 먹는지).
+    var colw = await popup.evaluate(() => Array.from(document.querySelectorAll('col')).map(c => c.style.width));
+    확인('질문·답변 칸이 나머지 셋을 합친 것보다 넓은가',
+         (parseFloat(colw[3]) + parseFloat(colw[4])) > (parseFloat(colw[0]) + parseFloat(colw[1]) + parseFloat(colw[2])),
+         colw.join(' / '));
+
     확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
     await ctx.close();
   }

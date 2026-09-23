@@ -30,15 +30,21 @@
 .add-q-btn { width: 100%; padding: 10px; background: white; border: 1px dashed var(--line-2); color: var(--ink-3); border-radius: 8px; cursor: pointer; font-weight: bold; margin-bottom: 8px; }
 .file-btn-group { display: flex; gap: 8px; margin-bottom: 16px; }
 .file-btn { flex: 1; padding: 10px; font-size: 13px; font-weight: bold; border-radius: 8px; cursor: pointer; text-align: center; border: 1px solid var(--line-2); background: white; color: var(--ink-2); }
-.notice-banner { background: var(--amber-soft); border: 1px solid #EBD9B4; padding: 12px; border-radius: 8px; font-size: 13px; color: var(--amber); margin-bottom: 16px; line-height: 1.5; }
+.notice-banner { background: var(--amber-soft); border: 1px solid #EBD9B4; padding: 12px; border-radius: 8px; font-size: 13px; color: var(--amber); margin-bottom: 16px; line-height: 1.5; overflow-wrap: anywhere; }
+.notice-banner a { color: inherit; font-weight: 700; text-decoration: underline; overflow-wrap: anywhere; }
 
-/* 관리자 공지(notice.js) — 위 .notice-banner 를 그대로 쓰되, 닫기 단추와 링크만 더합니다.
+/* 관리자 공지 보기(notice.js) — 머리말 🔔 단추의 안읽음 점 + 공지 보기 창.
    ⚠️ 구글 드라이브 링크처럼 긴 주소가 좁은 휴대폰 화면을 밀고 나가지 않게
    overflow-wrap 을 꼭 둡니다 — 안 그러면 상자 밖으로 잘려 보일 수 있습니다. */
-#notice-box { position: relative; padding-right: 30px; overflow-wrap: anywhere; }
-#notice-box .notice-x { position: absolute; top: 6px; right: 8px; background: none; border: 0; font-size: 18px; line-height: 1; cursor: pointer; color: inherit; opacity: .6; }
-#notice-box .notice-x:hover { opacity: 1; }
-#notice-box a { color: inherit; font-weight: 700; text-decoration: underline; overflow-wrap: anywhere; }
+#notice-open { position: relative; }
+.notice-dot { position: absolute; top: 2px; right: 2px; min-width: 0; width: 9px; height: 9px; padding: 0; margin-left: 0; }
+
+.notice-history { max-height: 260px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
+.notice-history-row { padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.notice-history-row:last-child { border-bottom: 0; }
+.notice-history-when { font-size: 11.5px; color: var(--ink-3); margin-bottom: 3px; }
+.notice-history-body { font-size: 13px; color: var(--ink-2); line-height: 1.6; overflow-wrap: anywhere; }
+.notice-history-body a { color: inherit; font-weight: 700; }
 
 .result-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
 .result-table th, .result-table td { padding: 12px; border-bottom: 1px solid var(--line); text-align: left; }

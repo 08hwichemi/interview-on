@@ -212,16 +212,17 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .note li{margin:3px 0}
 .note b.pw{font-variant-numeric:tabular-nums;letter-spacing:2px;font-size:15px}
 
-/* 관리자 공지(notice.js) — 위 .note.warn 을 그대로 쓰되, 닫기 단추와 링크만 더합니다.
-   #notice-preview 는 admin-notice.js 의 「미리보기」 상자로, 실제로 뜰 모양과 똑같이
-   보이도록 같은 링크 스타일을 씁니다.
+/* 관리자 공지 — .note.warn 은 「지금 공지」 상자(notice.js 의 공지 보기 창)에 그대로
+   씁니다. #notice-preview 는 admin-notice.js 의 「미리보기」 상자입니다.
    ⚠️ 구글 드라이브 링크처럼 긴 주소가 좁은 화면을 밀고 나가지 않게 overflow-wrap 을
    꼭 둡니다 — 안 그러면 상자 밖으로 잘려 보일 수 있습니다. */
-#notice-box{position:relative;padding-right:30px;overflow-wrap:anywhere}
+.note.warn{overflow-wrap:anywhere}
 #notice-preview{overflow-wrap:anywhere}
-#notice-box .notice-x{position:absolute;top:6px;right:8px;background:none;border:0;font-size:18px;line-height:1;cursor:pointer;color:inherit;opacity:.6}
-#notice-box .notice-x:hover{opacity:1}
-#notice-box a,#notice-preview a{color:inherit;font-weight:700;text-decoration:underline;overflow-wrap:anywhere}
+.note.warn a,#notice-preview a{color:inherit;font-weight:700;text-decoration:underline;overflow-wrap:anywhere}
+
+/* 머리말 🔔 단추의 안읽음 점 (notice.js) */
+#notice-open{position:relative}
+.notice-dot{position:absolute;top:2px;right:2px;min-width:0;width:9px;height:9px;padding:0;margin-left:0}
 
 /* ── 관리자: 공지 관리 작은 창 (admin/index.html · teacher/index.html 둘 다) ──
    지난 공지 목록까지 붙어 창이 길어질 수 있어 세로로 스크롤하게 둡니다. */

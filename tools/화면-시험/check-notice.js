@@ -142,7 +142,7 @@ function 열기(b, viewport, fake) {
     await ctx.close();
   }
 
-  console.log('\n── 교사 홈: 공지가 뜨고, 닫으면 같은 공지는 다시 안 뜬다 ──');
+  console.log('\n── 교사 홈: 🔔 단추에 안읽음 점, 눌러 보면 지금 공지 · 지난 공지 ──');
   {
     const { ctx, p, errs } = await 열기(b, { width: 1400, height: 900 }, {
       profile: { id: 'u1', role: 'teacher', name: '박영희', login_id: '박영희' },
@@ -151,39 +151,48 @@ function 열기(b, viewport, fake) {
                      school_id: SCH, must_change_password: false }],
         students: [],
         announcements: [{ school_id: SCH, content: '내일 3교시는 모의면접입니다.',
-                          link: null, updated_at: '2026-09-23T00:00:00Z' }]
+                          link: null, updated_at: '2026-09-23T00:00:00Z' }],
+        announcement_log: [
+          { id: 'l1', school_id: SCH, content: '지난주 안내였습니다.', link: null,
+            created_by_name: '이용휘', created_at: '2026-09-20T00:00:00Z' },
+          { id: 'l2', school_id: SCH, content: '내일 3교시는 모의면접입니다.', link: null,
+            created_by_name: '이용휘', created_at: '2026-09-23T00:00:00Z' }
+        ]
       }
     });
     await p.goto('http://127.0.0.1:8777/teacher/'); await p.waitForSelector('#app:not([hidden])');
     await p.waitForTimeout(300);
-    확인('공지 상자가 뜨는가', await p.evaluate(() => !document.getElementById('notice-box').hidden));
-    확인('내용이 보이는가',
-         (await p.textContent('#notice-box')).indexOf('모의면접') > -1);
+    확인('홈 화면이 공지 상자로 밀려나지 않는가(더는 자리를 차지하지 않음)',
+         await p.evaluate(() => document.getElementById('notice-box') === null));
+    확인('🔔 단추에 안읽음 점이 켜져 있는가', await p.evaluate(() => !document.getElementById('notice-dot').hidden));
 
-    await p.click('#notice-box .notice-x');
-    확인('닫으면 숨는가', await p.evaluate(() => document.getElementById('notice-box').hidden));
+    await p.click('#notice-open');
+    await p.waitForTimeout(200);
+    확인('창이 뜨는가', await p.evaluate(() => document.getElementById('notice-panel-overlay').style.display === 'flex'));
+    var body = await p.textContent('#notice-panel-body');
+    확인('지금 공지가 보이는가', body.indexOf('내일 3교시는 모의면접입니다') > -1);
+    확인('지난 공지 목록도 같이 보이는가(지난주 것까지)', body.indexOf('지난주 안내') > -1);
+    확인('열어 보면 안읽음 점이 꺼지는가', await p.evaluate(() => document.getElementById('notice-dot').hidden));
 
+    await p.click('#notice-panel-overlay .close-btn');
     await p.reload(); await p.waitForSelector('#app:not([hidden])'); await p.waitForTimeout(300);
-    확인('새로고침해도 같은 공지는 다시 안 뜨는가(localStorage 기억)',
-         await p.evaluate(() => document.getElementById('notice-box').hidden));
+    확인('한 번 읽은 공지는 새로고침해도 다시 안읽음 점이 안 뜨는가(같은 updated_at)',
+         await p.evaluate(() => document.getElementById('notice-dot').hidden));
 
-    // 관리자가 새 공지로 고쳤다고 가정 — updated_at 이 달라지면 다시 떠야 합니다.
+    // 관리자가 고쳤다고 가정 — updated_at 이 달라지면 다시 «안읽음» 이 되어야 합니다.
     await p.evaluate(() => {
       window.__T.announcements[0].content = '내일 3교시는 모의면접 → 4교시로 변경!';
       window.__T.announcements[0].updated_at = '2026-09-24T00:00:00Z';
-      return noticeCheck();
+      return noticeCheckBadge();
     });
     await p.waitForTimeout(200);
-    확인('새 공지(다른 updated_at)는 다시 뜨는가',
-         await p.evaluate(() => !document.getElementById('notice-box').hidden));
-    확인('바뀐 내용이 보이는가',
-         (await p.textContent('#notice-box')).indexOf('4교시로 변경') > -1);
+    확인('고친 공지는 다시 안읽음 점이 뜨는가', await p.evaluate(() => !document.getElementById('notice-dot').hidden));
 
     확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
     await ctx.close();
   }
 
-  console.log('\n── 학생 홈: 공지가 뜨고 링크에 https:// 가 붙는가 ──');
+  console.log('\n── 학생 홈: 5개 메뉴 버튼 자리를 그대로 두고, 🔔 로 공지를 본다 ──');
   {
     const { ctx, p, errs } = await 열기(b, { width: 420, height: 900 }, {
       profile: { id: 'u1', role: 'student', name: '고다윤', login_id: '30101' },
@@ -193,27 +202,54 @@ function 열기(b, viewport, fake) {
         students: [{ id: 's1', student_no: '30101', name: '고다윤', auth_user_id: 'u1', grade: 3 }],
         reviews: [], questions: [], practice_categories: [], practice_answers: [], practice_comments: [],
         announcements: [{ school_id: SCH, content: '설문에 응답해 주세요.',
-                          link: 'forms.gle/xyz', updated_at: '2026-09-23T00:00:00Z' }]
+                          link: 'forms.gle/xyz', updated_at: '2026-09-23T00:00:00Z' }],
+        announcement_log: [{ id: 'l1', school_id: SCH, content: '설문에 응답해 주세요.',
+                             link: 'forms.gle/xyz', created_by_name: '이용휘', created_at: '2026-09-23T00:00:00Z' }]
       }
     });
     await p.goto('http://127.0.0.1:8777/'); await p.waitForSelector('#screen-home.active');
     await p.waitForTimeout(300);
-    확인('공지 상자가 뜨는가', await p.evaluate(() => !document.getElementById('notice-box').hidden));
+    확인('홈 메뉴 버튼 5개가 그대로 온전한가(공지 상자가 안 끼어듦)',
+         (await p.locator('.home-grid .menu-btn').count()) === 5);
+    확인('🔔 단추에 안읽음 점이 켜져 있는가', await p.evaluate(() => !document.getElementById('notice-dot').hidden));
+
+    await p.click('#notice-open');
+    await p.waitForTimeout(200);
     확인('링크에 https:// 가 붙어서 걸리는가',
-         await p.evaluate(() => document.querySelector('#notice-box a').getAttribute('href') === 'https://forms.gle/xyz'));
+         await p.evaluate(() => document.querySelector('#notice-panel-body a').getAttribute('href') === 'https://forms.gle/xyz'));
 
     // 구글 드라이브 링크처럼 끊어질 자리(/·?·=)가 거의 없는 긴 주소도 좁은 휴대폰
     // 화면(420px) 밖으로 밀려나지 않아야 합니다 — overflow-wrap 이 없으면 잘려 보입니다.
     await p.evaluate(() => {
       window.__T.announcements[0].link = 'https://drive.google.com/' + 'a'.repeat(80);
-      window.__T.announcements[0].updated_at = '2026-09-24T00:00:00Z';
-      return noticeCheck();
+      return noticeOpenPanel();
     });
     await p.waitForTimeout(200);
     확인('끊어질 자리 없는 긴 링크도 화면을 밀고 나가지 않는가',
          await p.evaluate(() => document.documentElement.scrollWidth <= 420),
          'scrollWidth ' + await p.evaluate(() => document.documentElement.scrollWidth));
 
+    확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
+    await ctx.close();
+  }
+
+  console.log('\n── 일반 교사도 지난 공지를 읽을 수 있다(관리자 전용이 아님) ──');
+  {
+    const { ctx, p, errs } = await 열기(b, { width: 1400, height: 900 }, {
+      profile: { id: 'u1', role: 'teacher', name: '박영희', login_id: '박영희' },
+      rows: {
+        profiles: [{ id: 'u1', role: 'teacher', name: '박영희', login_id: '박영희',
+                     school_id: SCH, must_change_password: false }],
+        students: [],
+        announcement_log: [{ id: 'l1', school_id: SCH, content: '예전 공지 내용', link: null,
+                             created_by_name: '이용휘', created_at: '2026-09-10T00:00:00Z' }]
+      }
+    });
+    await p.goto('http://127.0.0.1:8777/teacher/'); await p.waitForSelector('#app:not([hidden])');
+    await p.click('#notice-open');
+    await p.waitForTimeout(200);
+    확인('지금 공지가 없어도 지난 공지는 보이는가',
+         (await p.textContent('#notice-panel-body')).indexOf('예전 공지 내용') > -1);
     확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
     await ctx.close();
   }
