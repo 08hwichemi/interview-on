@@ -41,6 +41,12 @@ function 열기(b, viewport, fake) {
 
     await p.fill('#notice-content', '이번 주까지 답안 연습장에 자기소개 초안을 써 오세요.');
     await p.fill('#notice-link', 'forms.gle/abc123');
+    await p.waitForTimeout(150);
+    확인('미리보기에 내용이 그대로 보이는가',
+         (await p.textContent('#notice-preview')).indexOf('자기소개 초안') > -1);
+    확인('미리보기 링크에도 https:// 가 미리 붙는가(실제로 뜰 모양 그대로)',
+         await p.evaluate(() => document.querySelector('#notice-preview a').getAttribute('href') === 'https://forms.gle/abc123'));
+
     await p.click('button:has-text("올리기")');
     await p.waitForTimeout(300);
 
@@ -61,6 +67,49 @@ function 열기(b, viewport, fake) {
     await p.waitForTimeout(300);
     확인('지우면 표에서 사라지는가', (await 표(p, 'announcements')).length === 0);
 
+    확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
+    await ctx.close();
+  }
+
+  console.log('\n── 관리자는 면접(교사) 화면에서도 바로 공지를 올릴 수 있다 ──');
+  {
+    const { ctx, p, errs } = await 열기(b, { width: 1400, height: 900 }, {
+      profile: { id: 'u1', role: 'admin', name: '이용휘', login_id: '이용휘' },
+      rows: {
+        profiles: [{ id: 'u1', role: 'admin', name: '이용휘', login_id: '이용휘',
+                     school_id: SCH, must_change_password: false }],
+        students: []
+      }
+    });
+    await p.goto('http://127.0.0.1:8777/teacher/'); await p.waitForSelector('#app:not([hidden])');
+    확인('공지 단추가 보이는가(관리자)', await p.evaluate(() => !document.getElementById('notice-admin-btn').hidden));
+
+    await p.click('#notice-admin-btn');
+    await p.waitForTimeout(200);
+    await p.fill('#notice-content', '오늘 6교시 대강당에서 모의면접 있습니다.');
+    await p.click('button:has-text("올리기")');
+    await p.waitForTimeout(300);
+    var rows = await 표(p, 'announcements');
+    확인('면접 화면에서 올린 것도 서버에 저장되는가', rows.length === 1 && rows[0].content.indexOf('대강당') > -1,
+         JSON.stringify(rows));
+    확인('올린 사람 이름이 남는가(관리자 이름)', rows[0].created_by_name === '이용휘', rows[0].created_by_name);
+
+    확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
+    await ctx.close();
+  }
+
+  console.log('\n── 일반 교사에게는 공지 단추가 안 보인다 ──');
+  {
+    const { ctx, p, errs } = await 열기(b, { width: 1400, height: 900 }, {
+      profile: { id: 'u1', role: 'teacher', name: '박영희', login_id: '박영희' },
+      rows: {
+        profiles: [{ id: 'u1', role: 'teacher', name: '박영희', login_id: '박영희',
+                     school_id: SCH, must_change_password: false }],
+        students: []
+      }
+    });
+    await p.goto('http://127.0.0.1:8777/teacher/'); await p.waitForSelector('#app:not([hidden])');
+    확인('공지 단추가 숨겨져 있는가(일반 교사)', await p.evaluate(() => document.getElementById('notice-admin-btn').hidden));
     확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
     await ctx.close();
   }
