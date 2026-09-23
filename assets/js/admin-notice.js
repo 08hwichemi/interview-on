@@ -1,8 +1,9 @@
 // 관리자 공지 관리 — admin/index.html 과 teacher/index.html(관리자에게만 보이는 단추)
 // 둘 다 씁니다. 학생·교사 화면에 실제로 띄우는 쪽은 notice.js 입니다.
 //
-// announcements 표는 학교마다 한 줄뿐입니다(school_id 가 기본키). 그래서 «올리기» 도
-// «고치기» 도 늘 upsert 한 번입니다.
+// announcements 표는 학교마다 한 줄뿐입니다(school_id 가 기본키) — «지금 뜨고 있는
+// 공지» 딱 하나만 담습니다. 새로 올리거나 지우면 그 전 내용은 사라지므로,
+// «무엇을 올렸었는지» 는 announcement_log 에 한 줄씩 따로 쌓아 둡니다(지우지 않는 기록).
 
 async function openNoticeModal() {
   var overlay = document.getElementById('notice-modal-overlay');
@@ -24,6 +25,7 @@ async function openNoticeModal() {
   document.getElementById('notice-content').value = (data && data.content) || '';
   document.getElementById('notice-link').value = (data && data.link) || '';
   renderNoticePreview();
+  loadNoticeHistory();
 }
 
 function closeNoticeModal() {
@@ -46,26 +48,37 @@ function renderNoticePreview() {
     (link ? '<br><a href="' + esc(safeLink) + '" target="_blank" rel="noopener">' + esc(link) + '</a>' : '');
 }
 
+// 지금 로그인한 사람 이름. admin/index.html 에는 myLoginId 가, teacher/index.html 에는
+// me 가 있습니다 — 둘 다 대비합니다.
+function noticeWhoAmI() {
+  return (typeof myLoginId !== 'undefined' && myLoginId) ||
+         (typeof me !== 'undefined' && me && me.name) || '';
+}
+
 async function saveNotice() {
   var content = document.getElementById('notice-content').value.trim();
   var link = document.getElementById('notice-link').value.trim();
   if (!content) { toast('공지 내용을 입력하세요.', 'bad'); return; }
-
-  // admin/index.html 에는 myLoginId 가, teacher/index.html 에는 me 가 있습니다 — 둘 다 대비합니다.
-  var who = (typeof myLoginId !== 'undefined' && myLoginId) ||
-            (typeof me !== 'undefined' && me && me.name) || '';
+  var who = noticeWhoAmI();
 
   const { error } = await sb.from('announcements').upsert({
     school_id: SCHOOL_ID, content: content, link: link || null, created_by_name: who
   }, { onConflict: 'school_id' });
 
   if (error) { toast('올리지 못했습니다: ' + error.message, 'bad'); return; }
+
+  // 지금 뜨는 공지와는 별개로, «지난 공지» 에서 다시 볼 수 있게 한 줄 남깁니다.
+  // 이 기록이 실패해도 공지 자체는 이미 올라갔으니 사용자에게는 알리지 않습니다.
+  await sb.from('announcement_log').insert({
+    school_id: SCHOOL_ID, content: content, link: link || null, created_by_name: who
+  });
+
   toast('공지를 올렸습니다.');
   closeNoticeModal();
 }
 
 async function clearNotice() {
-  if (!confirm('지금 뜨고 있는 공지를 지울까요?')) return;
+  if (!confirm('지금 뜨고 있는 공지를 지울까요? (지난 공지 기록에는 남습니다)')) return;
   const { error } = await sb.from('announcements').delete().eq('school_id', SCHOOL_ID);
   if (error) { toast('지우지 못했습니다: ' + error.message, 'bad'); return; }
   document.getElementById('notice-content').value = '';
@@ -73,4 +86,31 @@ async function clearNotice() {
   renderNoticePreview();
   toast('공지를 지웠습니다.');
   closeNoticeModal();
+}
+
+// ── 지난 공지 ── 최근 30개까지, 새 것부터.
+async function loadNoticeHistory() {
+  var box = document.getElementById('notice-history');
+  if (!box) return;
+  box.innerHTML = '<p class="hint">불러오는 중...</p>';
+
+  const { data, error } = await sb.from('announcement_log')
+    .select('content, link, created_by_name, created_at')
+    .eq('school_id', SCHOOL_ID).order('created_at', { ascending: false }).limit(30);
+
+  if (error) { box.innerHTML = '<p class="hint">지난 공지를 불러오지 못했습니다: ' + esc(error.message) + '</p>'; return; }
+  if (!data || !data.length) { box.innerHTML = '<p class="hint">아직 올린 공지가 없습니다.</p>'; return; }
+
+  box.innerHTML = data.map(function (r) {
+    var d = new Date(r.created_at);
+    var when = (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' +
+      ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    var link = (r.link || '').trim();
+    var safeLink = link ? (/^https?:\/\//i.test(link) ? link : 'https://' + link) : '';
+    return '<div class="notice-history-row">' +
+      '<div class="notice-history-when">' + when + (r.created_by_name ? ' · ' + esc(r.created_by_name) : '') + '</div>' +
+      '<div class="notice-history-body">' + esc(r.content).replace(/\n/g, '<br>') +
+        (link ? '<br><a href="' + esc(safeLink) + '" target="_blank" rel="noopener">' + esc(link) + '</a>' : '') +
+      '</div></div>';
+  }).join('');
 }

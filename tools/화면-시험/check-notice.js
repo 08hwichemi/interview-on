@@ -47,6 +47,17 @@ function 열기(b, viewport, fake) {
     확인('미리보기 링크에도 https:// 가 미리 붙는가(실제로 뜰 모양 그대로)',
          await p.evaluate(() => document.querySelector('#notice-preview a').getAttribute('href') === 'https://forms.gle/abc123'));
 
+    // 끊어질 자리(/·?·=) 가 거의 없는 긴 링크(구글 드라이브 공유 주소 같은)를 넣어도
+    // 작은 창(480px) 밖으로 미리보기가 밀고 나가면 안 됩니다.
+    await p.fill('#notice-link', 'https://drive.google.com/' + 'a'.repeat(80));
+    await p.waitForTimeout(150);
+    확인('긴 링크를 넣어도 미리보기가 창 밖으로 밀고 나가지 않는가',
+         await p.evaluate(() => {
+           var modal = document.querySelector('.notice-modal');
+           return modal.scrollWidth <= modal.clientWidth + 1;
+         }));
+    await p.fill('#notice-link', 'forms.gle/abc123');   // 저장은 원래 값으로
+
     await p.click('button:has-text("올리기")');
     await p.waitForTimeout(300);
 
@@ -61,11 +72,28 @@ function 열기(b, viewport, fake) {
     await p.waitForTimeout(200);
     확인('다시 열면 저장된 내용이 채워져 있는가',
          await p.evaluate(() => document.getElementById('notice-content').value.indexOf('자기소개 초안') > -1));
+    확인('지난 공지 목록에 방금 올린 것이 쌓이는가',
+         (await p.textContent('#notice-history')).indexOf('자기소개 초안') > -1);
+
+    console.log('\n── 지난 공지 — 새로 덮어써도, 지워도 기록은 남는다 ──');
+    await p.fill('#notice-content', '다음 주엔 실전 모의고사가 있습니다.');
+    await p.fill('#notice-link', '');
+    await p.click('button:has-text("올리기")');
+    await p.waitForTimeout(300);
+    var log = await 표(p, 'announcement_log');
+    확인('올릴 때마다 기록이 한 줄씩 쌓이는가', log.length === 2, JSON.stringify(log));
+
+    await p.click('button:has-text("📢 공지")');
+    await p.waitForTimeout(200);
+    var histText = await p.textContent('#notice-history');
+    확인('지난 공지 목록에 새 것부터 둘 다 보이는가',
+         histText.indexOf('모의고사') < histText.indexOf('자기소개 초안'), histText.replace(/\s+/g, ' '));
 
     p.once('dialog', d => d.accept());
     await p.click('#btn-notice-clear');
     await p.waitForTimeout(300);
-    확인('지우면 표에서 사라지는가', (await 표(p, 'announcements')).length === 0);
+    확인('지우면 지금 뜨는 공지 표에서는 사라지는가', (await 표(p, 'announcements')).length === 0);
+    확인('그래도 지난 공지 기록은 그대로 남아 있는가', (await 표(p, 'announcement_log')).length === 2);
 
     확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
     await ctx.close();
@@ -173,6 +201,18 @@ function 열기(b, viewport, fake) {
     확인('공지 상자가 뜨는가', await p.evaluate(() => !document.getElementById('notice-box').hidden));
     확인('링크에 https:// 가 붙어서 걸리는가',
          await p.evaluate(() => document.querySelector('#notice-box a').getAttribute('href') === 'https://forms.gle/xyz'));
+
+    // 구글 드라이브 링크처럼 끊어질 자리(/·?·=)가 거의 없는 긴 주소도 좁은 휴대폰
+    // 화면(420px) 밖으로 밀려나지 않아야 합니다 — overflow-wrap 이 없으면 잘려 보입니다.
+    await p.evaluate(() => {
+      window.__T.announcements[0].link = 'https://drive.google.com/' + 'a'.repeat(80);
+      window.__T.announcements[0].updated_at = '2026-09-24T00:00:00Z';
+      return noticeCheck();
+    });
+    await p.waitForTimeout(200);
+    확인('끊어질 자리 없는 긴 링크도 화면을 밀고 나가지 않는가',
+         await p.evaluate(() => document.documentElement.scrollWidth <= 420),
+         'scrollWidth ' + await p.evaluate(() => document.documentElement.scrollWidth));
 
     확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
     await ctx.close();

@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-09-23.2">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-09-23.3">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-23.2">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-23.2">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-23.2">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-23.2">
-  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-09-23.2">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-23.2">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-09-23.3">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-09-23.3">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-09-23.3">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-09-23.3">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-09-23.3">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-09-23.3">
 </head>
 <body>
 
@@ -482,6 +482,10 @@
       <button class="ghost" onclick="closeNoticeModal()">닫기</button>
       <button class="btn solid" onclick="saveNotice()">올리기</button>
     </div>
+
+    <!-- 지금 뜨는 공지를 지우거나 새로 덮어써도, 무엇을 올렸었는지 여기서 다시 볼 수 있습니다 -->
+    <p class="hint" style="margin:18px 0 6px">지난 공지</p>
+    <div id="notice-history" class="notice-history"></div>
   </div>
 </div>
 
@@ -489,20 +493,20 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-09-23.2"></script>
-<script src="../assets/js/update-bar.js?v=2026-09-23.2"></script>
-<script src="../assets/js/utils.js?v=2026-09-23.2"></script>
-<script src="../assets/js/api.js?v=2026-09-23.2"></script>
-<script src="../assets/js/browse.js?v=2026-09-23.2"></script>
-<script src="../assets/js/reviews.js?v=2026-09-23.2"></script>
-<script src="../assets/js/questions.js?v=2026-09-23.2"></script>
-<script src="../assets/js/report.js?v=2026-09-23.2"></script>
-<script src="../assets/js/chat.js?v=2026-09-23.2"></script>
-<script src="../assets/js/practice.js?v=2026-09-23.2"></script>
-<script src="../assets/js/notice.js?v=2026-09-23.2"></script>
-<script src="../assets/js/admin-notice.js?v=2026-09-23.2"></script>
-<script src="../assets/js/teacher-app.js?v=2026-09-23.2"></script>
-<script src="../assets/js/saenggibu.js?v=2026-09-23.2"></script>
+<script src="../assets/js/config.js?v=2026-09-23.3"></script>
+<script src="../assets/js/update-bar.js?v=2026-09-23.3"></script>
+<script src="../assets/js/utils.js?v=2026-09-23.3"></script>
+<script src="../assets/js/api.js?v=2026-09-23.3"></script>
+<script src="../assets/js/browse.js?v=2026-09-23.3"></script>
+<script src="../assets/js/reviews.js?v=2026-09-23.3"></script>
+<script src="../assets/js/questions.js?v=2026-09-23.3"></script>
+<script src="../assets/js/report.js?v=2026-09-23.3"></script>
+<script src="../assets/js/chat.js?v=2026-09-23.3"></script>
+<script src="../assets/js/practice.js?v=2026-09-23.3"></script>
+<script src="../assets/js/notice.js?v=2026-09-23.3"></script>
+<script src="../assets/js/admin-notice.js?v=2026-09-23.3"></script>
+<script src="../assets/js/teacher-app.js?v=2026-09-23.3"></script>
+<script src="../assets/js/saenggibu.js?v=2026-09-23.3"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
