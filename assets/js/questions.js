@@ -86,15 +86,14 @@ function renderQuestionList(data) {
 
     for (; i < end; i++) {
       var g = groups[i];
-      html += '<div class="card qcard-open">';
-      html += '  <div class="card-header">';
+      html += '<div class="card" onclick="toggleCard(this)">';
+      html += '  <div class="card-header"><div>';
       html += '      <div class="card-title">' + (g.대학 || '') + '</div>';
       html += '      <div class="card-tags">';
       if (g.년도) html += '<span class="tag">' + g.년도 + '</span>';
       if (g.c1) html += '<span class="tag">' + g.c1 + '</span>';
-      html += '      </div>';
-      html += '  </div>';
-      html += '  <div class="card-body qcard-body">';
+      html += '      </div></div><div class="arrow">▶</div></div>';
+      html += '  <div class="card-body">';
       html += g.items.map(function (item, idx) {
         var c2tag = item['c2'] ? ' <span class="tag">' + item['c2'] + '</span>' : '';
         return '<div class="qline"><span class="qn">' + (idx + 1) + '.</span> ' +

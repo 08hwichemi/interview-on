@@ -80,8 +80,11 @@ const QUESTIONS = [
     확인('역량2까지 고르면 1건만 남는가', await p.evaluate(() => document.querySelectorAll('#question-list .card').length) === 1);
     확인('그 카드가 맞는 질문인가',
          (await p.evaluate(() => document.querySelector('#question-list .card').textContent)).indexOf('갈등을 풀어 본 경험') > -1);
-    확인('누르지 않아도 질문이 처음부터 보이는가(펼치기 필요 없음)',
-         await p.evaluate(() => getComputedStyle(document.querySelector('#question-list .card .card-body')).display !== 'none'));
+    확인('카드는 실전 면접 후기처럼 접힌 채로 시작하는가(눌러야 폄)',
+         await p.evaluate(() => getComputedStyle(document.querySelector('#question-list .card .card-body')).display === 'none'));
+    await p.click('#question-list .card');
+    await p.waitForTimeout(100);
+    확인('누르면 펴지는가', await p.evaluate(() => getComputedStyle(document.querySelector('#question-list .card .card-body')).display !== 'none'));
 
     확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
     await ctx.close();

@@ -29,11 +29,6 @@
 .card-body { display: none; padding: 16px; border-top: 1px solid var(--line); background: white; }
 .card.expanded .card-body { display: block; }
 
-/* 대학별 기출 질문 카드 — 질문 한 줄뿐이라 눌러서 펴는 게 번거롭기만 합니다.
-   처음부터 다 보이게 두고, 누를 일이 없으니 손가락 커서도 뺍니다. */
-.qcard-open .card-header { cursor: default; }
-.qcard-open .qcard-body { display: block; }
-
 /* 같은 대학·연도·전형의 질문은 카드 하나에 번호를 매겨 나란히 둡니다
    (한 카테고리에 질문이 여럿인 대학이 많아, 카드를 따로따로 두면 너무 잘게 쪼개집니다). */
 .qline { display: flex; gap: 6px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); }
