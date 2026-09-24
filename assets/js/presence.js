@@ -16,12 +16,15 @@ var PRESENCE_POLL_MS = 45000;           // 교사: 45초마다 다시 읽기
 var PRESENCE_ONLINE_WITHIN_MS = 90000;  // 마지막 하트비트가 90초 안이면 온라인
 
 // ── 학생 쪽: 하트비트 보내기 ──
+// ⚠️ sb.rpc(...) 는 진짜 Promise 가 아니라 «then 만 있는» 빌더입니다.
+//    .catch() 를 바로 이어 붙이면 그 자리에서 "catch is not a function" 이 나서
+//    하트비트가 서버에 가 보지도 못하고 죽습니다 — await 로 감싸고 try/catch 를 써야 합니다.
 var presenceHeartbeatTimer = null;
 function startHeartbeat() {
   if (presenceHeartbeatTimer) return;
-  function tick() {
+  async function tick() {
     if (document.hidden) return;   // 이 탭을 안 보고 있으면 건너뜁니다
-    sb.rpc('student_heartbeat').catch(function () { /* 한 번 놓쳐도 다음에 또 보냅니다 */ });
+    try { await sb.rpc('student_heartbeat'); } catch (e) { /* 한 번 놓쳐도 다음에 또 보냅니다 */ }
   }
   tick();
   presenceHeartbeatTimer = setInterval(tick, PRESENCE_HEARTBEAT_MS);

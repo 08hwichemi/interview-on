@@ -127,34 +127,41 @@ window.supabase = {
       from: builder,
       // 서버 함수 (rpc). 지금은 «톡 개수» 하나만 씁니다 —
       // 관리자는 남의 톡 «내용» 은 못 읽고 개수만 봅니다.
+      //
+      // ⚠️ 진짜 supabase-js 의 sb.rpc(...) 는 진짜 Promise 가 아니라 «then 만 있는»
+      //    빌더입니다. 여기서 그냥 Promise.resolve(...) 를 돌려주면(진짜 Promise라
+      //    .catch 가 있음) 화면 쪽 코드가 실수로 .catch() 를 이어 붙여도 시험에서는
+      //    안 걸리고 실제 배포에서만 "catch is not a function" 으로 터집니다
+      //    (실제로 한 번 이렇게 겪었습니다 — presence.js 의 하트비트). 그래서 일부러
+      //    then() 만 있는 얇은 객체로 감싸 돌려줍니다.
       rpc(name) {
         window.__calls.push({ table: '__rpc', op: name });
+        function 결과(data, error) {
+          return { then(res, rej) { return Promise.resolve({ data: data, error: error || null }).then(res, rej); } };
+        }
         if (name === 'admin_chat_count')
-          return Promise.resolve({ data: (window.__T.chats || []).length, error: null });
+          return 결과((window.__T.chats || []).length);
         // 수시지원계획서 앱에서 받아 오기. 진짜는 서버가 다른 방에 물어봅니다.
         if (name === 'sync_susi_plans') {
           // 진짜 서버는 «수시 6장» 만 받아 옵니다 (area='main')
           window.__T.susi_plans = ((window.__FAKE__ && window.__FAKE__.susiFetched) || [])
             .filter(function (r) { return r.area === 'main'; });
-          return Promise.resolve({
-            data: { rows: window.__T.susi_plans.length,
-                    matched_students: new Set(window.__T.susi_plans.map(function (r) {
-                      return r.student_no; })).size },
-            error: null
-          });
+          return 결과({ rows: window.__T.susi_plans.length,
+                       matched_students: new Set(window.__T.susi_plans.map(function (r) {
+                         return r.student_no; })).size });
         }
         if (name === 'admin_wipe_chats') {
           const n = (window.__T.chats || []).length;
           window.__T.chats = [];
-          return Promise.resolve({ data: n, error: null });
+          return 결과(n);
         }
         // 학생 접속 표시(presence.js) — 로그인한 학생 본인 줄의 last_seen_at 만 찍습니다
         if (name === 'student_heartbeat') {
           const me = (window.__T.students || []).find(function (s) { return s.auth_user_id === 'u1'; });
           if (me) me.last_seen_at = new Date().toISOString();
-          return Promise.resolve({ data: null, error: null });
+          return 결과(null);
         }
-        return Promise.resolve({ data: null, error: null });
+        return 결과(null);
       },
       functions: {
         invoke(name, opts) {
