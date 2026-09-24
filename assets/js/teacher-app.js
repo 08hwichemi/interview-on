@@ -285,7 +285,7 @@ async function loadStudents() {
 
   const { data, error } = await sb
     .from('students')
-    .select('id, student_no, name, auth_user_id, grade')
+    .select('id, student_no, name, auth_user_id, grade, last_seen_at')
     .order('student_no');
 
   if (error) {
@@ -330,10 +330,11 @@ function onSearch(el) { searchWord = el.value.trim(); renderStudents(); }
 function studentRow(s) {
   var on = target && target.id === s.id;
   var fav = favorites[s.id] === true;
+  var online = isStudentOnline(s.last_seen_at);
   return '<div class="srow">' +
     '<button class="railrow" aria-current="' + !!on + '" onclick="pickStudent(\'' + s.id + '\')">' +
       '<span class="id">' + esc(s.student_no) + '</span>' +
-      '<span class="nm">' + esc(s.name) + '</span>' +
+      '<span class="nm">' + esc(s.name) + (online ? ' <span class="online-dot" title="지금 접속 중"></span>' : '') + '</span>' +
     '</button>' +
     '<button class="star" aria-pressed="' + fav + '" onclick="toggleFavorite(\'' + s.id + '\')"' +
       ' title="' + (fav ? '담당 학생에서 빼기' : '담당 학생으로 담기') + '">★</button>' +

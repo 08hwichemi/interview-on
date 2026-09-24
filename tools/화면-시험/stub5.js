@@ -148,6 +148,12 @@ window.supabase = {
           window.__T.chats = [];
           return Promise.resolve({ data: n, error: null });
         }
+        // 학생 접속 표시(presence.js) — 로그인한 학생 본인 줄의 last_seen_at 만 찍습니다
+        if (name === 'student_heartbeat') {
+          const me = (window.__T.students || []).find(function (s) { return s.auth_user_id === 'u1'; });
+          if (me) me.last_seen_at = new Date().toISOString();
+          return Promise.resolve({ data: null, error: null });
+        }
         return Promise.resolve({ data: null, error: null });
       },
       functions: {

@@ -461,6 +461,15 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .railrow .id{font-weight:700;font-variant-numeric:tabular-nums;font-size:12.5px}
 .railrow .nm{font-weight:500}
 
+/* 학생이 지금 화면을 열어 두었으면(하트비트, presence.js) 이름 옆에 초록 점.
+   접속 안 했을 땐 점 자체가 아예 없습니다 — 회색 점이 초록으로 바뀌는 것보다
+   «없다가 생기는» 쪽이 눈에 더 잘 띕니다. */
+.online-dot{
+  display:inline-block;width:9px;height:9px;border-radius:50%;
+  background:#22c55e;box-shadow:0 0 0 2px var(--surface);vertical-align:middle;
+}
+.railrow[aria-current="true"] .online-dot{box-shadow:0 0 0 2px var(--ink)}
+
 /* 질문 진행 상황 */
 .railrow.q{align-items:flex-start}
 .railrow .qn{
