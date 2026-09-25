@@ -272,6 +272,10 @@ body.has-update .header { top: var(--updatebar-h, 44px); }
   border-radius: 999px; background: #D14343; color: #fff;
   font-size: 13px; font-weight: 800; line-height: 1;
 }
+/* ⚠️ 위의 display 가 hidden 속성보다 이겨 버려서(작성자 스타일이 브라우저
+   기본 스타일을 이깁니다), 0 이면 JS 가 hidden 을 켜도 빨간 뱃지가 "0" 을
+   단 채로 계속 보였습니다. hidden 이면 확실히 사라지게 합니다. */
+.newbadge[hidden] { display: none; }
 /* 목록에서 아직 안 읽은 회차 */
 .card.unread .card-header { background: var(--amber-soft); }
 .card.unread .card-title::after {

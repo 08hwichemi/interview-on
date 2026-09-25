@@ -65,7 +65,11 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
   await p.waitForTimeout(200);
   await p.evaluate(() => practiceRefreshBadge());
   await p.waitForTimeout(200);
-  확인('홈의 빨간 숫자도 사라지는가', await p.evaluate(() => document.getElementById('practice-badge').hidden === true));
+  확인('홈의 빨간 숫자도 사라지는가(진짜로 화면에서도 없어지는가 — hidden 속성만 믿지 않음)',
+       await p.evaluate(() => {
+         var el = document.getElementById('practice-badge');
+         return el.hidden === true && getComputedStyle(el).display === 'none';
+       }));
 
   확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
   await b.close();
