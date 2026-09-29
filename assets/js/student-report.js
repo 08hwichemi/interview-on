@@ -52,35 +52,24 @@ async function refreshReportBadge() {
     .order('started_at', { ascending: false });
   if (error) return;
   myReports = data || [];
-  await loadReportReads();
+  // 읽음 표시는 이 사람이 읽을 때만 바뀌고, 그때 markRead 가 화면 쪽도 같이 고칩니다.
+  // 그래서 처음 한 번만 받아 옵니다(목록 화면을 열 때는 loadMyReports 가 다시 받습니다).
+  if (!reportReadsLoaded) { await loadReportReads(); reportReadsLoaded = true; }
   paintBadge();
 }
+var reportReadsLoaded = false;
 
-// 선생님이 «전달» 을 누른 순간 학생 폰에 뜨게 합니다.
-//   1) 서버가 알려주는 실시간(Realtime)
-//   2) 그게 막혀 있을 때를 대비해 1분마다, 그리고 화면을 다시 볼 때마다 확인
-// 둘 다 두는 이유는 실시간이 조용히 끊기는 일이 있기 때문입니다.
+// 리포트는 바로 떠야 할 만큼 급하지 않아서 실시간·주기 확인은 두지 않습니다.
+// (서버 요청 1건 = Supabase 로그 1줄이라, 학생 수만큼 곱해지는 확인은 줄입니다.)
+// 앱을 열 때 한 번, 그리고 앱으로 돌아왔을 때 마지막 확인에서 5분이 지났으면 한 번.
 var reportWatchOn = false;
 
 function watchReports() {
   if (reportWatchOn || !currentUser || currentUser.role !== 'student') return;
   reportWatchOn = true;
-
-  try {
-    sb.channel('my-reports')
-      .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'interviews' },
-          function () { refreshReportBadge(); })
-      .subscribe();
-  } catch (e) {
-    console.warn('실시간 알림을 켜지 못했습니다:', e);   // 아래 확인으로도 충분합니다
-  }
-
-  // 실시간이 주 경로라 이건 끊겼을 때 대비용 — 3분마다, 화면을 볼 때만 (요청마다 로그가 쌓입니다)
-  var recheck = throttleRefresh(refreshReportBadge, 30000);
-  setInterval(recheck, 3 * 60 * 1000);
+  var recheck = throttleRefresh(refreshReportBadge, 5 * 60 * 1000);
   document.addEventListener('visibilitychange', recheck);
-  refreshReportBadge();
+  recheck();
 }
 
 // ══════════════ 목록 ══════════════

@@ -300,17 +300,11 @@ var practiceWatchOn = false;
 function practiceWatchComments() {
   if (practiceWatchOn || typeof currentUser === 'undefined' || !currentUser || currentUser.role !== 'student') return;
   practiceWatchOn = true;
-  try {
-    sb.channel('my-practice-comments')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'practice_comments' },
-          function () { practiceRefreshBadge(); })
-      .subscribe();
-  } catch (e) { console.warn('실시간 알림을 켜지 못했습니다:', e); }
-  // 실시간이 주 경로라 이건 끊겼을 때 대비용 — 3분마다, 화면을 볼 때만 (요청마다 로그가 쌓입니다)
-  var recheck = throttleRefresh(practiceRefreshBadge, 30000);
-  setInterval(recheck, 3 * 60 * 1000);
+  // 코멘트는 급하지 않아서 실시간·주기 확인은 두지 않습니다(student-report.js 와 같은 방식).
+  // 앱을 열 때 한 번, 앱으로 돌아왔을 때 마지막 확인에서 5분이 지났으면 한 번.
+  var recheck = throttleRefresh(practiceRefreshBadge, 5 * 60 * 1000);
   document.addEventListener('visibilitychange', recheck);
-  practiceRefreshBadge();
+  recheck();
 }
 
 // ══════════════ 작성 — 학생만 씁니다 ══════════════
