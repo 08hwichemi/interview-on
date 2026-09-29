@@ -278,10 +278,11 @@ async function practiceMarkCommentsRead(answerId) {
 // 홈 화면의 빨간 숫자 — 안 읽은 코멘트 개수. student-report.js 의 report-badge 와 같은 짜임입니다.
 async function practiceRefreshBadge() {
   if (typeof currentUser === 'undefined' || !currentUser || currentUser.role !== 'student') return;
-  const { data, error } = await sb.from('practice_answers').select('id');
+  // 답안 id 를 먼저 받지 않고 코멘트를 바로 묻습니다(요청 2번 → 1번).
+  // 학생 RLS(practice_comments_student_read)가 자기 답안에 달린 것만 돌려줍니다.
+  const { data, error } = await sb.from('practice_comments').select('id');
   if (error) return;
-  var ids = (data || []).map(function (a) { return a.id; });
-  var comments = await fetchPracticeComments(ids);
+  var comments = data || [];
   await practiceLoadCommentReads();
   practiceUnreadCount = comments.filter(function (c) { return !practiceCommentReads[c.id]; }).length;
   practicePaintBadge();
@@ -299,15 +300,11 @@ var practiceWatchOn = false;
 function practiceWatchComments() {
   if (practiceWatchOn || typeof currentUser === 'undefined' || !currentUser || currentUser.role !== 'student') return;
   practiceWatchOn = true;
-  try {
-    sb.channel('my-practice-comments')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'practice_comments' },
-          function () { practiceRefreshBadge(); })
-      .subscribe();
-  } catch (e) { console.warn('실시간 알림을 켜지 못했습니다:', e); }
-  setInterval(practiceRefreshBadge, 60000);
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) practiceRefreshBadge(); });
-  practiceRefreshBadge();
+  // 코멘트는 급하지 않아서 실시간·주기 확인은 두지 않습니다(student-report.js 와 같은 방식).
+  // 앱을 열 때 한 번, 앱으로 돌아왔을 때 마지막 확인에서 5분이 지났으면 한 번.
+  var recheck = throttleRefresh(practiceRefreshBadge, 5 * 60 * 1000);
+  document.addEventListener('visibilitychange', recheck);
+  recheck();
 }
 
 // ══════════════ 작성 — 학생만 씁니다 ══════════════
