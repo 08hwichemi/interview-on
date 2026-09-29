@@ -305,7 +305,8 @@ function practiceWatchComments() {
           function () { practiceRefreshBadge(); })
       .subscribe();
   } catch (e) { console.warn('실시간 알림을 켜지 못했습니다:', e); }
-  setInterval(practiceRefreshBadge, 60000);
+  // 실시간이 주 경로라 이건 끊겼을 때 대비용 — 3분마다, 화면을 볼 때만 (요청마다 로그가 쌓입니다)
+  setInterval(function () { if (!document.hidden) practiceRefreshBadge(); }, 3 * 60 * 1000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) practiceRefreshBadge(); });
   practiceRefreshBadge();
 }

@@ -20,7 +20,7 @@
 // ※ 새 판을 올릴 때는 손으로 고치지 말고 `python3 tools/판올리기.py` 를 쓰세요.
 //    version.txt · BUILD_ID · 파일 주소 세 곳을 한꺼번에 맞춥니다.
 
-var BUILD_ID = '2026-09-25.1';
+var BUILD_ID = '2026-09-29.1';
 var UPDATE_SHOWN = false;
 var SERVER_VERSION = null;   // 서버에 올라와 있는 판 번호
 
@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', function () {
   window.addEventListener('resize', sizeUpdateBar);
 
   checkForUpdate();                             // 열자마자 한 번
-  setInterval(checkForUpdate, 3 * 60 * 1000);   // 그 뒤로 3분마다
+  setInterval(function () { if (!document.hidden) checkForUpdate(); }, 3 * 60 * 1000);   // 그 뒤로 3분마다(보고 있을 때만)
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') checkForUpdate();   // 탭으로 돌아올 때도
   });

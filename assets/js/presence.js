@@ -53,7 +53,7 @@ async function refreshOnlineStatus() {
 function startOnlineWatch() {
   if (presencePollTimer) return;
   refreshOnlineStatus();
-  presencePollTimer = setInterval(refreshOnlineStatus, PRESENCE_POLL_MS);
+  presencePollTimer = setInterval(function () { if (!document.hidden) refreshOnlineStatus(); }, PRESENCE_POLL_MS);
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) refreshOnlineStatus();
   });

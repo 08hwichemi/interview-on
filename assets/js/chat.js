@@ -150,7 +150,8 @@ function watchChatList() {
   } catch (e) {
     chatListChannel = null;
   }
-  setInterval(loadChatRooms, 60000);
+  // 실시간이 주 경로라 이건 끊겼을 때 대비용 — 3분마다, 화면을 볼 때만 (요청마다 로그가 쌓입니다)
+  setInterval(function () { if (!document.hidden) loadChatRooms(); }, 3 * 60 * 1000);
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) loadChatRooms();
   });
