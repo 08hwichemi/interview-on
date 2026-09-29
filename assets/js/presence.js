@@ -4,7 +4,7 @@
 // 실시간 연결을 하나씩 열어 두는데, 학교 학생이 200명에 가까워서(무료 요금제
 // 동시 접속 200개) 거기에 더 얹으면 여유가 없습니다. 그래서 학생이 화면을 열어
 // 둔 동안 60초마다 "저 여기 있어요" 라고 시각만 하나 서버에 찍어 두고(하트비트),
-// 교사 화면은 45초마다 그 시각들을 다시 읽어서 90초 안이면 온라인으로 봅니다.
+// 교사 화면은 60초마다 그 시각들을 다시 읽어서 90초 안이면 온라인으로 봅니다.
 // (온라인 기준을 하트비트 간격의 1.5배로 잡아, 네트워크가 잠깐 끊겨도 바로
 // 회색으로 안 꺼지게 여유를 둡니다.)
 //
@@ -12,7 +12,7 @@
 // 있을 때만 "접속 중"으로 칩니다.
 
 var PRESENCE_HEARTBEAT_MS = 60000;      // 학생: 60초마다 하트비트
-var PRESENCE_POLL_MS = 45000;           // 교사: 45초마다 다시 읽기
+var PRESENCE_POLL_MS = 60000;           // 교사: 60초마다 다시 읽기(화면을 볼 때만)
 var PRESENCE_ONLINE_WITHIN_MS = 90000;  // 마지막 하트비트가 90초 안이면 온라인
 
 // ── 학생 쪽: 하트비트 보내기 ──
@@ -28,9 +28,8 @@ function startHeartbeat() {
   }
   tick();
   presenceHeartbeatTimer = setInterval(tick, PRESENCE_HEARTBEAT_MS);
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) tick();   // 탭으로 돌아오면 바로 한 번 찍습니다
-  });
+  // 탭으로 돌아오면 바로 한 번 찍습니다 — 단, 30초 안에 또 들락날락하면 건너뜁니다
+  document.addEventListener('visibilitychange', throttleRefresh(tick, 30000));
 }
 
 // ── 교사 쪽: 학생 명단에 온라인 점 ──
@@ -53,8 +52,7 @@ async function refreshOnlineStatus() {
 function startOnlineWatch() {
   if (presencePollTimer) return;
   refreshOnlineStatus();
-  presencePollTimer = setInterval(function () { if (!document.hidden) refreshOnlineStatus(); }, PRESENCE_POLL_MS);
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) refreshOnlineStatus();
-  });
+  var recheck = throttleRefresh(refreshOnlineStatus, 30000);
+  presencePollTimer = setInterval(recheck, PRESENCE_POLL_MS);
+  document.addEventListener('visibilitychange', recheck);
 }

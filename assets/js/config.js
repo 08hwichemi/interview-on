@@ -13,6 +13,21 @@ const SCHOOL_ID = '9bf9d65d-9cb0-428b-90a5-0c4b868dc40c';
 // Supabase 클라이언트. 로그인 세션 유지와 토큰 갱신을 알아서 처리합니다.
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// 서버 요청 1건 = Supabase 로그 1줄(Log Ingestion). 뱃지·접속 표시 같은 «다시 확인» 은
+// 이걸로 감싸서 부릅니다 — 화면이 안 보이면 건너뛰고, 마지막 확인 뒤 minGapMs 가
+// 안 지났으면 건너뜁니다. 폰에서 앱을 들락날락할 때마다 여러 기능이 한꺼번에
+// 서버에 묻던 것을 막습니다. (실시간 알림으로 오는 확인은 감싸지 않고 바로 부릅니다.)
+function throttleRefresh(fn, minGapMs) {
+  var last = 0;
+  return function () {
+    if (document.hidden) return;
+    var now = Date.now();
+    if (now - last < minGapMs) return;
+    last = now;
+    return fn();
+  };
+}
+
 // 현재 로그인한 사람의 정보 (auth.js 가 채웁니다)
 var currentUser = null;     // { id, role, name, school_id, must_change_password }
 

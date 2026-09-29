@@ -77,10 +77,9 @@ function watchReports() {
   }
 
   // 실시간이 주 경로라 이건 끊겼을 때 대비용 — 3분마다, 화면을 볼 때만 (요청마다 로그가 쌓입니다)
-  setInterval(function () { if (!document.hidden) refreshReportBadge(); }, 3 * 60 * 1000);
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) refreshReportBadge();
-  });
+  var recheck = throttleRefresh(refreshReportBadge, 30000);
+  setInterval(recheck, 3 * 60 * 1000);
+  document.addEventListener('visibilitychange', recheck);
   refreshReportBadge();
 }
 

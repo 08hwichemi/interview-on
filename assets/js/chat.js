@@ -151,10 +151,9 @@ function watchChatList() {
     chatListChannel = null;
   }
   // 실시간이 주 경로라 이건 끊겼을 때 대비용 — 3분마다, 화면을 볼 때만 (요청마다 로그가 쌓입니다)
-  setInterval(function () { if (!document.hidden) loadChatRooms(); }, 3 * 60 * 1000);
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) loadChatRooms();
-  });
+  var recheck = throttleRefresh(loadChatRooms, 30000);
+  setInterval(recheck, 3 * 60 * 1000);
+  document.addEventListener('visibilitychange', recheck);
 }
 
 // ══════════════ 톡 목록 창 ══════════════

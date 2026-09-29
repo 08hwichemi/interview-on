@@ -278,10 +278,11 @@ async function practiceMarkCommentsRead(answerId) {
 // 홈 화면의 빨간 숫자 — 안 읽은 코멘트 개수. student-report.js 의 report-badge 와 같은 짜임입니다.
 async function practiceRefreshBadge() {
   if (typeof currentUser === 'undefined' || !currentUser || currentUser.role !== 'student') return;
-  const { data, error } = await sb.from('practice_answers').select('id');
+  // 답안 id 를 먼저 받지 않고 코멘트를 바로 묻습니다(요청 2번 → 1번).
+  // 학생 RLS(practice_comments_student_read)가 자기 답안에 달린 것만 돌려줍니다.
+  const { data, error } = await sb.from('practice_comments').select('id');
   if (error) return;
-  var ids = (data || []).map(function (a) { return a.id; });
-  var comments = await fetchPracticeComments(ids);
+  var comments = data || [];
   await practiceLoadCommentReads();
   practiceUnreadCount = comments.filter(function (c) { return !practiceCommentReads[c.id]; }).length;
   practicePaintBadge();
@@ -306,8 +307,9 @@ function practiceWatchComments() {
       .subscribe();
   } catch (e) { console.warn('실시간 알림을 켜지 못했습니다:', e); }
   // 실시간이 주 경로라 이건 끊겼을 때 대비용 — 3분마다, 화면을 볼 때만 (요청마다 로그가 쌓입니다)
-  setInterval(function () { if (!document.hidden) practiceRefreshBadge(); }, 3 * 60 * 1000);
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) practiceRefreshBadge(); });
+  var recheck = throttleRefresh(practiceRefreshBadge, 30000);
+  setInterval(recheck, 3 * 60 * 1000);
+  document.addEventListener('visibilitychange', recheck);
   practiceRefreshBadge();
 }
 

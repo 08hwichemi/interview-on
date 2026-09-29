@@ -125,5 +125,5 @@ function noticeWatch() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, function () { noticeCheckBadge(); })
       .subscribe();
   } catch (e) { console.warn('공지 실시간 알림을 켜지 못했습니다:', e); }
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) noticeCheckBadge(); });
+  document.addEventListener('visibilitychange', throttleRefresh(noticeCheckBadge, 30000));
 }
