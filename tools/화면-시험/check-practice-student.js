@@ -55,11 +55,49 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   확인('새 카드에 자율·3 뱃지가 붙는가',
        (await p.evaluate(() => document.querySelector('.prac-card .prac-badges').textContent)).indexOf('자율') > -1);
 
+  // 쓰는 동안은 서버에 안 보내고 이 기기(localStorage)에만 임시본을 둡니다 — 로그 줄이기
   await p.fill('.prac-q-input', '동아리에서 맡은 역할은?');
   await p.fill('.prac-a-input', '실험 설계를 맡았습니다.');
   await p.waitForTimeout(1900);
+  // (질문 칸에서 답변 칸으로 옮길 때 질문 칸을 «벗어나서» 질문은 이미 저장됩니다 — 그게 맞습니다)
+  확인('답변 칸에 쓰는 중인 글은 서버에 안 보내는가',
+       (await 표(p, 'practice_answers')).every(r => (r.answer || '').indexOf('실험 설계') === -1),
+       JSON.stringify((await 표(p, 'practice_answers')).map(r => r.answer)));
+  확인('대신 이 기기에 임시본이 있는가',
+       await p.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('pracDraft:' + PW.studentId) || '{}')).indexOf('실험 설계') > -1));
+  await p.locator('.prac-a-input').first().blur();
+  await p.waitForTimeout(400);
   var rows1 = await 표(p, 'practice_answers');
-  확인('한 줄 저장됐는가', rows1.length === 1 && rows1[0].grade === '3' && rows1[0].category === '자율', JSON.stringify(rows1[0]));
+  확인('칸을 벗어나면 한 줄 저장됐는가', rows1.length === 1 && rows1[0].grade === '3' && rows1[0].category === '자율', JSON.stringify(rows1[0]));
+  확인('서버에 올라가면 임시본을 지우는가', await p.evaluate(() => localStorage.getItem('pracDraft:' + PW.studentId) === null));
+
+  console.log('\n── 바뀐 게 없으면 안 보내고, 앱을 떠나면 바로 보낸다 ──');
+  await p.evaluate(() => { window.__upd = 0; var f = sb.from; sb.from = function (t) { var q = f.apply(this, arguments);
+    if (t === 'practice_answers') { var u = q.update; q.update = function () { window.__upd++; return u.apply(this, arguments); }; } return q; }; });
+  await p.locator('.prac-a-input').first().focus();
+  await p.locator('.prac-a-input').first().blur();
+  await p.waitForTimeout(300);
+  확인('눌렀다가 그냥 나가면(바뀐 것 없음) 저장 안 하는가', await p.evaluate(() => window.__upd === 0));
+  await p.fill('.prac-a-input', '실험 설계와 기록을 맡았습니다.');
+  await p.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+                           document.dispatchEvent(new Event('visibilitychange')); });
+  await p.waitForTimeout(400);
+  await p.evaluate(() => { delete document.hidden; });
+  확인('앱/탭을 떠나면 바로 서버로 보내는가',
+       (await 표(p, 'practice_answers'))[0].answer === '실험 설계와 기록을 맡았습니다.');
+
+  console.log('\n── 못 보낸 임시본은 다음에 열 때 올린다 ──');
+  await p.evaluate(() => {
+    var id = PW.all[0].id, d = {};
+    d[id] = { id: id, grade: '3', category: '자율', question: '동아리에서 맡은 역할은?',
+              answer: '인터넷이 끊겨 못 보낸 글', t: Date.now() + 60000 };
+    localStorage.setItem('pracDraft:' + PW.studentId, JSON.stringify(d));
+  });
+  await p.evaluate(() => practiceWriteInit(PW.studentId, '3', {}));
+  await p.waitForTimeout(400);
+  확인('임시본이 서버에 올라갔는가', (await 표(p, 'practice_answers'))[0].answer === '인터넷이 끊겨 못 보낸 글');
+  확인('화면에도 그 글이 보이는가', (await p.inputValue('.prac-a-input')) === '인터넷이 끊겨 못 보낸 글');
+  확인('올린 뒤 임시본을 지웠는가', await p.evaluate(() => localStorage.getItem('pracDraft:' + PW.studentId) === null));
 
   console.log('\n── 필터를 여러 개 같이 고를 수 있다(다중선택) ──');
   await p.click('button:has-text("＋ 새 질문 쓰기")');
@@ -90,8 +128,13 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   확인('다시 그려도 펼친 상태가 그대로인가(기기에 기억됨)',
        await p.evaluate(() => !document.getElementById('fbox-body-write').hidden));
 
+  // 쓰다가 바로 필터를 눌러도(서버 답을 기다리지 않고 카드를 다시 그려도) 쓴 글이 그대로여야 합니다.
+  await p.fill('#prac-write-list .prac-card:has-text("자율") .prac-a-input', '필터 누르기 직전에 고친 글');
   // 학년 «3» 만 고르면 하나만 남아야 합니다.
   await p.click('#prac-write-grade .prac-chip:has-text("3")');
+  await p.waitForTimeout(50);
+  확인('쓰다가 필터를 눌러도 쓴 글이 그대로 보이는가',
+       (await p.inputValue('#prac-write-list .prac-card:has-text("자율") .prac-a-input')) === '필터 누르기 직전에 고친 글');
   await p.waitForTimeout(150);
   확인('학년 3만 필터하면 한 장만 남는가',
        await p.evaluate(() => document.querySelectorAll('#prac-write-list .prac-card').length === 1));
@@ -118,7 +161,8 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   await p.click('button:has-text("만들기")');
   await p.fill('.prac-q-input >> nth=0', '창체에서 기억에 남는 것은?');
   await p.fill('.prac-a-input >> nth=0', '학급 자치회 활동입니다.');
-  await p.waitForTimeout(1900);
+  await p.locator('.prac-a-input').first().blur();
+  await p.waitForTimeout(400);
   var rows3 = await 표(p, 'practice_answers');
   확인('커스텀 분류로도 저장되는가', rows3.some(r => r.category === '창체'), rows3.length + '줄');
 
