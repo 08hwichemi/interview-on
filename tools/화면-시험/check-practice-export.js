@@ -7,25 +7,35 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
 
 const SCH = '9bf9d65d-9cb0-428b-90a5-0c4b868dc40c';
 
-// 진짜 SheetJS 대신, 무엇을 «썼는지» 만 기록해 두는 가짜입니다.
-const FAKE_XLSX = `
-  window.XLSX = {
-    utils: {
-      aoa_to_sheet: function (aoa) { window.__lastAOA = aoa; return { __aoa: aoa }; },
-      book_new: function () { return {}; },
-      book_append_sheet: function (wb, ws, name) { window.__lastSheetName = name; }
-    },
-    writeFile: function (wb, filename) { window.__xlsxFile = filename; }
-  };
-`;
+// 엑셀 내려받기는 ExcelJS 로 만듭니다. 인터넷(CDN) 대신 깔려 있는 진짜 ExcelJS 를
+// 끼워 넣고, 실제로 내려받아진 .xlsx 를 다시 열어서 꾸밈까지 확인합니다.
+//   준비: npm i -g exceljs@4.4.0  (NODE_PATH 가 가리키는 곳에 깔리면 됩니다)
+const ExcelJS = require('exceljs');
+const EXCELJS_SRC = fs.readFileSync(require.resolve('exceljs/dist/exceljs.min.js'), 'utf8');
+
+// 내려받은 파일을 열어 봅니다.
+async function 엑셀_열기(download) {
+  const file = await download.path();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.readFile(file);
+  return wb.worksheets[0];
+}
 
 async function 열기(b, viewport, fake) {
-  const ctx = await b.newContext({ viewport });
+  // 서비스 워커가 CDN 요청을 먼저 가로채면 아래 route 가 안 먹으므로 꺼 둡니다.
+  const ctx = await b.newContext({ viewport, acceptDownloads: true, serviceWorkers: 'block' });
   await ctx.route('**/supabase-js*/**', r => r.fulfill({ contentType: 'application/javascript', body: SB }));
   await ctx.route('**/pretendard*', r => r.fulfill({ contentType: 'text/css', body: '' }));
-  await ctx.route('**/xlsx*', r => r.fulfill({ contentType: 'application/javascript', body: FAKE_XLSX }));
+  await ctx.route('**/xlsx*', r => r.fulfill({ contentType: 'application/javascript', body: '' }));
+  await ctx.route('**/exceljs*', r => r.fulfill({ contentType: 'application/javascript', body: EXCELJS_SRC }));
   // 인쇄용 새 창도 이 컨텍스트에서 열리므로, 여기서 window.print 를 미리 가짜로 바꿔 둡니다.
   await ctx.addInitScript(() => { window.print = function () { window.__printed = true; }; });
+  // 시험용 크로뮴은 한글 파일 이름을 «download» 로 바꿔 저장해 버려서(진짜 크롬은 괜찮음),
+  // 파일 이름은 내려받기 링크에 적힌 이름으로 봅니다.
+  await ctx.addInitScript(() => {
+    var click = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () { if (this.download) window.__dlName = this.download; return click.call(this); };
+  });
   await ctx.addInitScript(f => { window.__FAKE__ = f; }, fake);
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message));
@@ -40,7 +50,8 @@ async function 열기(b, viewport, fake) {
       question: '자기소개를 해 주세요.', answer: '안녕하세요, 고다윤입니다.',
       created_at: '2026-09-20T01:00:00Z', updated_at: '2026-09-20T01:00:00Z' },
     { id: 'a2', student_id: 's1', grade: '3', category: '진로',
-      question: '진로를 정한 계기는?', answer: '3학년 때 동아리 활동을 하면서입니다.',
+      question: '진로를 정한 계기는?',
+      answer: '3학년 때 동아리 활동을 하면서입니다. '.repeat(20) + '\n둘째 문단입니다.\n셋째 문단입니다.',
       created_at: '2026-09-20T02:00:00Z', updated_at: '2026-09-20T02:00:00Z' }
   ];
 
@@ -60,14 +71,32 @@ async function 열기(b, viewport, fake) {
     await p.waitForSelector('#screen-practice.active');
     await p.waitForTimeout(300);
 
-    await p.click('.prac-export button:has-text("엑셀로 저장")');
-    await p.waitForTimeout(200);
-    var aoa = await p.evaluate(() => window.__lastAOA);
-    확인('파일 이름에 학생 이름이 들어가는가', await p.evaluate(() => window.__xlsxFile.indexOf('고다윤') > -1),
-         await p.evaluate(() => window.__xlsxFile));
-    확인('제목 줄이 «면접 질문지» 인가', aoa[0][1] === '면접 질문지');
-    확인('머리글이 연번·학년·종류·질문·답변 인가', aoa[2].slice(1).join(',') === '연번,학년,종류,질문,답변', aoa[2].join(','));
-    확인('두 답안이 다 담기는가(필터와 상관없이 전부)', aoa.length === 3 + 2, '줄수 ' + aoa.length);
+    const [dl] = await Promise.all([
+      p.waitForEvent('download'),
+      p.click('.prac-export button:has-text("엑셀로 저장")')
+    ]);
+    const 이름 = await p.evaluate(() => window.__dlName);
+    확인('파일 이름에 학생 이름이 들어가는가', /고다윤.*\.xlsx$/.test(이름), 이름);
+    const ws = await 엑셀_열기(dl);
+    확인('시트 이름이 «면접 질문지» 인가', ws.name === '면접 질문지', ws.name);
+    확인('제목 줄이 «면접 질문지» 인가', ws.getCell('B1').value === '면접 질문지');
+    const head = [2, 3, 4, 5, 6].map(c => ws.getRow(3).getCell(c).value).join(',');
+    확인('머리글이 연번·학년·종류·질문·답변 인가', head === '연번,학년,종류,질문,답변', head);
+    확인('두 답안이 다 담기는가(필터와 상관없이 전부)',
+         ws.getCell('E4').value === '자기소개를 해 주세요.' && ws.getCell('E5').value === '진로를 정한 계기는?' && !ws.getCell('E6').value);
+    확인('머리글에 필터가 걸려 있는가', !!ws.autoFilter && JSON.stringify(ws.autoFilter).indexOf('3') > -1, JSON.stringify(ws.autoFilter));
+    const v = (ws.views || [])[0] || {};
+    확인('머리글(3행)까지 틀 고정인가', v.state === 'frozen' && v.ySplit === 3, JSON.stringify(v));
+    확인('질문·답변 칸이 자동 줄바꿈인가',
+         ws.getCell('E5').alignment && ws.getCell('E5').alignment.wrapText === true &&
+         ws.getCell('F5').alignment && ws.getCell('F5').alignment.wrapText === true);
+    확인('답이 긴 줄이 짧은 줄보다 높은가', ws.getRow(5).height > ws.getRow(4).height * 2,
+         ws.getRow(4).height + ' / ' + ws.getRow(5).height);
+    확인('답변 칸이 질문 칸보다 넓은가', ws.getColumn(6).width > ws.getColumn(5).width,
+         ws.getColumn(5).width + ' / ' + ws.getColumn(6).width);
+    확인('머리글에 배경색과 굵은 글씨', ws.getCell('F3').fill && ws.getCell('F3').fill.fgColor && ws.getCell('F3').font.bold === true);
+    확인('인쇄: A4 가로 · 쪽마다 머리글', ws.pageSetup.orientation === 'landscape' && ws.pageSetup.printTitlesRow === '3:3',
+         ws.pageSetup.orientation + ' ' + ws.pageSetup.printTitlesRow);
 
     const [popup] = await Promise.all([
       ctx.waitForEvent('page'),
@@ -104,11 +133,14 @@ async function 열기(b, viewport, fake) {
     await p.click('#setup-tab-practice');
     await p.waitForTimeout(300);
 
-    await p.click('#setup-practice .prac-export button:has-text("엑셀로 저장")');
-    await p.waitForTimeout(200);
-    확인('파일 이름에 학번·이름이 들어가는가',
-         await p.evaluate(() => window.__xlsxFile.indexOf('30101') > -1 && window.__xlsxFile.indexOf('고다윤') > -1),
-         await p.evaluate(() => window.__xlsxFile));
+    const [dl] = await Promise.all([
+      p.waitForEvent('download'),
+      p.click('#setup-practice .prac-export button:has-text("엑셀로 저장")')
+    ]);
+    const 이름 = await p.evaluate(() => window.__dlName);
+    확인('파일 이름에 학번·이름이 들어가는가', 이름.indexOf('30101') > -1 && 이름.indexOf('고다윤') > -1, 이름);
+    const ws = await 엑셀_열기(dl);
+    확인('교사 쪽도 두 답안 · 필터 · 틀 고정', !!ws.getCell('E5').value && !!ws.autoFilter && ws.views[0].ySplit === 3);
 
     const [popup] = await Promise.all([
       ctx.waitForEvent('page'),
