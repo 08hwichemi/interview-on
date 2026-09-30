@@ -17,10 +17,20 @@
 //   2) «새로고침» 단추가 그냥 새로고침하지 않고 주소에 ?v= 를 붙여 다시 엽니다.
 //      주소가 달라져야 브라우저가 쥐고 있던 옛 파일을 버립니다.
 //
+// ── 2026-09-30: 업데이트를 «무조건» 받게 ──
+// 띠만 띄우면 안 누르고 계속 쓰는 사람이 있습니다. 예전 판이 켜진 채로 남으면
+// 고친 것(예: 서버 요청 줄이기)이 그 기기에는 영영 안 먹습니다. 그래서
+//   · 하던 일이 없는 화면이면 → 화면 전체를 덮는 안내를 띄워 «업데이트» 만 누를 수 있게
+//   · 화면을 안 보고 있거나(다른 탭·앱) 돌아오는 순간이면 → 알아서 새로고침
+//   · 날아가면 안 되는 일을 하는 중이면 → 예전처럼 띠만. 그 일이 끝나면 위 둘로
+//     (학생 모의 면접 화면, 선생님이 면접 중이거나 학생을 골라 질문지를 만드는 중,
+//      관리자 화면 — updateIsBusy() 참고)
+// 답안 연습장은 쓰는 글이 그 기기에 임시로 남아서(practice.js) 새로고침해도 안전합니다.
+//
 // ※ 새 판을 올릴 때는 손으로 고치지 말고 `python3 tools/판올리기.py` 를 쓰세요.
 //    version.txt · BUILD_ID · 파일 주소 세 곳을 한꺼번에 맞춥니다.
 
-var BUILD_ID = '2026-09-30.2';
+var BUILD_ID = '2026-09-30.3';
 var UPDATE_SHOWN = false;
 var SERVER_VERSION = null;   // 서버에 올라와 있는 판 번호
 
@@ -57,7 +67,8 @@ function showUpdateBar() {
   sizeUpdateBar();
 }
 
-// 닫기. 이번에 열어 둔 동안에는 다시 뜨지 않습니다(UPDATE_SHOWN 이 남아 있습니다).
+// 닫기. 이번에 열어 둔 동안에는 띠가 다시 뜨지 않습니다(UPDATE_SHOWN 이 남아 있습니다).
+// 다만 하던 일이 끝나면 applyUpdate() 가 덮는 안내를 띄우거나 알아서 새로고침합니다.
 function hideUpdateBar() {
   var bar = document.getElementById('updateBar');
   if (bar) bar.hidden = true;
@@ -72,8 +83,53 @@ function alreadyTried(v) {
   try { return new URLSearchParams(location.search).get('v') === v; } catch (e) { return false; }
 }
 
+// 지금 새로고침하면 하던 것이 날아가는 중인가
+function updateIsBusy() {
+  if (location.pathname.indexOf('/admin/') > -1) return true;            // 관리자: 붙여 넣은 명단 등
+  var el = document.activeElement;                                        // 지금 글을 쓰는 중(톡 입력칸 등)
+  if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !document.hidden) return true;
+  var chat = document.getElementById('chat-input');                       // 보내지 않은 톡
+  if (chat && chat.value && chat.value.trim()) return true;
+  if (document.querySelector('#screen-interview-setup.active, #screen-interview-run.active, #screen-interview-result.active'))
+    return true;                                                          // 학생: 모의 면접(녹음) 중
+  if (typeof liveInterview !== 'undefined' && liveInterview) return true; // 선생님: 면접 진행 중
+  if (typeof target !== 'undefined' && target) return true;               // 선생님: 학생을 골라 질문지 만드는 중
+  return false;
+}
+
+// 화면 전체를 덮는 안내. 닫기 단추가 없습니다 — «업데이트» 만 누를 수 있습니다.
+function showUpdateCover() {
+  if (document.getElementById('update-cover')) return;
+  hideUpdateBar();
+  var c = document.createElement('div');
+  c.id = 'update-cover';
+  c.setAttribute('role', 'alertdialog');
+  c.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(20,20,20,.72);' +
+    'display:flex;align-items:center;justify-content:center;padding:16px;';
+  c.innerHTML =
+    '<div style="background:#fff;color:#111;border-radius:14px;padding:24px 22px;max-width:340px;width:100%;' +
+      'text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3);font-family:inherit">' +
+      '<div style="font-size:17px;font-weight:700;margin-bottom:8px">새 버전이 나왔습니다</div>' +
+      '<div style="font-size:14px;color:#555;line-height:1.5;margin-bottom:18px">' +
+        '업데이트를 눌러 주세요.<br>쓰던 내용은 그대로 남습니다.</div>' +
+      '<button type="button" id="update-cover-go" style="width:100%;padding:12px;border:0;border-radius:10px;' +
+        'background:#111;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">업데이트</button>' +
+    '</div>';
+  document.body.appendChild(c);
+  document.getElementById('update-cover-go').addEventListener('click', reloadFresh);
+}
+
+// 새 판이 있다는 걸 안 뒤, 지금 형편에 맞게 처리합니다.
+function applyUpdate() {
+  if (!SERVER_VERSION) return;
+  if (updateIsBusy()) { showUpdateBar(); return; }   // 하던 일이 끝나면 다음 확인 때 다시 옵니다
+  if (document.hidden) { reloadFresh(); return; }    // 안 보고 있을 때 조용히
+  showUpdateCover();
+}
+
 function checkForUpdate() {
-  if (UPDATE_SHOWN || !window.fetch || !VERSION_URL) return;
+  if (SERVER_VERSION) { applyUpdate(); return; }      // 이미 알고 있으면 다시 묻지 않고 처리만
+  if (!window.fetch || !VERSION_URL) return;
 
   fetch(VERSION_URL + '?_=' + Date.now(), { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.text() : null; })
@@ -84,7 +140,7 @@ function checkForUpdate() {
       if (!t || t.length > 40 || /[<>]/.test(t)) return;
       if (t !== BUILD_ID) {
         if (alreadyTried(t)) return;          // 이미 그 판으로 다시 열어 봤습니다
-        SERVER_VERSION = t; showUpdateBar();
+        SERVER_VERSION = t; applyUpdate();
       }
     })
     .catch(function () { /* 오프라인이면 다음 차례에 다시 봅니다 */ });
@@ -102,6 +158,8 @@ function paintVersion() {
 function reloadFresh() {
   // 일부러 다시 여는 길입니다 — 뒤로가기 막음(ui.js)이 «나가시겠습니까?» 를 묻지 않게 합니다
   if (typeof allowLeaving === 'function') allowLeaving();
+  // 답안 연습장에 쓰던 글을 서버로 보내 봅니다(못 가도 그 기기 임시본에서 다음에 올라갑니다)
+  if (typeof practiceFlushAll === 'function') { try { practiceFlushAll(); } catch (e) { /* 그래도 새로고침 */ } }
   var base = location.href.split('?')[0].split('#')[0];
   location.replace(base + '?v=' + encodeURIComponent(SERVER_VERSION || String(Date.now())));
 }
@@ -121,5 +179,6 @@ document.addEventListener('DOMContentLoaded', function () {
   setInterval(function () { if (!document.hidden) checkForUpdate(); }, 3 * 60 * 1000);   // 그 뒤로 3분마다(보고 있을 때만)
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') checkForUpdate();   // 탭으로 돌아올 때도
+    else if (SERVER_VERSION) applyUpdate();                          // 떠날 때 새 판을 알고 있으면 그때 새로고침
   });
 });
