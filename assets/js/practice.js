@@ -310,7 +310,7 @@ function practiceWatchComments() {
 // ══════════════ 작성 — 학생만 씁니다 ══════════════
 //
 // 카드 하나 = practice_answers 한 줄. 빈 채로 만들어 두지 않고, 첫 글자를 쳐야
-// 서버에 줄이 생깁니다(멈춘 뒤 1.5초, 또는 칸을 벗어날 때). 다 지워서 다시 비면
+// 서버에 줄이 생깁니다(칸을 벗어날 때 · 앱을 떠날 때 · 계속 쓰면 2분마다 — 아래 «저장» 참고). 다 지워서 다시 비면
 // 그 줄은 지우고, 카드는 화면에 그대로 두어 계속 쓸 수 있게 합니다.
 //
 // ⚠️ 학년·분류 칩은 «필터» 입니다 — 답안 자체의 학년·분류가 아닙니다.
@@ -327,6 +327,7 @@ async function practiceWriteInit(studentId, myGrade, preset) {
   var rows = await Promise.all([fetchPracticeCategories(studentId), fetchPracticeAnswers(studentId)]);
   PW.allCats = rows[0].map(function (c) { return c.name; });
   PW.all = rows[1];
+  await practiceRestoreDrafts();
 
   practiceWriteRenderChips();
   practiceWriteRenderCards();
@@ -362,6 +363,7 @@ function practiceWriteFiltered() {
 }
 
 function practiceWriteRenderCards() {
+  practiceFlushAll();   // 카드를 다시 그리기 전에, 쓰던 글을 PW.all 에 먼저 옮기고 서버로 보냅니다
   var list = practiceWriteFiltered();
   PW.cards = list.map(function (a) {
     return { key: 'k' + (++PW_KEY), id: a.id, grade: a.grade, category: a.category,
@@ -460,31 +462,114 @@ function practiceConfirmNewCard() {
   practiceWriteRenderChips();
 
   PW.cards.unshift({ key: 'k' + (++PW_KEY), id: null, grade: pracNewGrade, category: pracNewCat,
-                      question: '', answer: '', timer: null });
+                      question: '', answer: '', timer: null,
+                      tmp: 'new-' + Date.now() + '-' + PW_KEY });   // 서버 id 가 생기기 전 임시본 이름
   practiceWriteDrawCards();
   var kv = practiceCardKV(PW.cards[0].key);
   if (kv) { kv.el.scrollIntoView({ behavior: 'smooth', block: 'center' }); kv.q.focus(); }
 }
 
-// 입력을 멈추고 1.5초가 지나면 저장합니다. 칸을 벗어나면(onblur) 곧바로 저장합니다.
+// ══════════════ 저장 — 입력 중에는 이 기기에만, 서버에는 필요할 때만 ══════════════
+//
+// 서버 요청 1건 = Supabase 로그 1줄입니다. 예전에는 1.5초만 멈춰도 서버에 저장해서,
+// 한 학생이 한 시간 쓰는 동안 136번 저장된 적이 있습니다(2026-09-30 로그).
+// 그래서 이렇게 나눕니다.
+//   · 글자를 칠 때마다 → 이 기기의 브라우저(localStorage)에 임시본만 (서버 요청 없음)
+//   · 서버에는 → 칸을 벗어날 때 · 앱/탭을 떠날 때 · 계속 쓰는 중이면 2분에 한 번
+//   · 바뀐 게 없으면 보내지 않습니다
+//   · 서버에 못 보낸 임시본은 다음에 답안 연습장을 열 때 올립니다(practiceRestoreDrafts)
+// 휴대폰이든 컴퓨터든 «지금 쓰는 그 기기의 브라우저» 에 임시본이 남습니다.
+// 서버에 올라가면 임시본은 바로 지웁니다 — 학교 공용 컴퓨터에 글이 남지 않게.
+var PRACTICE_SAVE_EVERY_MS = 2 * 60 * 1000;   // 계속 쓰는 중일 때 서버에 보내는 간격
+
+function practiceDraftStoreKey() { return 'pracDraft:' + PW.studentId; }
+function practiceDraftsRead() {
+  try { return JSON.parse(localStorage.getItem(practiceDraftStoreKey()) || '{}') || {}; } catch (e) { return {}; }
+}
+function practiceDraftsWrite(all) {
+  try {
+    if (Object.keys(all).length) localStorage.setItem(practiceDraftStoreKey(), JSON.stringify(all));
+    else localStorage.removeItem(practiceDraftStoreKey());
+  } catch (e) { /* 사생활 보호 모드면 막힐 수 있습니다 — 그래도 서버 저장은 됩니다 */ }
+}
+function practiceDraftKey(c) { return c.id || c.tmp; }
+function practiceDraftPut(c) {
+  var all = practiceDraftsRead();
+  all[practiceDraftKey(c)] = { id: c.id || null, grade: c.grade, category: c.category,
+                               question: c.question, answer: c.answer, t: Date.now() };
+  practiceDraftsWrite(all);
+}
+function practiceDraftDrop(k) {
+  if (!k) return;
+  var all = practiceDraftsRead();
+  if (all[k]) { delete all[k]; practiceDraftsWrite(all); }
+}
+
+// 서버에 한 줄 저장(있으면 고치고, 없으면 새로). 성공하면 id 를 돌려줍니다.
+async function practiceSaveRow(r) {
+  if (r.id) {
+    const { error } = await sb.from('practice_answers')
+      .update({ question: r.question, answer: r.answer }).eq('id', r.id);
+    if (error) throw error;
+    return { id: r.id };
+  }
+  const { data, error } = await sb.from('practice_answers').insert({
+    school_id: SCHOOL_ID, student_id: PW.studentId, grade: r.grade, category: r.category,
+    question: r.question, answer: r.answer
+  }).select('id, created_at, updated_at').single();
+  if (error) throw error;
+  return data;
+}
+
+// 서버에 못 보내고 남은 임시본을 올립니다. 다른 기기에서 그 뒤에 고친 게 있으면 그쪽이 이깁니다.
+async function practiceRestoreDrafts() {
+  var all = practiceDraftsRead();
+  var keys = Object.keys(all);
+  for (var i = 0; i < keys.length; i++) {
+    var d = all[keys[i]];
+    var row = d.id ? PW.all.filter(function (x) { return x.id === d.id; })[0] : null;
+    if (d.id && !row) { practiceDraftDrop(keys[i]); continue; }                  // 그새 지워진 답안
+    if (row && new Date(row.updated_at) >= new Date(d.t)) { practiceDraftDrop(keys[i]); continue; }
+    if (row && row.question === d.question && row.answer === d.answer) { practiceDraftDrop(keys[i]); continue; }
+    if (!(d.question || '').trim() && !(d.answer || '').trim()) { practiceDraftDrop(keys[i]); continue; }
+    try {
+      var saved = await practiceSaveRow(d);
+      if (row) { row.question = d.question; row.answer = d.answer; row.updated_at = new Date().toISOString(); }
+      else PW.all.push({ id: saved.id, grade: d.grade, category: d.category, question: d.question,
+                         answer: d.answer, created_at: saved.created_at, updated_at: saved.updated_at });
+      practiceDraftDrop(keys[i]);
+    } catch (e) { /* 인터넷이 없으면 다음에 또 해 봅니다 — 임시본은 그대로 둡니다 */ }
+  }
+}
+
 function practiceQueueSave(key) {
   var c = practiceCard(key);
   if (!c) return;
   var kv = practiceCardKV(key);
-  if (kv && kv.hint) { kv.hint.textContent = '입력 중...'; kv.hint.className = 'prac-savehint'; }
-  if (c.timer) clearTimeout(c.timer);
-  c.timer = setTimeout(function () { practiceFlush(key); }, 1500);
+  if (!kv) return;
+  c.question = kv.q.value; c.answer = kv.a.value;
+  c.dirty = true;
+  practiceDraftPut(c);
+  if (kv.hint) { kv.hint.textContent = '쓰는 중 · 칸을 벗어나면 저장됩니다'; kv.hint.className = 'prac-savehint'; }
+  // 계속 쓰기만 하고 칸을 안 벗어나도 2분에 한 번은 서버로 보냅니다(선생님 화면에도 보이도록)
+  if (!c.timer) c.timer = setTimeout(function () { practiceFlush(key); }, PRACTICE_SAVE_EVERY_MS);
 }
 
 async function practiceFlush(key) {
   var c = practiceCard(key);
   if (!c) return;
   if (c.timer) { clearTimeout(c.timer); c.timer = null; }
+  if (!c.dirty) return;                                   // 바뀐 게 없으면 보내지 않습니다
+  if (c.saving) { c.again = true; return; }               // 보내는 중이면 끝난 뒤 한 번 더
   var kv = practiceCardKV(key);
-  if (!kv) return;
-
-  var q = kv.q.value, a = kv.a.value;
+  var q = kv ? kv.q.value : c.question, a = kv ? kv.a.value : c.answer;
   c.question = q; c.answer = a;
+  c.dirty = false;
+  var draftKey = practiceDraftKey(c);
+
+  // 화면을 다시 그려도 쓴 글이 보이도록 PW.all 부터 먼저 고칩니다(서버 답을 기다리지 않고)
+  var row = c.id ? PW.all.filter(function (x) { return x.id === c.id; })[0] : null;
+  if (row) { row.question = q; row.answer = a; row.updated_at = new Date().toISOString(); }
 
   // 둘 다 비면 저장할 것이 없습니다. 서버에 줄이 있었다면 지웁니다(빈 줄을 남겨 두지 않습니다).
   if (!q.trim() && !a.trim()) {
@@ -493,38 +578,58 @@ async function practiceFlush(key) {
       PW.all = PW.all.filter(function (x) { return x.id !== c.id; });
       c.id = null;
     }
-    kv.hint.textContent = ''; kv.hint.className = 'prac-savehint';
+    practiceDraftDrop(draftKey);
+    if (kv) { kv.hint.textContent = ''; kv.hint.className = 'prac-savehint'; }
     practiceCardPaintWhen(c);
     return;
   }
 
-  kv.hint.textContent = '저장하는 중...'; kv.hint.className = 'prac-savehint saving';
-
-  if (c.id) {
-    const { error } = await sb.from('practice_answers')
-      .update({ question: q, answer: a }).eq('id', c.id);
-    if (error) { kv.hint.textContent = '저장하지 못했습니다: ' + error.message; kv.hint.className = 'prac-savehint'; return; }
-    var row = PW.all.filter(function (x) { return x.id === c.id; })[0];
-    if (row) { row.question = q; row.answer = a; row.updated_at = new Date().toISOString(); }
-  } else {
-    const { data, error } = await sb.from('practice_answers').insert({
-      school_id: SCHOOL_ID, student_id: PW.studentId, grade: c.grade, category: c.category,
-      question: q, answer: a
-    }).select('id, created_at, updated_at').single();
-    if (error) { kv.hint.textContent = '저장하지 못했습니다: ' + error.message; kv.hint.className = 'prac-savehint'; return; }
-    c.id = data.id;
-    kv.el.setAttribute('data-id', data.id);
-    PW.all.push({ id: c.id, grade: c.grade, category: c.category, question: q, answer: a,
-                  created_at: data.created_at, updated_at: data.updated_at });
+  if (kv) { kv.hint.textContent = '저장하는 중...'; kv.hint.className = 'prac-savehint saving'; }
+  c.saving = true;
+  try {
+    var saved = await practiceSaveRow({ id: c.id, grade: c.grade, category: c.category, question: q, answer: a });
+    if (!c.id) {
+      c.id = saved.id;
+      if (kv) kv.el.setAttribute('data-id', saved.id);
+      PW.all.push({ id: c.id, grade: c.grade, category: c.category, question: q, answer: a,
+                    created_at: saved.created_at, updated_at: saved.updated_at });
+      // 저장되는 사이에 필터를 눌러 카드들을 다시 그렸다면, 이 새 카드는 그 목록에 없었습니다
+      if (!practiceCard(key)) { practiceDraftDrop(draftKey); practiceWriteRenderCards(); return; }
+    }
+    practiceDraftDrop(draftKey);
+    if (c.dirty) practiceDraftPut(c);   // 보내는 사이에 또 쓴 게 있으면 새 이름(id)으로 임시본을 다시 둡니다
+    kv = practiceCardKV(key);
+    if (kv) { kv.hint.textContent = '저장됨'; kv.hint.className = 'prac-savehint saved'; }
+    practiceCardPaintWhen(c);
+  } catch (error) {
+    c.dirty = true;                     // 못 보냈으니 임시본은 그대로 두고 다음에 또 보냅니다
+    kv = practiceCardKV(key);
+    if (kv) { kv.hint.textContent = '저장하지 못했습니다(이 기기에 보관 중): ' + (error.message || ''); kv.hint.className = 'prac-savehint'; }
+  } finally {
+    c.saving = false;
+    if (c.again) { c.again = false; c.dirty = true; practiceFlush(key); }
   }
-  kv.hint.textContent = '저장됨'; kv.hint.className = 'prac-savehint saved';
-  practiceCardPaintWhen(c);
 }
+
+// 저장 안 된 카드를 모두 서버로. 앱/탭을 떠날 때 · 카드를 다시 그리기 전에 부릅니다.
+function practiceFlushAll() {
+  if (!PW || !PW.cards) return;
+  PW.cards.forEach(function (c) {
+    var kv = practiceCardKV(c.key);
+    if (kv && (kv.q.value !== c.question || kv.a.value !== c.answer)) { c.question = kv.q.value; c.answer = kv.a.value; c.dirty = true; }
+    if (c.dirty) practiceFlush(c.key);
+  });
+}
+document.addEventListener('visibilitychange', function () { if (document.hidden) practiceFlushAll(); });
+window.addEventListener('pagehide', practiceFlushAll);
 
 async function practiceDeleteCard(key) {
   var c = practiceCard(key);
   if (!c) return;
   if ((c.question || c.answer) && !confirm('이 질문·답변을 지울까요?')) return;
+  if (c.timer) { clearTimeout(c.timer); c.timer = null; }
+  c.dirty = false;
+  practiceDraftDrop(practiceDraftKey(c));
   if (c.id) {
     await sb.from('practice_answers').delete().eq('id', c.id);
     PW.all = PW.all.filter(function (a) { return a.id !== c.id; });
