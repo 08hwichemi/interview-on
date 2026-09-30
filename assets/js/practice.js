@@ -603,20 +603,126 @@ function practiceExportSort(list) {
   });
 }
 
+// 엑셀 꾸미기(줄바꿈·테두리·머리글 색·틀 고정·필터)는 SheetJS 무료판이 파일에 못 씁니다.
+// 그래서 내려받기만 ExcelJS 로 만듭니다. 크기가 1MB 가까이 되어서, 페이지를 열 때가 아니라
+// «엑셀로 저장» 을 처음 누를 때 불러옵니다. (학생 명단 엑셀 읽기는 그대로 SheetJS)
+var PRACTICE_EXCELJS_URLS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js',
+  'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'   // 위가 막혔을 때
+];
+var practiceExcelReady = null;
+function practiceLoadExcelJS() {
+  if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if (practiceExcelReady) return practiceExcelReady;
+  practiceExcelReady = new Promise(function (ok, fail) {
+    var i = 0;
+    (function next() {
+      if (i >= PRACTICE_EXCELJS_URLS.length) { practiceExcelReady = null; fail(new Error('load')); return; }
+      var s = document.createElement('script');
+      s.src = PRACTICE_EXCELJS_URLS[i++];
+      s.onload = function () { window.ExcelJS ? ok(window.ExcelJS) : next(); };
+      s.onerror = next;
+      document.head.appendChild(s);
+    })();
+  });
+  return practiceExcelReady;
+}
+
+// 칸:            A(여백)  B 연번  C 학년  D 종류  E 질문  F 답변
+var PRACTICE_XLSX_WIDTHS = [2, 6, 7, 10, 42, 90];
+var PRACTICE_XLSX_FONT = '맑은 고딕';
+var PRACTICE_XLSX_LINE_PT = 15;   // 10pt 글씨 한 줄 높이(대략)
+
+// 엑셀은 파일을 열 때 줄바꿈된 행의 높이를 스스로 맞춰 주지 않습니다.
+// 그래서 글자 수로 몇 줄이 될지 어림해서 높이를 직접 정합니다.
+// 한글·한자 같은 넓은 글자는 숫자·영문 한 글자의 약 1.9배 폭입니다.
+function practiceXlsxLines(text, colWidth) {
+  var usable = colWidth - 1.5;
+  return String(text || '').split(/\r?\n/).reduce(function (n, para) {
+    var w = 0;
+    for (var i = 0; i < para.length; i++) w += /[ᄀ-ᇿ⺀-꓏가-힣豈-﫿︰-﹏＀-￯]/.test(para[i]) ? 1.9 : 1;
+    return n + Math.max(1, Math.ceil(w / usable));
+  }, 0);
+}
+
 async function practiceDownloadExcel(studentId, label) {
-  if (!window.XLSX) { toast_or_alert('엑셀 기능을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'); return; }
   var list = practiceExportSort(await fetchPracticeAnswers(studentId));
   if (!list.length) { toast_or_alert('내려받을 답안이 없습니다.'); return; }
 
-  var aoa = [['', '면접 질문지'], [], ['', '연번', '학년', '종류', '질문', '답변']];
-  list.forEach(function (a, i) { aoa.push(['', i + 1, a.grade, a.category, a.question || '', a.answer || '']); });
+  var ExcelJS;
+  try { ExcelJS = await practiceLoadExcelJS(); }
+  catch (e) { toast_or_alert('엑셀 기능을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'); return; }
 
-  var ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!merges'] = [{ s: { r: 0, c: 1 }, e: { r: 0, c: 5 } }];
-  ws['!cols'] = [{ wch: 2 }, { wch: 6 }, { wch: 6 }, { wch: 10 }, { wch: 40 }, { wch: 60 }];
-  var wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '면접 질문지');
-  XLSX.writeFile(wb, (label || '면접질문지') + '_면접질문지.xlsx');
+  var wb = new ExcelJS.Workbook();
+  var ws = wb.addWorksheet('면접 질문지', {
+    // 머리글(3행)까지 고정 — 아래로 내려도 연번·학년·종류·질문·답변 줄이 보입니다
+    views: [{ state: 'frozen', xSplit: 0, ySplit: 3, topLeftCell: 'A4', activeCell: 'B4', showGridLines: false }],
+    pageSetup: {
+      paperSize: 9, orientation: 'landscape',            // A4 가로
+      fitToPage: true, fitToWidth: 1, fitToHeight: 0,    // 가로는 한 장 폭에 맞추고, 세로는 필요한 만큼
+      printTitlesRow: '3:3', horizontalCentered: true,   // 쪽마다 머리글 반복
+      margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 }
+    }
+  });
+  ws.columns = PRACTICE_XLSX_WIDTHS.map(function (w) { return { width: w }; });
+
+  var thin = { style: 'thin', color: { argb: 'FFBFBFBF' } };
+  var box = { top: thin, left: thin, bottom: thin, right: thin };
+
+  // 1행 제목, 2행 누구 것·언제
+  ws.mergeCells('B1:F1');
+  ws.getCell('B1').value = '면접 질문지';
+  ws.getCell('B1').font = { name: PRACTICE_XLSX_FONT, size: 16, bold: true };
+  ws.getCell('B1').alignment = { vertical: 'middle' };
+  ws.getRow(1).height = 30;
+  ws.mergeCells('B2:F2');
+  var d = new Date();
+  ws.getCell('B2').value = (label ? label + ' · ' : '') + '답안 ' + list.length + '개 · ' +
+    d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) + ' 내려받음';
+  ws.getCell('B2').font = { name: PRACTICE_XLSX_FONT, size: 10, color: { argb: 'FF808080' } };
+  ws.getRow(2).height = 20;
+
+  // 3행 머리글
+  var head = ws.getRow(3);
+  head.values = ['', '연번', '학년', '종류', '질문', '답변'];
+  head.height = 24;
+  for (var c = 2; c <= 6; c++) {
+    var h = head.getCell(c);
+    h.font = { name: PRACTICE_XLSX_FONT, size: 10, bold: true, color: { argb: 'FF1F3864' } };
+    h.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDE7F3' } };
+    h.alignment = { horizontal: 'center', vertical: 'middle' };
+    h.border = box;
+  }
+
+  // 4행부터 답안 — 줄바꿈 켜고, 위쪽 정렬, 질문·답변 중 긴 쪽에 맞춘 높이
+  list.forEach(function (a, i) {
+    var row = ws.getRow(4 + i);
+    row.values = ['', i + 1, a.grade, a.category, a.question || '', a.answer || ''];
+    var lines = Math.max(practiceXlsxLines(a.question, PRACTICE_XLSX_WIDTHS[4]),
+                         practiceXlsxLines(a.answer, PRACTICE_XLSX_WIDTHS[5]));
+    row.height = Math.min(409, Math.max(22, lines * PRACTICE_XLSX_LINE_PT + 8));   // 409 는 엑셀 최대
+    for (var c = 2; c <= 6; c++) {
+      var cell = row.getCell(c);
+      cell.font = { name: PRACTICE_XLSX_FONT, size: 10 };
+      cell.alignment = { vertical: 'top', horizontal: c <= 4 ? 'center' : 'left', wrapText: true };
+      cell.border = box;
+      if (i % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F9FC' } };   // 한 줄 건너 옅은 색
+    }
+  });
+
+  // 머리글에 필터 단추
+  ws.autoFilter = { from: { row: 3, column: 2 }, to: { row: 3 + list.length, column: 6 } };
+
+  var buf = await wb.xlsx.writeBuffer();
+  var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  link.href = url;
+  link.download = (label || '면접질문지') + '_면접질문지.xlsx';
+  document.body.appendChild(link);
+  link.click();
+  // 바로 떼어 내거나 주소를 지우면 브라우저가 파일 이름을 잃고 «download» 로 저장하기도 합니다
+  setTimeout(function () { link.remove(); URL.revokeObjectURL(url); }, 10000);
 }
 
 function practicePrintRowsHTML(list) {
