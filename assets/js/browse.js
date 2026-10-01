@@ -50,9 +50,11 @@ function openUnivModal(type) {
   currentModalType = type;
   var univs = getFilteredList(appMeta[type], {}, 'u');   // 이 갈래의 모든 대학
 
-  var html = '<button class="univ-list-btn" style="background:var(--surface-2); color:var(--ink-2);"' +
-             ' onclick="selectUniv(\'전체\')">🌐 모든 대학 (전체 보기)</button>';
-  html += univs.map(function (u) {
+  // ⚠️ 「🌐 모든 대학 (전체 보기)」 단추는 일부러 없앴습니다 (2026-10-01).
+  // 누르면 후기·기출 질문의 본문을 통째로(약 4MB) 받아서 서버 사용량을 많이 먹었고,
+  // 기출 질문은 한 번에 1000줄까지만 와서 최신 년도만 보이는 문제도 있었습니다.
+  // 대학 하나는 많아야 150줄 안팎이라 대학을 고르고 그 대학 것만 받습니다.
+  var html = univs.map(function (u) {
     return '<button class="univ-list-btn" onclick="selectUniv(\'' + u + '\')">' + u + '</button>';
   }).join('');
 
