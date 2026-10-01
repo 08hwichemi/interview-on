@@ -75,7 +75,8 @@ function renderReviewList(data) {
       html += '  <div class="card-body">';
       html += '    <div class="content-block"><div class="content-title">Q. 면접 질문</div><div class="content-text">' + (item['질문'] || '내용 없음') + '</div></div>';
       html += '    <div class="content-block"><div class="content-title">A. 나의 답변</div><div class="content-text">' + (item['답변'] || '내용 없음') + '</div></div>';
-      if (item['팁']) html += '    <div class="content-block"><div class="content-title">💡 소감 및 팁</div><div class="content-text">' + item['팁'] + '</div></div>';
+      // 표의 칸 이름은 «소감» 입니다. 예전엔 없는 칸 «팁» 을 찾아서 소감이 하나도 안 보였습니다
+      if (item['소감']) html += '    <div class="content-block"><div class="content-title">💡 소감 및 팁</div><div class="content-text">' + item['소감'] + '</div></div>';
       html += '  </div></div>';
     }
     

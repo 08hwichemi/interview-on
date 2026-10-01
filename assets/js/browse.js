@@ -11,12 +11,12 @@
 // (예: questions 표는 지금 2,360줄, 년도 내림차순이라 2027년 것만 1000줄
 // 가득 채워서 2024~2026년이 통째로 안 받아졌습니다 — 그래서 년도 드롭다운에
 // 2027만 떴습니다) 1000줄씩 끊어 받아 이어 붙여야 표 전체를 다 받습니다.
-async function fetchAllRows(table) {
+async function fetchAllRows(table, columns) {
   var out = [];
   var offset = 0;
   var pageSize = 1000;
   while (true) {
-    const { data, error } = await sb.from(table).select('*').range(offset, offset + pageSize - 1);
+    const { data, error } = await sb.from(table).select(columns).range(offset, offset + pageSize - 1);
     if (error) throw error;
     out = out.concat(data || []);
     if (!data || data.length < pageSize) break;
@@ -27,10 +27,15 @@ async function fetchAllRows(table) {
 
 // 대학·년도·전형·학과 목록을 만들려면 전체 자료를 한 번 훑어야 합니다.
 // 로그인한 뒤 한 번만 받아 두고, 그 뒤로는 화면에서 고를 때마다 이걸 씁니다.
+//
+// ⚠️ 목록 만들기에 쓰는 칸 4개만 받습니다. 예전엔 모든 칸(select('*'))을 받아
+// 후기 본문·답변까지 딸려 와서, 앱을 한 번 열 때마다 약 4MB 가 나갔습니다
+// (2026-10-01, Supabase 사용량의 PostgREST Egress 가 하루 90MB 넘게 나온 원인).
+// 칸 4개만 받으면 약 0.14MB 입니다. 본문은 대학을 고른 뒤 목록 화면에서 받습니다.
 async function loadBrowseMeta() {
   const [revData, qData] = await Promise.all([
-    fetchAllRows('reviews'),
-    fetchAllRows('questions')
+    fetchAllRows('reviews', '년도, 대학, 세부유형, 모집단위'),
+    fetchAllRows('questions', '년도, 대학, 전형_역량1, 역량2')
   ]);
   appMeta.rev = revData.map(function (d) {
     return { y: d['년도'], u: d['대학'], t: d['세부유형'], m: d['모집단위'] };
@@ -45,9 +50,11 @@ function openUnivModal(type) {
   currentModalType = type;
   var univs = getFilteredList(appMeta[type], {}, 'u');   // 이 갈래의 모든 대학
 
-  var html = '<button class="univ-list-btn" style="background:var(--surface-2); color:var(--ink-2);"' +
-             ' onclick="selectUniv(\'전체\')">🌐 모든 대학 (전체 보기)</button>';
-  html += univs.map(function (u) {
+  // ⚠️ 「🌐 모든 대학 (전체 보기)」 단추는 일부러 없앴습니다 (2026-10-01).
+  // 누르면 후기·기출 질문의 본문을 통째로(약 4MB) 받아서 서버 사용량을 많이 먹었고,
+  // 기출 질문은 한 번에 1000줄까지만 와서 최신 년도만 보이는 문제도 있었습니다.
+  // 대학 하나는 많아야 150줄 안팎이라 대학을 고르고 그 대학 것만 받습니다.
+  var html = univs.map(function (u) {
     return '<button class="univ-list-btn" onclick="selectUniv(\'' + u + '\')">' + u + '</button>';
   }).join('');
 
