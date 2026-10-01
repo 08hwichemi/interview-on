@@ -11,12 +11,12 @@
 // (예: questions 표는 지금 2,360줄, 년도 내림차순이라 2027년 것만 1000줄
 // 가득 채워서 2024~2026년이 통째로 안 받아졌습니다 — 그래서 년도 드롭다운에
 // 2027만 떴습니다) 1000줄씩 끊어 받아 이어 붙여야 표 전체를 다 받습니다.
-async function fetchAllRows(table) {
+async function fetchAllRows(table, columns) {
   var out = [];
   var offset = 0;
   var pageSize = 1000;
   while (true) {
-    const { data, error } = await sb.from(table).select('*').range(offset, offset + pageSize - 1);
+    const { data, error } = await sb.from(table).select(columns).range(offset, offset + pageSize - 1);
     if (error) throw error;
     out = out.concat(data || []);
     if (!data || data.length < pageSize) break;
@@ -27,10 +27,15 @@ async function fetchAllRows(table) {
 
 // 대학·년도·전형·학과 목록을 만들려면 전체 자료를 한 번 훑어야 합니다.
 // 로그인한 뒤 한 번만 받아 두고, 그 뒤로는 화면에서 고를 때마다 이걸 씁니다.
+//
+// ⚠️ 목록 만들기에 쓰는 칸 4개만 받습니다. 예전엔 모든 칸(select('*'))을 받아
+// 후기 본문·답변까지 딸려 와서, 앱을 한 번 열 때마다 약 4MB 가 나갔습니다
+// (2026-10-01, Supabase 사용량의 PostgREST Egress 가 하루 90MB 넘게 나온 원인).
+// 칸 4개만 받으면 약 0.14MB 입니다. 본문은 대학을 고른 뒤 목록 화면에서 받습니다.
 async function loadBrowseMeta() {
   const [revData, qData] = await Promise.all([
-    fetchAllRows('reviews'),
-    fetchAllRows('questions')
+    fetchAllRows('reviews', '년도, 대학, 세부유형, 모집단위'),
+    fetchAllRows('questions', '년도, 대학, 전형_역량1, 역량2')
   ]);
   appMeta.rev = revData.map(function (d) {
     return { y: d['년도'], u: d['대학'], t: d['세부유형'], m: d['모집단위'] };
