@@ -54,6 +54,9 @@
 .prac-badge{padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;
   background:var(--surface-2);color:var(--ink-2)}
 .prac-badge.cat{background:var(--ink);color:#fff}
+/* 문제 번호 — 학생과 «5번 문제» 하고 이야기할 때 씁니다 */
+.prac-num{font-size:13px;font-weight:800;color:var(--ink)}
+.prac-num[hidden]{display:none}
 .prac-edit{flex-shrink:0;padding:4px 10px;border:1px solid var(--line-2);border-radius:6px;
   background:var(--surface);color:var(--ink-2);font-size:12px;cursor:pointer}
 .prac-edit:hover{border-color:var(--ink-3);color:var(--ink)}

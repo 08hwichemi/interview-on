@@ -58,6 +58,69 @@ function practiceGroupComments(list) {
   return by;
 }
 
+// ── 문제 번호 · 정렬 ──
+// 번호는 «처음 쓴 순서» 대로 1, 2, 3… 이 자동으로 붙습니다(서버에 따로 적지 않고 화면에서 셉니다).
+// 필터·정렬을 바꿔도, 선생님 화면과 학생 화면 어디서든 같은 답안은 같은 번호입니다 —
+// 학생과 «5번 문제 말인데» 하고 이야기할 수 있게 한 것입니다.
+// ⚠️ 번호는 그 학생의 답안 «전체» 에서 셉니다(필터로 좁힌 목록 안에서 세면 번호가 필터마다 달라집니다).
+//    답안을 지우면 뒤 번호가 하나씩 당겨집니다.
+function practiceNumbers(all) {
+  var sorted = (all || []).slice().sort(function (a, b) {
+    var d = new Date(a.created_at) - new Date(b.created_at);
+    return d || (a.id < b.id ? -1 : 1);
+  });
+  var map = {};
+  sorted.forEach(function (a, i) { map[a.id] = i + 1; });
+  return map;
+}
+
+// 정렬: num(번호순 = 처음 쓴 순) · recent(최근 고친 순) · group(학년·분류순). 기기에 기억합니다.
+var PRACTICE_SORTS = [
+  { key: 'num', label: '번호순' },
+  { key: 'recent', label: '최근 고친 순' },
+  { key: 'group', label: '학년·분류순' }
+];
+
+function practiceSortKey() {
+  var v = null;
+  try { v = localStorage.getItem('practiceSort'); } catch (e) { /* 사생활 보호 모드면 막힐 수 있습니다 */ }
+  return PRACTICE_SORTS.some(function (o) { return o.key === v; }) ? v : 'num';
+}
+
+function practiceSortList(list, nums) {
+  var key = practiceSortKey();
+  return list.slice().sort(function (x, y) {
+    if (key === 'recent') return new Date(y.updated_at) - new Date(x.updated_at);
+    if (key === 'group') {
+      var gi = PRACTICE_GRADES.indexOf(x.grade) - PRACTICE_GRADES.indexOf(y.grade);
+      if (gi) return gi;
+      if (x.category !== y.category) return x.category < y.category ? -1 : 1;
+    }
+    return (nums[x.id] || 0) - (nums[y.id] || 0);
+  });
+}
+
+function practiceSortChipsHTML() {
+  var cur = practiceSortKey();
+  return PRACTICE_SORTS.map(function (o) {
+    return '<button class="prac-chip" aria-pressed="' + (o.key === cur) + '"' +
+           ' onclick="practiceSetSort(\'' + o.key + '\')">' + o.label + '</button>';
+  }).join('');
+}
+
+// 필터 상자 안의 «정렬» 칩을 그립니다. which = write · browse · teacher
+function practicePaintSort(which) {
+  var el = document.getElementById('prac-sort-' + which);
+  if (el) el.innerHTML = practiceSortChipsHTML();
+}
+
+function practiceSetSort(key) {
+  try { localStorage.setItem('practiceSort', key); } catch (e) { /* 막히면 이번에만 */ }
+  ['write', 'browse', 'teacher'].forEach(practicePaintSort);
+  if (PB) practiceBrowseRender();
+  if (PW && document.getElementById('prac-write-list')) practiceWriteRenderCards();
+}
+
 // ── 필터 칩(여러 개 고를 수 있습니다) ──
 // selected: 고른 값들의 배열. 안에 있으면 눌린 채로 그립니다.
 // 아무것도 안 골랐으면 «전부 보여준다» 는 뜻이라, practiceMatchFilter() 에서 그렇게 다룹니다.
@@ -127,6 +190,7 @@ function practiceCardViewHTML(a, comments, opts) {
   return '<div class="prac-card">' +
     '<div class="prac-card-head">' +
       '<span class="prac-card-meta">' +
+        (opts.num ? '<span class="prac-num">' + opts.num + '번</span>' : '') +
         '<span class="prac-badges"><span class="prac-badge">' + esc(a.grade) + '</span>' +
         '<span class="prac-badge cat">' + esc(a.category) + '</span></span>' +
         '<span class="prac-card-when">' + practiceWhen(a) + '</span>' +
@@ -209,15 +273,17 @@ function practiceBrowseRender() {
   if (!PB) return;
   PB.els.gradeBox.innerHTML = practiceFilterChipsHTML(PRACTICE_GRADES, PB.grades, 'practiceBrowseToggleGrade');
   PB.els.catBox.innerHTML = practiceFilterChipsHTML(PRACTICE_FIXED_CATS.concat(PB.allCats), PB.cats, 'practiceBrowseToggleCat');
+  practicePaintSort(PB.fboxKey);
   practicePaintFbox(PB.fboxKey, PB.grades, PB.cats);
 
-  var list = PB.answers.filter(function (a) {
+  var nums = practiceNumbers(PB.answers);
+  var list = practiceSortList(PB.answers.filter(function (a) {
     return practiceMatchFilter(a.grade, PB.grades) && practiceMatchFilter(a.category, PB.cats);
-  }).sort(function (x, y) { return new Date(y.updated_at) - new Date(x.updated_at); });
+  }), nums);
 
   PB.els.list.innerHTML = list.length
     ? list.map(function (a) {
-        return practiceCardViewHTML(a, PB.comments[a.id], { canComment: PB.canComment, editBtn: PB.editBtn });
+        return practiceCardViewHTML(a, PB.comments[a.id], { canComment: PB.canComment, editBtn: PB.editBtn, num: nums[a.id] });
       }).join('')
     : '<p class="prac-empty">' + (PB.answers.length ? '이 조건에 맞는 답안이 없습니다.' : '아직 쓴 답안이 없습니다.') + '</p>';
 }
@@ -353,13 +419,15 @@ function practiceWriteRenderChips() {
       '</span>';
   }).join('');
   document.getElementById('prac-write-cat').innerHTML = fixedHTML + customHTML;
+  practicePaintSort('write');
   practicePaintFbox('write', PW.grades, PW.cats);
 }
 
 function practiceWriteFiltered() {
-  return (PW.all || []).filter(function (a) {
+  var nums = practiceNumbers(PW.all);
+  return practiceSortList((PW.all || []).filter(function (a) {
     return practiceMatchFilter(a.grade, PW.grades) && practiceMatchFilter(a.category, PW.cats);
-  }).sort(function (x, y) { return new Date(y.updated_at) - new Date(x.updated_at); });
+  }), nums);
 }
 
 function practiceWriteRenderCards() {
@@ -384,6 +452,7 @@ function practiceWriteDrawCards() {
     return '<div class="prac-card" data-key="' + c.key + '" data-id="' + (c.id || '') + '">' +
       '<div class="prac-card-head">' +
         '<span class="prac-card-meta">' +
+          '<span class="prac-num" id="' + c.key + '-num"></span>' +
           '<span class="prac-badges"><span class="prac-badge">' + esc(c.grade) + '</span>' +
           '<span class="prac-badge cat">' + esc(c.category) + '</span></span>' +
           '<span class="prac-card-when" id="' + c.key + '-when"></span>' +
@@ -426,6 +495,13 @@ function practiceCardPaintWhen(c) {
   var el = document.getElementById(c.key + '-when');
   if (!el) return;
   el.textContent = c.id ? practiceWhen({ updated_at: new Date() }) + ' 씀' : '아직 저장 전';
+  // 번호는 서버에 처음 저장되면 붙습니다(저장 전 카드는 번호가 아직 없습니다)
+  var numEl = document.getElementById(c.key + '-num');
+  if (numEl) {
+    var n = c.id ? practiceNumbers(PW.all)[c.id] : 0;
+    numEl.textContent = n ? n + '번' : '';
+    numEl.hidden = !n;
+  }
 }
 
 // ── «+ 새 질문 쓰기» — 학년·분류를 먼저 정하는 작은 창 ──
@@ -751,7 +827,9 @@ function practiceXlsxLines(text, colWidth) {
 }
 
 async function practiceDownloadExcel(studentId, label) {
-  var list = practiceExportSort(await fetchPracticeAnswers(studentId));
+  var all = await fetchPracticeAnswers(studentId);
+  var nums = practiceNumbers(all);
+  var list = practiceExportSort(all);
   if (!list.length) { toast_or_alert('내려받을 답안이 없습니다.'); return; }
 
   var ExcelJS;
@@ -802,7 +880,7 @@ async function practiceDownloadExcel(studentId, label) {
   // 4행부터 답안 — 줄바꿈 켜고, 위쪽 정렬, 질문·답변 중 긴 쪽에 맞춘 높이
   list.forEach(function (a, i) {
     var row = ws.getRow(4 + i);
-    row.values = ['', i + 1, a.grade, a.category, a.question || '', a.answer || ''];
+    row.values = ['', nums[a.id], a.grade, a.category, a.question || '', a.answer || ''];
     var lines = Math.max(practiceXlsxLines(a.question, PRACTICE_XLSX_WIDTHS[4]),
                          practiceXlsxLines(a.answer, PRACTICE_XLSX_WIDTHS[5]));
     row.height = Math.min(409, Math.max(22, lines * PRACTICE_XLSX_LINE_PT + 8));   // 409 는 엑셀 최대
@@ -830,16 +908,18 @@ async function practiceDownloadExcel(studentId, label) {
   setTimeout(function () { link.remove(); URL.revokeObjectURL(url); }, 10000);
 }
 
-function practicePrintRowsHTML(list) {
-  return list.map(function (a, i) {
-    return '<tr><td>' + (i + 1) + '</td><td>' + esc(a.grade) + '</td><td>' + esc(a.category) + '</td>' +
+function practicePrintRowsHTML(list, nums) {
+  return list.map(function (a) {
+    return '<tr><td>' + nums[a.id] + '</td><td>' + esc(a.grade) + '</td><td>' + esc(a.category) + '</td>' +
       '<td>' + esc(a.question || '').replace(/\n/g, '<br>') + '</td>' +
       '<td>' + esc(a.answer || '').replace(/\n/g, '<br>') + '</td></tr>';
   }).join('');
 }
 
 async function practicePrintView(studentId, label) {
-  var list = practiceExportSort(await fetchPracticeAnswers(studentId));
+  var all = await fetchPracticeAnswers(studentId);
+  var nums = practiceNumbers(all);
+  var list = practiceExportSort(all);
   if (!list.length) { toast_or_alert('인쇄할 답안이 없습니다.'); return; }
   var win = window.open('', '_blank');
   if (!win) { toast_or_alert('팝업이 막혀 있습니다. 팝업 차단을 풀고 다시 시도해 주세요.'); return; }
@@ -862,7 +942,7 @@ async function practicePrintView(studentId, label) {
     '<table><colgroup><col style="width:6%"><col style="width:7%"><col style="width:11%">' +
       '<col style="width:30%"><col style="width:46%"></colgroup>' +
     '<thead><tr><th>연번</th><th>학년</th><th>종류</th><th>질문</th><th>답변</th></tr></thead>' +
-    '<tbody>' + practicePrintRowsHTML(list) + '</tbody></table>' +
+    '<tbody>' + practicePrintRowsHTML(list, nums) + '</tbody></table>' +
     '<script>window.onload = function () { window.print(); };<\/script>' +
     '</body></html>'
   );
