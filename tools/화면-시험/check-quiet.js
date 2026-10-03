@@ -4,7 +4,7 @@
 //   · 톡 목록은 «5분마다 다시 확인» 을 뺐습니다 → 30분 동안 0번이어야 합니다
 //   · 실시간이 끊겼다가 다시 붙으면 → 그때 한 번만 확인합니다
 //   · 실시간 알림이 한꺼번에 두 개 와도(새 말 + 읽음) → 한 번만 받습니다
-//   · 접속 표시(하트비트)는 5분마다 → 30분 동안 6번 안팎
+//   · 접속 표시(초록 점 · 하트비트)는 없앴습니다(2026-10-03) → 0번
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 // 가짜 서버에 «실시간 연결이 붙었다» 를 흉내 낼 수 있게 subscribe 의 콜백을 잡아 둡니다
@@ -60,10 +60,9 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
   const 뒤 = await p.evaluate(() => Object.assign({}, window.__reads));
   const 더 = function (k) { return (뒤[k] || 0) - (처음[k] || 0); };
   확인('톡 목록을 다시 묻지 않는가(0번)', 더('chats') === 0, 더('chats') + '번');
-  확인('하트비트는 5분마다(30분에 5~7번)', 더('rpc:student_heartbeat') >= 5 && 더('rpc:student_heartbeat') <= 7,
-       더('rpc:student_heartbeat') + '번');
+  확인('하트비트를 보내지 않는가(0번)', !뒤['rpc:student_heartbeat'], (뒤['rpc:student_heartbeat'] || 0) + '번');
   const 모두 = Object.keys(뒤).reduce(function (n, k) { return n + 더(k); }, 0);
-  확인('30분 동안 서버 요청이 10번 아래인가', 모두 < 10, 모두 + '번 ' + JSON.stringify(뒤));
+  확인('30분 동안 서버 요청이 0번인가', 모두 === 0, 모두 + '번 ' + JSON.stringify(뒤));
 
   console.log('\n── 실시간이 끊겼다가 다시 붙으면 ──');
   await p.evaluate(() => { window.__subs['chat-list']('SUBSCRIBED'); });   // 처음 붙음
@@ -92,6 +91,37 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
   }).then(async before => { await p.clock.runFor(2000); return (await p.evaluate(() => window.__reads.chats)) === before; }));
 
   확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
+
+  console.log('\n── 교사 화면을 켜 둔 채 30분 ──');
+  {
+    const ctx2 = await b.newContext({ viewport: { width: 1280, height: 900 } });
+    await ctx2.route('**/supabase-js*/**', r => r.fulfill({ contentType: 'application/javascript', body: SB }));
+    await ctx2.route('**/pretendard*', r => r.fulfill({ contentType: 'text/css', body: '' }));
+    await ctx2.addInitScript(() => {
+      window.__FAKE__ = {
+        rows: {
+          profiles: [{ id: 'u1', role: 'teacher', name: '이용휘', login_id: '이용휘',
+                       school_id: '9bf9d65d-9cb0-428b-90a5-0c4b868dc40c', must_change_password: false }],
+          students: [{ id: 's1', student_no: '30101', name: '고다윤', auth_user_id: 'a1', grade: 3, class_no: 1 }],
+          reviews: [], questions: [], chats: []
+        }
+      };
+    });
+    const t = await ctx2.newPage();
+    await t.clock.install();
+    const terrs = []; t.on('pageerror', e => terrs.push(e.message));
+    await t.goto('http://127.0.0.1:8777/teacher/');
+    await t.waitForSelector('#app:not([hidden])', { timeout: 15000 });
+    await t.clock.runFor(2000);
+    const 앞 = await t.evaluate(() => Object.assign({}, window.__reads));
+    await t.clock.runFor('30:00');
+    const 끝 = await t.evaluate(() => Object.assign({}, window.__reads));
+    const 늘 = Object.keys(끝).reduce(function (n, k) { return n + (끝[k] - (앞[k] || 0)); }, 0);
+    확인('30분 동안 서버 요청이 0번인가(초록 점 읽기 없음)', 늘 === 0, 늘 + '번 ' + JSON.stringify(끝));
+    확인('학생 명단에 초록 점이 없는가', (await t.locator('.online-dot').count()) === 0);
+    확인('교사 화면 콘솔 오류 없음', terrs.length === 0, terrs.join(' | '));
+    await ctx2.close();
+  }
   await b.close();
   console.log(실패 ? '\n❌ ' + 실패 + '개 실패' : '\n✅ 모두 통과');
   process.exit(실패 ? 1 : 0);
