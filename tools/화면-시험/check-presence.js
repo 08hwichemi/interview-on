@@ -9,7 +9,7 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
 (async () => {
   const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
 
-  console.log('\n── isStudentOnline() 기준(3분) ──');
+  console.log('\n── isStudentOnline() 기준(7분) ──');
   {
     const ctx = await b.newContext();
     await ctx.route('**/supabase-js*/**', r => r.fulfill({ contentType: 'application/javascript', body: SB }));
@@ -18,8 +18,8 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
     await p.goto('http://127.0.0.1:8777/teacher/');
     확인('없으면 오프라인', await p.evaluate(() => isStudentOnline(null)) === false);
     확인('30초 전이면 온라인', await p.evaluate(() => isStudentOnline(new Date(Date.now() - 30000).toISOString())));
-    확인('179초 전이면 온라인', await p.evaluate(() => isStudentOnline(new Date(Date.now() - 179000).toISOString())));
-    확인('181초 전이면 오프라인', await p.evaluate(() => isStudentOnline(new Date(Date.now() - 181000).toISOString())) === false);
+    확인('6분 59초 전이면 온라인', await p.evaluate(() => isStudentOnline(new Date(Date.now() - 419000).toISOString())));
+    확인('7분 1초 전이면 오프라인', await p.evaluate(() => isStudentOnline(new Date(Date.now() - 421000).toISOString())) === false);
     await ctx.close();
   }
 

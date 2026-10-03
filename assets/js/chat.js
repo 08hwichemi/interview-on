@@ -134,25 +134,42 @@ function paintChatBadge() {
   el.hidden = (n === 0);
 }
 
+// 실시간 알림이 한꺼번에 여러 개 올 때(말 하나에 «새 말» + «읽음» 두 번) 목록을
+// 그때마다 새로 받지 않고, 잠깐 기다렸다가 한 번만 받습니다.
+var chatRoomsSoonTimer = null;
+function loadChatRoomsSoon() {
+  if (chatRoomsSoonTimer) return;
+  chatRoomsSoonTimer = setTimeout(function () { chatRoomsSoonTimer = null; loadChatRooms(); }, 800);
+}
+
 // 누가 말을 걸면 바로 알아채도록.
-// 실시간이 조용히 끊기는 일이 있어서 화면을 다시 볼 때도 한 번 더 확인합니다.
+//
+// 실시간이 주 경로입니다. 끊겼을 때를 대비해 두 번만 더 확인합니다.
+//   · 실시간이 끊겼다가 다시 붙었을 때 — 끊긴 사이에 온 말을 놓치지 않게
+//   · 화면을 다시 볼 때(폰을 다시 켰을 때) — 1분 안에 또 들락날락하면 건너뜀
+// ⚠️ 예전엔 여기에 «5분마다 다시 확인» 도 있었습니다. 화면을 켜 둔 사람마다 한 시간에
+// 12번씩 서버에 물었는데, 톡이 실제로 오가는 일은 그보다 훨씬 적었습니다(2026-10-03 에 뺌).
 function watchChatList() {
   if (chatListChannel) return;
+  var recheck = throttleRefresh(loadChatRooms, 60000);
+  var firstJoin = true;
   try {
     chatListChannel = sb.channel('chat-list')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chats' },
           function (payload) {
             var m = payload.new || payload.old;
             if (!m) return;
-            if (m.sender_id === chatMe.id || m.receiver_id === chatMe.id) loadChatRooms();
+            if (m.sender_id === chatMe.id || m.receiver_id === chatMe.id) loadChatRoomsSoon();
           })
-      .subscribe();
+      .subscribe(function (status) {
+        if (status !== 'SUBSCRIBED') return;
+        // 처음 붙을 때는 startChat 이 이미 목록을 받았습니다. 다시 붙을 때만 확인합니다.
+        if (firstJoin) { firstJoin = false; return; }
+        loadChatRoomsSoon();
+      });
   } catch (e) {
     chatListChannel = null;
   }
-  // 실시간이 주 경로라 이건 끊겼을 때 대비용 — 5분마다, 화면을 볼 때만 (요청마다 로그가 쌓입니다)
-  var recheck = throttleRefresh(loadChatRooms, 60000);
-  setInterval(recheck, 5 * 60 * 1000);
   document.addEventListener('visibilitychange', recheck);
 }
 
@@ -353,7 +370,7 @@ function watchChatRoom() {
               await sb.from('chats').update({ is_read: true }).eq('id', payload.new.id);
             }
             reloadChatRoom();
-            loadChatRooms();
+            // 대화방 목록(안 읽은 수)은 watchChatList 의 실시간 알림이 고칩니다 — 여기서 또 받지 않습니다
           })
       .subscribe();
   } catch (e) {
