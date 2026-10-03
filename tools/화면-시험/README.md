@@ -37,6 +37,7 @@ NODE_PATH=/opt/node22/lib/node_modules /opt/node22/bin/node check-susi.js
 | `check-practice-teacher.js` | 답안 연습장(교사) — 「면접 준비/답안 연습장」 두 탭 · 읽기 전용 · 다중선택 필터 · 코멘트 남기기 | `stub5` |
 | `check-practice-badge.js` | 답안 연습장 코멘트 안읽음 빨간 숫자 — 홈 배지 · 열면 읽음 표시 · 다시 열면 사라짐 | `stub5` |
 | `check-notice.js` | 관리자 공지 — 올리기·다시 열면 채워짐·지우기, 학생·교사 홈에 뜨고 닫으면 같은 공지는 다시 안 뜸 | `stub5` |
+| `check-quiet.js` | 화면을 켜 두기만 했을 때 서버 요청 수 — 학생·교사 화면 모두 30분 동안 0번(톡 목록 · 초록 점 없음) · 실시간이 다시 붙을 때 한 번 · 알림 둘이 와도 한 번 | `stub5` (+ 실시간 흉내) |
 | `check-browse-meta.js` | 앱을 열 때 후기·기출 질문 표에서 **목록용 칸 4개만** 받는가 · 「모든 대학」 단추가 없는가 · 고른 대학 것만 나오는가 · 후기 카드에 «소감 및 팁» 이 보이는가 | `stub5` |
 | `check-practice-export.js` | 답안 연습장 엑셀로 저장·인쇄 — 학생·교사 화면 모두, 필터와 상관없이 전부 담기는가. 내려받은 .xlsx 를 다시 열어 필터·틀 고정·줄바꿈·행 높이·인쇄 설정까지 확인 (**ExcelJS 필요:** `npm i -g exceljs@4.4.0`) | `stub5` |
 
