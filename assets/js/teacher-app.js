@@ -231,7 +231,7 @@ function toast(msg, kind) {
 }
 
 function show(view) {
-  ['empty', 'setup', 'run', 'finish', 'report'].forEach(function (v) {
+  ['empty', 'setup', 'saenggibu', 'run', 'finish', 'report'].forEach(function (v) {
     document.getElementById('view-' + v).hidden = (v !== view);
   });
   // 면접 중에는 왼쪽 칸이 질문 진행 상황으로 바뀝니다.

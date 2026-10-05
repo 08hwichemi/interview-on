@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-10-05.2">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-10-05.3">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-05.2">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-05.2">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-05.2">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-05.2">
-  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-05.2">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-05.2">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-05.3">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-05.3">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-05.3">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-05.3">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-05.3">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-05.3">
 </head>
 <body>
 
@@ -257,6 +257,29 @@
         </div>
       </section>
 
+      <!-- ══ 생기부에서 질문 뽑기 ══ (saenggibu.js)
+           준비 화면 자리에 통째로 바꿔 끼웁니다 — 떠 있는 창은 작아서 불편하다는 말씀(2026-10-05).
+           왼쪽 학생 명단은 그대로 두고, 오른쪽 칸 전체를 씁니다.
+           ⚠️ 파일은 이 브라우저 안에서만 읽고 바로 버립니다. 서버로 가지 않습니다. -->
+      <section id="view-saenggibu" hidden>
+        <div class="panel sg-panel">
+          <div class="sg-pick">
+            <button class="ghost" onclick="closeSaenggibu()">← 준비 화면으로</button>
+            <p class="sec sg-title">📄 생기부에서 질문 뽑기 <span class="sg-who" id="sg-who"></span></p>
+            <span class="grow"></span>
+            <input type="file" id="sg-file" accept="application/pdf,.pdf" hidden onchange="onSaenggibuFile(this)">
+            <button class="btn" onclick="document.getElementById('sg-file').click()">생기부 PDF 고르기</button>
+            <span class="sg-safe">브라우저에서만 읽고 버립니다 · 서버에 안 올라갑니다</span>
+          </div>
+
+          <div class="sg-body" id="sg-body"></div>
+
+          <div class="sg-foot" id="sg-foot" hidden>
+            <button class="btn solid" id="sg-add" onclick="addSaenggibuPicks()" disabled>담을 질문을 고르세요</button>
+          </div>
+        </div>
+      </section>
+
       <!-- 진행 -->
       <section id="view-run" hidden>
         <div class="panel pad">
@@ -444,29 +467,6 @@
 
 
 
-<!-- ══ 생기부에서 질문 뽑기 ══ (saenggibu.js)
-     ⚠️ 파일은 이 브라우저 안에서만 읽고 바로 버립니다. 서버로 가지 않습니다. -->
-<div id="sg-modal" class="chat-modal">
-  <div class="chat-sheet sg-sheet">
-    <div class="chat-top">
-      <h3>📄 생기부에서 질문 뽑기</h3>
-      <button class="chat-x" onclick="closeSaenggibu()">&times;</button>
-    </div>
-
-    <div class="sg-pick">
-      <input type="file" id="sg-file" accept="application/pdf,.pdf" hidden onchange="onSaenggibuFile(this)">
-      <button class="btn" onclick="document.getElementById('sg-file').click()">생기부 PDF 고르기</button>
-      <span class="sg-safe">브라우저에서만 읽고 버립니다 · 서버에 안 올라갑니다</span>
-    </div>
-
-    <div class="sg-body" id="sg-body"></div>
-
-    <div class="sg-foot" id="sg-foot" hidden>
-      <button class="btn solid" id="sg-add" onclick="addSaenggibuPicks()" disabled>담을 질문을 고르세요</button>
-    </div>
-  </div>
-</div>
-
 <!-- ══ 톡 목록 ══ (chat.js) -->
 <div id="chat-list-modal" class="chat-modal">
   <div class="chat-sheet">
@@ -550,20 +550,20 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-10-05.2"></script>
-<script src="../assets/js/update-bar.js?v=2026-10-05.2"></script>
-<script src="../assets/js/utils.js?v=2026-10-05.2"></script>
-<script src="../assets/js/api.js?v=2026-10-05.2"></script>
-<script src="../assets/js/browse.js?v=2026-10-05.2"></script>
-<script src="../assets/js/reviews.js?v=2026-10-05.2"></script>
-<script src="../assets/js/questions.js?v=2026-10-05.2"></script>
-<script src="../assets/js/report.js?v=2026-10-05.2"></script>
-<script src="../assets/js/chat.js?v=2026-10-05.2"></script>
-<script src="../assets/js/practice.js?v=2026-10-05.2"></script>
-<script src="../assets/js/notice.js?v=2026-10-05.2"></script>
-<script src="../assets/js/admin-notice.js?v=2026-10-05.2"></script>
-<script src="../assets/js/teacher-app.js?v=2026-10-05.2"></script>
-<script src="../assets/js/saenggibu.js?v=2026-10-05.2"></script>
+<script src="../assets/js/config.js?v=2026-10-05.3"></script>
+<script src="../assets/js/update-bar.js?v=2026-10-05.3"></script>
+<script src="../assets/js/utils.js?v=2026-10-05.3"></script>
+<script src="../assets/js/api.js?v=2026-10-05.3"></script>
+<script src="../assets/js/browse.js?v=2026-10-05.3"></script>
+<script src="../assets/js/reviews.js?v=2026-10-05.3"></script>
+<script src="../assets/js/questions.js?v=2026-10-05.3"></script>
+<script src="../assets/js/report.js?v=2026-10-05.3"></script>
+<script src="../assets/js/chat.js?v=2026-10-05.3"></script>
+<script src="../assets/js/practice.js?v=2026-10-05.3"></script>
+<script src="../assets/js/notice.js?v=2026-10-05.3"></script>
+<script src="../assets/js/admin-notice.js?v=2026-10-05.3"></script>
+<script src="../assets/js/teacher-app.js?v=2026-10-05.3"></script>
+<script src="../assets/js/saenggibu.js?v=2026-10-05.3"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);

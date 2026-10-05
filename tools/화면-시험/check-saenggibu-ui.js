@@ -96,8 +96,17 @@ async function 열기(viewport) {
     await p.click('button:has-text("다음 묶음")'); await p.waitForTimeout(150);
     확인('「다음 묶음」으로 넘어가는가', (await p.$eval('#sg-rail .sg-rentry[aria-current="true"]', e => e.textContent)).indexOf('진로') > -1);
 
+    // 떠 있는 창이 아니라 오른쪽 칸을 통째로 쓰는가
+    확인('준비 화면이 숨고 생기부 화면이 그 자리에 뜨는가',
+         (await p.$eval('#view-setup', e => e.hidden)) && !(await p.$eval('#view-saenggibu', e => e.hidden)));
+    확인('왼쪽 학생 명단은 그대로 보이는가', await p.$eval('#rail-students', e => e.offsetParent !== null));
+    확인('생기부 화면이 왼쪽 명단과 같은 높이까지 오는가',
+         (await p.$eval('.sg-panel', e => e.getBoundingClientRect().height)) > 700);
+    확인('머리줄에 학생 이름이 있는가', (await p.textContent('#sg-who')).indexOf('고다윤') > -1);
+
     // 담기
     await p.click('#sg-add'); await p.waitForTimeout(200);
+    확인('담으면 준비 화면으로 돌아오는가', !(await p.$eval('#view-setup', e => e.hidden)));
     const q = await p.evaluate(() => midQuestions.map(x => x.text));
     확인('담은 질문이 «낼 질문» 으로 가는가', q.length === 2 && q.indexOf('직접 쓴 질문') > -1, q.join(' | '));
     확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));

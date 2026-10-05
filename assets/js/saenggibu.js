@@ -1445,15 +1445,20 @@ var SG_MAX_SHOW = 5;
 //   오른쪽: 고른 묶음의 기록 전문 → 그 아래 질문(체크) → 맨 아래 직접 적는 칸
 // 휴대폰처럼 좁으면 왼쪽 목록 대신 위에 고르는 칸(select)이 뜹니다.
 
+// 준비 화면 자리에 통째로 바꿔 끼웁니다 (떠 있는 창은 작아서 불편하다는 말씀 — 2026-10-05).
+// 왼쪽 학생 명단은 그대로, 오른쪽 칸 전체가 이 화면이 됩니다.
 function openSaenggibu() {
   sgFound = []; sgPicked = {}; sgEdited = {}; sgCur = null; sgMore = {};
-  document.getElementById('sg-modal').style.display = 'flex';
+  show('saenggibu');      // teacher-app.js — 오른쪽 칸의 다른 화면을 다 감추고 이것만 보입니다
   document.getElementById('sg-file').value = '';
+  var who = document.getElementById('sg-who');
+  if (who) who.textContent = (typeof target !== 'undefined' && target) ? '· ' + target.student_no + ' ' + target.name : '';
   renderSaenggibu();
+  window.scrollTo(0, 0);
 }
 
 function closeSaenggibu() {
-  document.getElementById('sg-modal').style.display = 'none';
+  show('setup');
   sgFound = []; sgPicked = {};   // 화면을 닫으면 읽은 내용도 버립니다
 }
 
