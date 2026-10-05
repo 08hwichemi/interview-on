@@ -757,57 +757,172 @@ function sgTopics(sentence) {
 }
 
 // 「1984(조지 오웰)」 처럼 괄호 안이 사람 이름이면 읽은 책입니다.
-// 책에 「아는 대로 설명해 보세요」 는 안 맞습니다.
+// 책은 「제목 (지은이)」 꼴로 적힙니다. 책에는 책에 맞는 틀을 씁니다.
 function sgBookOf(topic) {
   var m = String(topic).match(/^(.{2,40}?)\s*\(([가-힣]{2,4}(?:\s[가-힣]{1,10})?)\)$/);
   return m ? { title: sgNorm(m[1]), author: sgNorm(m[2]) } : null;
 }
 
-// ⚠️ 한 이야깃거리에 질문 하나만 냅니다. 여럿이면 같은 말이 두 줄로 늘어섭니다.
-var SG_BOOK_TEMPLATE =
-  { comp: '학업역량',
-    make: function (b) { return '「' + b.title + '」을(를) 읽었군요. 어떤 대목이 가장 기억에 남고, 왜 그랬나요?'; } };
+// ══ 토씨 ══ — 「T」 뒤에 «을/를» «이/가» 를 받침에 맞춰 붙입니다.
+// 받침이 있으면 을·이, 없으면 를·가. 한글이 아니면(영어·숫자) 둘 다 적습니다.
+function sgJosa(word, withBatchim, without) {
+  var t = String(word || '').replace(/[」』"'’”\s)]+$/, '');
+  var ch = t.charCodeAt(t.length - 1);
+  if (ch >= 0xAC00 && ch <= 0xD7A3) return ((ch - 0xAC00) % 28) ? withBatchim : without;
+  if (ch >= 0x30 && ch <= 0x39) return (/[013678]$/.test(t)) ? withBatchim : without;   // 1·3·6·7·8·0 은 받침
+  return withBatchim + '(' + without + ')';
+}
+function 을(t) { return sgJosa(t, '을', '를'); }
+function 이(t) { return sgJosa(t, '이', '가'); }
+function 은(t) { return sgJosa(t, '은', '는'); }
 
-// 영역마다 다른 질문 틀입니다.
-// 영역마다 질문 틀 하나씩.
-var SG_TEMPLATES = {
-  changche:
-    { comp: '공동체역량',
-      make: function (t) { return '「' + t + '」 기록이 있습니다. 그때 본인이 실제로 한 일과, 가장 어려웠던 판단은 무엇이었나요?'; } },
-  sesa:
-    { comp: '학업역량',
-      make: function (t) { return '「' + t + '」이(가) 기록에 나옵니다. 아는 대로 설명해 보세요.'; } },
-  haengteuk:
-    { comp: '공동체역량',
-      make: function (t) { return '선생님이 「' + t + '」이라고 적어 주셨습니다. 그렇게 보였을 장면을 하나 들어 주세요.'; } }
+// ══ 질문 틀 ══
+//
+// 2026-10-05 에 틀 8개에서 이렇게 늘렸습니다. 선생님 말씀: 규칙으로 뽑은 질문이
+// AI 에 넣은 것보다 훨씬 못하다 — 돈 안 드는 길로, 지금보다 나으면 된다.
+// 틀은 앱에 들어 있는 대학별 기출 질문 2,360줄(questions 표)을 읽고 그 말투를 따랐습니다.
+//   · 「…했다고 기록되어 있습니다. ~을 설명하고, ~도 말해 주세요.」 — 본 질문 + 꼬리 질문을 한 줄에
+//   · 묻는 것: 내용 · 고른 이유(계기) · 과정과 어려움 · 결론과 근거 · 다시 한다면 · 지원 분야와의 연결
+// 이야깃거리의 «생김새»(실험·발표·역할·진로·책·물음…)에 따라 틀 묶음을 고르고,
+// 한 묶음 안에서는 틀을 돌려 가며 써서 같은 말이 줄줄이 나오지 않게 합니다.
+//
+// ⚠️ 틀은 기록을 «이해» 하지 못합니다. 「평형상수의 원리를 설명해 보세요」 까지는 되지만
+//    「압력은 왜 평형상수를 못 바꾸나」 같은 내용 질문은 못 합니다. 그건 언어 모델 몫입니다
+//    (노트북 AI 는 내장 그래픽에서 안 돌아 접었습니다 — docs/할-일.md).
+//
+// 틀 안의 {S} 는 자리말(「화학Ⅰ 시간에」 「동아리활동에서」), {T} 는 이야깃거리입니다.
+// 토씨는 틀 안에 «{T}을» «{T}이» «{T}은» 으로 적으면 받침에 맞춰 바뀝니다.
+var SG_FRAMES = {
+  // 세특 — 탐구·조사·분석
+  '탐구': { comp: '학업역량', frames: [
+    '{S}「{T}」{T}을 탐구했다고 기록되어 있습니다. 탐구한 주요 내용을 설명하고, 그 주제를 고르게 된 계기를 말해 주세요.',
+    '{S}「{T}」{T}을 탐구했는데, 어떤 자료나 방법으로 알아봤고 그 과정에서 가장 어려웠던 점은 무엇이었나요?',
+    '{S}「{T}」에 대해 탐구했다고 되어 있습니다. 탐구 끝에 무엇을 알게 되었고, 그것이 지원하려는 분야와 어떻게 이어지나요?',
+    '{S}「{T}」 탐구에서 본인이 내린 결론은 무엇이며, 그 결론을 뒷받침하는 근거는 무엇인가요?',
+    '{S}「{T}」{T}을 탐구했다고 기록되어 있습니다. 지금 다시 한다면 어떤 점을 보완하고 싶은지, 그 이유와 함께 말해 주세요.'
+  ] },
+  // 세특·창체 — 실험·측정·관찰
+  '실험': { comp: '학업역량', frames: [
+    '{S}「{T}」 실험을 했다고 기록되어 있습니다. 실험의 원리와 과정을 설명하고, 결과를 어떻게 해석했는지 말해 주세요.',
+    '{S}「{T}」 실험에서 변인은 어떻게 통제했고, 오차가 있었다면 그 원인은 무엇이라고 보나요?',
+    '{S}「{T}」 실험 결과가 예상과 달랐던 부분이 있었나요? 있었다면 그것을 어떻게 설명했는지 말해 주세요.',
+    '{S}「{T}」 실험을 했다고 되어 있는데, 거기서 쓴 원리를 다른 사례에 적용해 설명해 보세요.'
+  ] },
+  // 발표·보고서·카드뉴스·토론
+  '발표': { comp: '학업역량', frames: [
+    '{S}「{T}」{T}을 주제로 발표했다고 기록되어 있습니다. 발표의 핵심 주장과 그 근거를 설명해 주세요.',
+    '{S}「{T}」{T}을 발표했는데, 준비하며 가장 공들인 부분과 듣는 사람에게 꼭 전하고 싶었던 한 가지는 무엇이었나요?',
+    '{S}「{T}」 발표에서 받은 질문이나 반론이 있었나요? 어떻게 답했는지 말해 주세요.',
+    '{S}「{T}」{T}을 주제로 발표했다고 되어 있습니다. 그 주제를 고른 이유와, 조사하며 새로 알게 된 사실을 하나만 말해 주세요.'
+  ] },
+  // 세특 — 배운 개념
+  '개념': { comp: '학업역량', frames: [
+    '{S}「{T}」{T}을 배웠다고 기록되어 있습니다. 이 개념을 처음 듣는 사람에게 설명하듯 말해 주세요.',
+    '{S}「{T}」{T}이 기록에 나옵니다. 이 개념이 실생활이나 지원 분야에 어떻게 쓰이는지 예를 들어 설명해 주세요.',
+    '{S}「{T}」{T}을 공부하며 가장 헷갈렸던 부분은 무엇이었고, 어떻게 이해하게 되었나요?'
+  ] },
+  // 스스로 던진 물음 (「…할까?」)
+  '물음': { comp: '학업역량', frames: [
+    '「{T}」 — 이 물음을 스스로 던졌다고 기록되어 있습니다. 어떤 답을 찾았고, 무엇이 아직 풀리지 않았나요?',
+    '「{T}」라는 물음은 어디에서 비롯됐나요? 답을 찾으려고 무엇을 했는지 순서대로 말해 주세요.',
+    '「{T}」 — 이 물음에 지금 다시 답한다면 그때와 달라진 점이 있나요?'
+  ] },
+  // 의문을 품음
+  '의문': { comp: '학업역량', frames: [
+    '「{T}」에 의문을 품었다고 적혀 있습니다. 무엇이 궁금했고, 어떻게 확인했나요?',
+    '「{T}」에 의문을 가졌다고 기록되어 있습니다. 그 의문이 풀렸는지, 풀렸다면 핵심은 무엇이었는지 말해 주세요.',
+    '「{T}」에 의문을 품게 된 계기는 무엇이고, 그 뒤 어떤 자료를 찾아봤나요?'
+  ] },
+  // 책
+  '책': { comp: '학업역량', frames: [
+    '「{T}」{T}을 읽었다고 기록되어 있습니다. 책의 핵심 내용과 본인이 내린 결론을 설명해 주세요.',
+    '「{T}」{T}을 읽었군요. 어떤 대목이 가장 기억에 남고, 그것이 본인의 생각을 어떻게 바꿨나요?',
+    '「{T}」{T}을 읽었다고 되어 있는데, 이 책을 고른 기준은 무엇이었고 읽은 뒤 더 알아본 것이 있나요?',
+    '「{T}」에서 지은이의 주장에 동의하지 않는 부분이 있었나요? 있었다면 어떤 근거로 그렇게 생각했는지 말해 주세요.'
+  ] },
+  // 창체 — 활동 일반
+  '활동': { comp: '공동체역량', frames: [
+    '{S}「{T}」 활동이 기록되어 있습니다. 이 활동을 시작하게 된 계기와 본인이 실제로 한 일을 설명해 주세요.',
+    '{S}「{T}」 활동에서 본인이 맡은 역할은 무엇이었고, 준비하면서 어떤 점을 가장 고려했나요?',
+    '{S}「{T}」 활동을 하며 가장 어려웠던 판단은 무엇이었고, 어떻게 결정했나요?',
+    '{S}「{T}」 활동을 지금 다시 한다면 어떤 점을 보완하고 싶은지, 그 이유와 함께 말해 주세요.',
+    '{S}「{T}」 활동으로 새로 배운 점은 무엇이고, 그 뒤 어떤 활동으로 이어졌나요?'
+  ] },
+  // 창체 — 여럿이 함께·이끎
+  '역할': { comp: '공동체역량', frames: [
+    '{S}「{T}」{T}을 사람들과 함께했다고 기록되어 있습니다. 본인의 역할은 무엇이었고, 협력을 위해 구체적으로 어떤 행동을 했나요?',
+    '{S}「{T}」 과정에서 의견이 갈렸던 적이 있나요? 어떻게 조율했는지 말해 주세요.',
+    '{S}「{T}」{T}을 이끌었다고 되어 있는데, 함께한 사람들은 본인을 어떻게 평가했을 것 같나요? 그렇게 생각하는 이유는요?'
+  ] },
+  // 창체 — 진로와 이어지는 활동
+  '진로': { comp: '진로역량', frames: [
+    '{S}「{T}」{T}이 진로와 관련된 활동으로 기록되어 있습니다. 이 활동이 진로를 정하는 데 어떤 영향을 주었나요?',
+    '{S}「{T}」{T}을 통해 알게 된 것 가운데 지원하려는 학과와 이어지는 것은 무엇인가요?',
+    '{S}「{T}」 뒤에 진로 생각이 달라진 점이 있나요? 있었다면 무엇이 그렇게 만들었나요?'
+  ] },
+  // 행특 — 선생님의 칭찬하는 말
+  '칭찬': { comp: '공동체역량', frames: [
+    '선생님이 「{T}」이라고 적어 주셨습니다. 그렇게 보였을 장면을 하나 들어 주세요.',
+    '「{T}」이라는 평가를 받게 된 이유가 무엇이라고 생각하나요? 구체적인 사례로 말해 주세요.',
+    '「{T}」이라고 기록되어 있는데, 스스로는 그 평가에 얼마나 동의하나요? 반대로 그렇지 못했던 순간이 있었다면 말해 주세요.'
+  ] },
+  // 행특 — 따옴표로 묶인 활동 이름
+  '활동명': { comp: '공동체역량', frames: [
+    '「{T}」 이야기가 적혀 있습니다. 어떻게 시작했고 본인이 맡은 몫은 무엇이었나요?',
+    '「{T}」{T}을 하면서 주변 친구들에게 어떤 영향을 주었다고 생각하나요?'
+  ] }
 };
 
-// 「…어떻게 높일까?」 처럼 물음으로 된 제목에 «아는 대로 설명해 보세요» 는 어색합니다.
-var SG_QUESTION_TEMPLATE =
-  { comp: '학업역량',
-    make: function (t) { return '「' + t + '」 이 물음을 스스로 던졌군요. 어떤 답을 찾았고, 무엇이 아직 안 풀렸나요?'; } };
+// 문장을 보고 이야깃거리의 생김새를 정합니다. 위 SG_FRAMES 의 열쇠 가운데 하나를 돌려줍니다.
+var SG_CUE_EXPERIMENT = /실험|측정|관찰|대조군|변인|검증/;
+var SG_CUE_PRESENT = /발표|카드뉴스|보고서|작성|제작|토론|토의|기고|제안/;
+var SG_CUE_ROLE = /회장|부회장|부장|조장|반장|멘토|리더|주도|기획|이끌|역할|협력|모둠|팀원|팀을|함께|소통|조율/;
+var SG_CUE_CAREER = /진로|직업|학과|전공|장래|꿈/;
+var SG_CUE_INQUIRY = /탐구|조사|분석|연구|고찰|탐색/;
+var SG_CUE_CONCEPT = /배움|배우|학습|이해|단원|개념|원리|정리|파악|익힘/;
+function sgShapeOf(sectionKey, sentence, topic, book, groupLabel) {
+  // ⚠️ 낱말은 이야깃거리를 뺀 나머지 문장에서 찾습니다. 「대조군 설정의 중요성」을 주제로
+  //    발표한 것이, 제목 안의 «대조군» 때문에 실험으로 잡혔습니다.
+  sentence = String(sentence || '').split(topic.text).join(' ');
+  if (book) return '책';
+  if (topic.kind === '물음' || /[?？]\s*$/.test(topic.text)) return '물음';
+  if (topic.kind === '의문') return '의문';
+  if (sectionKey === 'haengteuk') return (topic.kind === '제목') ? '활동명' : '칭찬';
+  if (sectionKey === 'changche') {
+    if (SG_CUE_ROLE.test(sentence)) return '역할';
+    if (sgNorm(groupLabel || '').indexOf('진로') === 0 || SG_CUE_CAREER.test(sentence)) return '진로';
+    if (SG_CUE_EXPERIMENT.test(sentence)) return '실험';
+    if (SG_CUE_PRESENT.test(sentence)) return '발표';
+    if (SG_CUE_INQUIRY.test(sentence)) return '탐구';     // 동아리에서 한 탐구는 탐구로 묻습니다
+    return '활동';
+  }
+  // 세특
+  if (SG_CUE_EXPERIMENT.test(sentence)) return '실험';
+  if (SG_CUE_PRESENT.test(sentence) && topic.kind !== '개념') return '발표';
+  if (topic.kind === '개념') return '개념';
+  if (SG_CUE_INQUIRY.test(sentence)) return '탐구';
+  // 「…단원을 배움」 「…의 원리를 이해함」 — 탐구가 아니라 배운 개념입니다
+  if (SG_CUE_CONCEPT.test(sentence)) return '개념';
+  return '탐구';
+}
 
-// 스스로 품은 물음은 면접에서 제일 좋은 재료입니다. 그대로 되물어 봅니다.
-var SG_WONDER_TEMPLATE =
-  { comp: '학업역량',
-    make: function (t) { return '「' + t + '」에 의문을 품었다고 적혀 있습니다. 무엇이 궁금했고, 어떻게 확인했나요?'; } };
+// 자리말 — 「화학Ⅰ 시간에」 「동아리활동에서」. 과목을 모르면 비웁니다.
+function sgPlaceOf(sectionKey, subject) {
+  if (!subject) return '';
+  if (sectionKey === 'sesa') return subject + ' 시간에 ';
+  if (sectionKey === 'changche') return subject + '에서 ';
+  return '';
+}
 
-// 「…임을 파악함」 처럼 알아낸 것은 그 자리에서 설명을 시킵니다.
-var SG_CONCEPT_TEMPLATE =
-  { comp: '학업역량',
-    make: function (t) { return '「' + t + '」 — 이것을 어떻게 알게 되었는지, 근거와 함께 설명해 보세요.'; } };
-
-// 세특에서 «탐구·실험» 으로 잡힌 것은 과정을 묻는 편이 낫습니다.
-var SG_SESA_INQUIRY =
-  { comp: '학업역량',
-    make: function (t) { return '「' + t + '」은(는) 무엇이 궁금해서 시작했고, 결과를 어떻게 확인했나요?'; } };
-
-
-// 행동특성에 따옴표로 묶인 것은 «칭찬하는 말» 이 아니라 활동 이름입니다.
-// 「30분의 기적」에 «이라고 적어 주셨습니다» 를 붙이면 말이 안 됩니다.
-var SG_HT_ACT_TEMPLATE =
-  { comp: '공동체역량',
-    make: function (t) { return '「' + t + '」 이야기가 있습니다. 어떻게 시작했고 본인이 맡은 몫은 무엇이었나요?'; } };
+// 틀에 이야깃거리와 자리말을 끼웁니다. 「{T}」 뒤에 붙은 {T}을 같은 토씨 표시는 받침에 맞춰 바뀝니다.
+function sgFill(frame, topic, place) {
+  return frame
+    .replace(/\{S\}/g, place || '')
+    .replace(/「\{T\}」\{T\}을/g, '「' + topic + '」' + 을(topic))
+    .replace(/「\{T\}」\{T\}이/g, '「' + topic + '」' + 이(topic))
+    .replace(/「\{T\}」\{T\}은/g, '「' + topic + '」' + 은(topic))
+    .replace(/\{T\}/g, topic);
+}
 
 // 행동특성은 «칭찬하는 말» 자체가 이야깃거리입니다.
 // 따옴표가 없을 때가 많아서 서술어를 보고 찾습니다.
@@ -878,6 +993,7 @@ function sgBlankText(sectionKey, label) {
 function sgMakeQuestions(sectionKey, grade, sentences, groupLabel) {
   var made = [];
   var seen = {};
+  var turn = {};          // 생김새마다 몇 번째 틀을 쓸 차례인지
   var label = groupLabel || SG_NO_SUBJECT;
   var subject = (label === SG_NO_SUBJECT) ? '' : label;
 
@@ -896,25 +1012,18 @@ function sgMakeQuestions(sectionKey, grade, sentences, groupLabel) {
       var book = (sectionKey === 'haengteuk') ? null : sgBookOf(topic.text);
 
       // ⚠️ 이야깃거리 하나에 질문 하나만 냅니다.
-      //    「…아는 대로 설명해 보세요」 와 「…무엇이 궁금해서 시작했고…」 가
-      //    나란히 나오면 같은 말이 두 줄로 늘어서 고르기만 번거롭습니다.
+      //    두 틀을 나란히 내면 같은 말이 두 줄로 늘어서 고르기만 번거롭습니다.
       //    담은 뒤에 글자를 고칠 수 있으니 하나면 됩니다.
-      var tpl;
-      if (book) tpl = SG_BOOK_TEMPLATE;
-      else if (sectionKey === 'haengteuk')
-        tpl = (topic.kind === '제목') ? SG_HT_ACT_TEMPLATE : SG_TEMPLATES.haengteuk;
-      else if (sectionKey === 'sesa') {
-        // 물음이면 답을 묻고, 탐구·실험이면 과정을 묻고, 개념·제목이면 설명을 시킵니다
-        if (topic.kind === '물음' || /[?？]\s*$/.test(topic.text)) tpl = SG_QUESTION_TEMPLATE;
-        else if (topic.kind === '의문') tpl = SG_WONDER_TEMPLATE;
-        else if (topic.kind === '개념') tpl = SG_CONCEPT_TEMPLATE;
-        else if (topic.kind === '탐구' || topic.kind === '활동') tpl = SG_SESA_INQUIRY;
-        else tpl = SG_TEMPLATES.sesa;
-      }
-      else tpl = SG_TEMPLATES[sectionKey];
-      if (!tpl) return;
+      var shape = sgShapeOf(sectionKey, sentence, topic, book, label);
+      var bank = SG_FRAMES[shape];
+      if (!bank) return;
+      // 한 묶음 안에서는 같은 생김새의 틀을 돌려 가며 씁니다 (1번, 2번, 3번 … 다시 1번)
+      turn[shape] = (turn[shape] || 0);
+      var frame = bank.frames[turn[shape] % bank.frames.length];
+      turn[shape]++;
+      var tpl = { comp: bank.comp };
 
-      var text = book ? tpl.make(book) : tpl.make(topic.text);
+      var text = sgFill(frame, book ? book.title : topic.text, sgPlaceOf(sectionKey, subject));
       if (seen[text]) return;
       seen[text] = true;
       made.push({
@@ -922,6 +1031,7 @@ function sgMakeQuestions(sectionKey, grade, sentences, groupLabel) {
         competency: tpl.comp,
         topic: book ? book.title : topic.text,
         kind: book ? '제목' : topic.kind,
+        shape: shape,
         subject: subject,
         source: sentence,        // 원문을 같이 보여줍니다. 이상하면 바로 알아채도록
         grade: grade,
@@ -1313,27 +1423,43 @@ async function sgPageRules(page, pdfjsLib) {
 
 // ══════════════ 화면 (교사) ══════════════
 
-var sgFound = [];        // 뽑은 질문들
+var sgFound = [];        // 뽑은 질문들 (묶음마다 «직접 적는 칸» 하나 + 규칙이 뽑은 질문들)
 var sgWholes = {};       // 「학년|영역」 통째 원문 — 칸 나누기가 틀려도 볼 수 있게
 var sgEdited = {};       // 선생님이 직접 고쳐 쓴 질문 { 번호: 글자 }
 var sgPicked = {};       // { 번호: true } — 담을 것
-// ⚠️ «모든 학년» 을 0 으로 두면 안 됩니다. 0 은 «학년 모름» 의 값입니다.
-//    같은 값이라 「학년 모름」 단추가 늘 눌린 것처럼 보이고, 눌러도
-//    걸러지지 않아 1학년·2학년 질문이 그대로 나왔습니다.
-var sgGrade = null;      // null = 모든 학년, 0 = 학년 모름, 1~3 = 그 학년
-var sgArea = '';         // '' = 모든 영역
-var sgSubject = '';      // '' = 모든 과목·갈래
+var sgCur = null;        // 지금 보고 있는 묶음 (sgGroupList() 의 차례)
+var sgRailGrade = null;  // 왼쪽 목록에 보이는 학년 (null 이면 지금 묶음의 학년을 따라감)
+var sgMore = {};         // { 묶음키: true } — 최대 개수 너머 질문까지 펼쳐 둔 묶음
 var sgMask = true;       // 개인정보 가림
 
+// 묶음마다 처음에 보여 주는 질문 수. 열 개 넘게 늘어놓으면 고르기가 더 힘듭니다(선생님 말씀).
+// 또렷한 규칙으로 잡힌 것(따옴표 제목·스스로 던진 물음)부터 보여 주고, 나머지는 「더 보기」 뒤에 둡니다.
+var SG_MAX_SHOW = 5;
+
+// ══ 화면 짜임 (2026-10-05 에 바꿈) ══
+//
+// 예전엔 학년·영역 칩으로 걸러서 모든 묶음을 한 줄로 늘어놓고, 질문마다 근거 문장을
+// 따로 붙였습니다. 선생님 말씀: «질문마다 원문을 보는 게 아니라, 원문을 먼저 보고
+// 그 아래에서 질문을 고르고 싶다. 대신 원문이 기니까 자율·동아리·진로(학년별)로
+// 하나씩 골라 보게.»  그래서 지금은
+//   왼쪽  : 묶음 목록 (영역 → 학년 · 갈래/과목)   ← 2 : 8 로 나눕니다
+//   오른쪽: 고른 묶음의 기록 전문 → 그 아래 질문(체크) → 맨 아래 직접 적는 칸
+// 휴대폰처럼 좁으면 왼쪽 목록 대신 위에 고르는 칸(select)이 뜹니다.
+
+// 준비 화면 자리에 통째로 바꿔 끼웁니다 (떠 있는 창은 작아서 불편하다는 말씀 — 2026-10-05).
+// 왼쪽 학생 명단은 그대로, 오른쪽 칸 전체가 이 화면이 됩니다.
 function openSaenggibu() {
-  sgFound = []; sgPicked = {}; sgEdited = {}; sgGrade = null; sgArea = ''; sgSubject = '';
-  document.getElementById('sg-modal').style.display = 'flex';
+  sgFound = []; sgPicked = {}; sgEdited = {}; sgCur = null; sgMore = {}; sgRailGrade = null;
+  show('saenggibu');      // teacher-app.js — 오른쪽 칸의 다른 화면을 다 감추고 이것만 보입니다
   document.getElementById('sg-file').value = '';
+  var who = document.getElementById('sg-who');
+  if (who) who.textContent = (typeof target !== 'undefined' && target) ? '· ' + target.student_no + ' ' + target.name : '';
   renderSaenggibu();
+  window.scrollTo(0, 0);
 }
 
 function closeSaenggibu() {
-  document.getElementById('sg-modal').style.display = 'none';
+  show('setup');
   sgFound = []; sgPicked = {};   // 화면을 닫으면 읽은 내용도 버립니다
 }
 
@@ -1342,6 +1468,7 @@ async function onSaenggibuFile(input) {
   if (!file) return;
 
   var body = document.getElementById('sg-body');
+  body.classList.remove('split');
   body.innerHTML = '<p class="sg-note">읽는 중입니다...</p>';
 
   try {
@@ -1361,6 +1488,9 @@ async function onSaenggibuFile(input) {
     sgWholes = r.wholes || {};
     sgPicked = {};
     sgEdited = {};
+    sgCur = null;
+    sgMore = {};
+    sgRailGrade = null;
 
     if (!sgFound.length) {
       body.innerHTML = '<p class="sg-note bad">질문을 만들 만한 대목을 못 찾았습니다.<br>' +
@@ -1383,9 +1513,6 @@ function sgMaskText(s) {
 }
 
 function toggleSgMask() { sgMask = !sgMask; renderSaenggibu(); }
-function pickSgGrade(g) { sgGrade = (sgGrade === g) ? null : g; renderSaenggibu(); }
-function pickSgArea(a) { sgArea = (sgArea === a) ? '' : a; sgSubject = ''; renderSaenggibu(); }
-function pickSgSubject(x) { sgSubject = (sgSubject === x) ? '' : x; renderSaenggibu(); }
 
 // 못 찾은 과목은 선생님이 직접 적습니다. 적기 시작하면 저절로 담깁니다.
 // ⚠️ 여기서 목록을 다시 그리면 글자 한 자 칠 때마다 커서가 맨 뒤로 튑니다.
@@ -1393,12 +1520,8 @@ function pickSgSubject(x) { sgSubject = (sgSubject === x) ? '' : x; renderSaengg
 function setSgText(i, v) {
   sgEdited[i] = v;
   if (v.trim()) sgPicked[i] = true; else delete sgPicked[i];
-  var row = document.querySelector('.sg-item[data-i="' + i + '"]');
-  if (row) {
-    row.classList.toggle('on', !!sgPicked[i]);
-    var box = row.querySelector('input[type="checkbox"]');
-    if (box) box.checked = !!sgPicked[i];
-  }
+  sgPaintItem(i);
+  paintSgRail();
   paintSgFoot();
 }
 
@@ -1406,100 +1529,35 @@ function sgTextOf(i) {
   return (sgEdited[i] !== undefined) ? sgEdited[i] : sgFound[i].text;
 }
 
+// ⚠️ 체크 하나 눌렀다고 화면을 통째로 다시 그리면 기록을 읽던 자리가 맨 위로 튑니다.
+//    그 줄과 왼쪽 목록의 숫자만 고칩니다.
 function toggleSgPick(i) {
   if (sgPicked[i]) delete sgPicked[i]; else sgPicked[i] = true;
-  renderSaenggibu();
-}
-
-function sgVisible() {
-  return sgFound.map(function (q, i) { return { q: q, i: i }; })
-    .filter(function (x) {
-      if (sgGrade !== null && x.q.grade !== sgGrade) return false;
-      if (sgArea && x.q.area !== sgArea) return false;
-      // 「(과목 모름)」도 골라 볼 수 있어야 합니다. 빈 값이면 거르기가 안 먹습니다.
-      if (sgSubject && (x.q.subject || SG_NO_SUBJECT) !== sgSubject) return false;
-      return true;
-    });
-}
-
-function renderSaenggibu() {
-  var body = document.getElementById('sg-body');
-  var foot = document.getElementById('sg-foot');
-
-  if (!sgFound.length) {
-    body.innerHTML =
-      '<p class="sg-note">나이스에서 뽑은 <b>생기부 PDF</b> 를 고르세요.<br>' +
-      '<b>파일은 이 브라우저 안에서만 읽고 바로 버립니다.</b> 서버에 올라가지 않습니다.</p>';
-    foot.hidden = true;
-    return;
-  }
-
-  // 걸러 보기 — 학년·영역
-  var grades = {};
-  sgFound.forEach(function (q) { grades[q.grade] = (grades[q.grade] || 0) + 1; });
-  var chips = '<div class="chat-picks cls-row">' +
-    [1, 2, 3, 0].filter(function (g) { return grades[g]; }).map(function (g) {
-      return '<button class="chat-pick cls" aria-pressed="' + (sgGrade === g) + '"' +
-             ' onclick="pickSgGrade(' + g + ')">' + (g ? g + '학년' : '학년 모름') +
-             '<span class="n">' + grades[g] + '</span></button>';
-    }).join('') + '</div>' +
-    '<div class="chat-picks cls-row">' + SG_SECTIONS.map(function (sec) {
-      var n = sgFound.filter(function (q) { return q.area === sec.key; }).length;
-      if (!n) return '';
-      return '<button class="chat-pick cls" aria-pressed="' + (sgArea === sec.key) + '"' +
-             ' onclick="pickSgArea(\'' + sec.key + '\')">' + sec.title +
-             '<span class="n">' + n + '</span></button>';
-    }).join('') +
-    '<button class="chat-pick" aria-pressed="' + sgMask + '" onclick="toggleSgMask()">개인정보 가림</button>' +
-    '</div>';
-
-  // 세특은 과목이, 창체는 갈래(자율·동아리·진로)가 많아 한 번에 훑기 어렵습니다.
-  // 영역을 고르면 그 안에서 한 번 더 추립니다.
-  if (sgArea) {
-    var subs = {};
-    sgFound.forEach(function (q) {
-      if (q.area !== sgArea) return;
-      if (sgGrade !== null && q.grade !== sgGrade) return;
-      var k = q.subject || SG_NO_SUBJECT;
-      subs[k] = (subs[k] || 0) + 1;
-    });
-    var keys = Object.keys(subs).sort();
-    if (keys.length > 1) {
-      chips += '<div class="chat-picks cls-row">' + keys.map(function (k) {
-        return '<button class="chat-pick cls" aria-pressed="' + (sgSubject === k) + '"' +
-               ' onclick="pickSgSubject(\'' + k.replace(/'/g, "\\'") + '\')">' + esc(k) +
-               '<span class="n">' + subs[k] + '</span></button>';
-      }).join('') + '</div>';
-    }
-  }
-
-  var groups = sgGroups(sgVisible());
-  // 영역·학년이 바뀌는 자리마다 «통째 원문» 을 한 번 끼워 넣습니다
-  var seenWhole = {}, html = '';
-  groups.forEach(function (g) {
-    var wk = g.grade + '|' + g.area;
-    if (!seenWhole[wk]) { seenWhole[wk] = true; html += sgWholeHTML(g, wk); }
-    html += sgGroupHTML(g);
-  });
-  body.innerHTML = chips + (groups.length
-    ? html
-    : '<p class="sg-note">그 조건에 맞는 질문이 없습니다.</p>');
-
+  sgPaintItem(i);
+  paintSgRail();
   paintSgFoot();
 }
 
-// 학년 · 과목(또는 갈래) 으로 묶습니다.
-// 묶음마다 «기록 보고 직접 적기» 칸이 맨 위, 뽑힌 질문이 그 아래입니다.
-function sgGroups(list) {
+function sgPaintItem(i) {
+  var row = document.querySelector('.sg-item[data-i="' + i + '"]');
+  if (!row) return;
+  row.classList.toggle('on', !!sgPicked[i]);
+  var box = row.querySelector('input[type="checkbox"]');
+  if (box) box.checked = !!sgPicked[i];
+}
+
+// ══ 묶음 ══ — 학년 · 영역 · 갈래(또는 과목) 하나가 한 묶음입니다.
+// sgBuild 가 묶음마다 «직접 적는 칸»(blank) 을 맨 앞에 두고 질문을 뒤에 붙여 두었습니다.
+function sgGroupList() {
   var order = [], by = {};
-  list.forEach(function (x) {
-    var k = x.q.grade + '|' + x.q.area + '|' + (x.q.subject || SG_NO_SUBJECT);
+  sgFound.forEach(function (q, i) {
+    var k = q.grade + '|' + q.area + '|' + (q.subject || SG_NO_SUBJECT);
     if (!by[k]) {
-      by[k] = { grade: x.q.grade, area: x.q.area, label: x.q.subject || SG_NO_SUBJECT,
-                blanks: [], items: [] };
+      by[k] = { key: k, grade: q.grade, area: q.area, label: q.subject || SG_NO_SUBJECT, blank: null, items: [] };
       order.push(by[k]);
     }
-    (x.q.blank ? by[k].blanks : by[k].items).push(x);
+    if (q.blank) by[k].blank = { q: q, i: i };
+    else by[k].items.push({ q: q, i: i });
   });
   return order;
 }
@@ -1509,19 +1567,218 @@ function sgSectionTitle(key) {
   return hit ? hit.title : '';
 }
 
+function sgGradeText(g) { return g ? g + '학년' : '학년 모름'; }
+
+// 묶음 이름 — 행특은 갈래 이름이 곧 영역 이름이라 두 번 쓰지 않습니다
+function sgGroupName(g) {
+  var sub = (g.label === sgSectionTitle(g.area)) ? '' : g.label;
+  return sgGradeText(g.grade) + (sub ? ' · ' + sub : '');
+}
+
+// 또렷한 규칙으로 잡힌 질문부터. 같은 등급이면 기록에 나온 차례대로.
+function sgRanked(items) {
+  return items.slice().sort(function (a, b) {
+    return (SG_KIND_RANK[b.q.kind] || 1) - (SG_KIND_RANK[a.q.kind] || 1) || (a.i - b.i);
+  });
+}
+
+function sgPickedCount(g) {
+  var n = g.items.filter(function (x) { return sgPicked[x.i]; }).length;
+  if (g.blank && sgPicked[g.blank.i]) n++;
+  return n;
+}
+
+function pickSgGroup(i) {
+  sgCur = i;
+  sgMore = {};
+  sgRailGrade = null;     // 왼쪽 목록은 고른 묶음의 학년을 따라갑니다
+  renderSaenggibu();
+  var main = document.querySelector('.sg-main');
+  if (main) main.scrollTop = 0;
+}
+
+function sgStep(d) {
+  var n = sgGroupList().length;
+  if (!n) return;
+  pickSgGroup(Math.max(0, Math.min(n - 1, (sgCur || 0) + d)));
+}
+
+function toggleSgMore(key) {
+  if (sgMore[key]) delete sgMore[key]; else sgMore[key] = true;
+  renderSaenggibu();
+}
+
+function renderSaenggibu() {
+  var body = document.getElementById('sg-body');
+  var foot = document.getElementById('sg-foot');
+
+  if (!sgFound.length) {
+    body.classList.remove('split');
+    body.innerHTML =
+      '<p class="sg-note">나이스에서 뽑은 <b>생기부 PDF</b> 를 고르세요.<br>' +
+      '<b>파일은 이 브라우저 안에서만 읽고 바로 버립니다.</b> 서버에 올라가지 않습니다.</p>';
+    foot.hidden = true;
+    return;
+  }
+
+  var groups = sgGroupList();
+  if (sgCur === null || sgCur >= groups.length) sgCur = 0;
+
+  body.classList.add('split');
+  body.innerHTML =
+    '<nav class="sg-rail" id="sg-rail">' + sgRailHTML(groups) + '</nav>' +
+    '<div class="sg-main">' + sgJumpHTML(groups) + sgMainHTML(groups[sgCur], groups) + '</div>';
+
+  paintSgFoot();
+}
+
+// ── 왼쪽: 묶음 목록 ──
+//
+// ⚠️ 실제 생기부는 묶음이 50개 넘게 나옵니다(과목이 많아서). 한 줄로 늘어놓으면 3학년은
+//    맨 밑에 묻혀서 스크롤해야 보였습니다(선생님 말씀). 그래서 맨 위에 학년 단추를 두고
+//    그 학년 것만 보입니다 — 창체 4개 + 과목 10여 개 + 행특 1개면 스크롤 없이 다 들어갑니다.
+function sgRailGradeNow(groups) {
+  if (sgRailGrade !== null) return sgRailGrade;
+  return groups[sgCur] ? groups[sgCur].grade : (groups[0] ? groups[0].grade : 1);
+}
+
+function sgRailHTML(groups) {
+  var g0 = sgRailGradeNow(groups);
+
+  // 학년 단추 — 있는 학년만. 담은 수가 있으면 숫자를 붙입니다
+  var grades = [];
+  groups.forEach(function (g) { if (grades.indexOf(g.grade) === -1) grades.push(g.grade); });
+  grades.sort(function (a, b) { return (a || 9) - (b || 9); });   // 「학년 모름」(0)은 맨 뒤
+  var html = '<div class="sg-grades">' + grades.map(function (gr) {
+    var n = 0;
+    groups.forEach(function (g) { if (g.grade === gr) n += sgPickedCount(g); });
+    return '<button class="sg-gbtn" aria-pressed="' + (gr === g0) + '" onclick="pickSgRailGrade(' + gr + ')">' +
+      esc(sgGradeText(gr)) + (n ? '<b>' + n + '</b>' : '') + '</button>';
+  }).join('') + '</div>';
+
+  // 그 학년의 묶음 — 영역마다 머리줄
+  var lastArea = null;
+  groups.forEach(function (g, i) {
+    if (g.grade !== g0) return;
+    if (g.area !== lastArea) {
+      lastArea = g.area;
+      html += '<p class="sg-rhead">' + esc(sgSectionTitle(g.area)) + '</p>';
+    }
+    var picked = sgPickedCount(g);
+    var sub = (g.label === sgSectionTitle(g.area)) ? '전체' : g.label;
+    html += '<button class="sg-rentry' + (g.items.length ? '' : ' none') + '" aria-current="' + (i === sgCur) + '"' +
+              ' onclick="pickSgGroup(' + i + ')">' +
+      '<span class="nm">' + esc(sub) + '</span>' +
+      '<span class="n">' + (picked ? '<b>' + picked + '</b>' : '') + '</span>' +
+      '</button>';
+  });
+  return html;
+}
+
+// 학년 단추 — 그 학년의 첫 묶음으로 갑니다 (지금 보던 묶음이 그 학년이면 그대로)
+function pickSgRailGrade(gr) {
+  var groups = sgGroupList();
+  if (groups[sgCur] && groups[sgCur].grade === gr) { sgRailGrade = gr; paintSgRail(); return; }
+  for (var i = 0; i < groups.length; i++) {
+    if (groups[i].grade === gr) { pickSgGroup(i); return; }
+  }
+}
+
+function paintSgRail() {
+  var rail = document.getElementById('sg-rail');
+  if (rail) rail.innerHTML = sgRailHTML(sgGroupList());
+}
+
+// 좁은 화면에서는 왼쪽 목록 대신 위에 고르는 칸
+function sgJumpHTML(groups) {
+  var grades = [];
+  groups.forEach(function (g) { if (grades.indexOf(g.grade) === -1) grades.push(g.grade); });
+  grades.sort(function (a, b) { return (a || 9) - (b || 9); });
+  return '<select class="sg-jump" onchange="pickSgGroup(+this.value)" aria-label="묶음 고르기">' +
+    grades.map(function (gr) {
+      return '<optgroup label="' + esc(sgGradeText(gr)) + '">' +
+        groups.map(function (g, i) {
+          if (g.grade !== gr) return '';
+          var sub = (g.label === sgSectionTitle(g.area)) ? '' : ' · ' + g.label;
+          return '<option value="' + i + '"' + (i === sgCur ? ' selected' : '') + '>' +
+            esc(sgSectionTitle(g.area) + sub) + '</option>';
+        }).join('') + '</optgroup>';
+    }).join('') + '</select>';
+}
+
+// ── 오른쪽: 기록 전문 → 질문(체크) → 직접 적는 칸 ──
+function sgMainHTML(g, groups) {
+  var record = g.blank ? g.blank.q.source : '';
+  var ranked = sgRanked(g.items);
+  var topics = ranked.map(function (x) { return x.q.topic; });
+  var open = sgMore[g.key] || ranked.length <= SG_MAX_SHOW;
+  var shown = open ? ranked : ranked.slice(0, SG_MAX_SHOW);
+  var hidden = ranked.length - shown.length;
+
+  var html =
+    '<div class="sg-head">' +
+      '<p class="sg-gtitle">' + esc(sgSectionTitle(g.area)) + ' <b>' + esc(sgGroupName(g)) + '</b>' +
+        '<span class="n">' + (sgCur + 1) + ' / ' + groups.length + '</span></p>' +
+      '<div class="sg-nav">' +
+        '<button class="chat-pick" aria-pressed="' + sgMask + '" onclick="toggleSgMask()">개인정보 가림</button>' +
+        '<button class="chat-pick" onclick="sgStep(-1)"' + (sgCur === 0 ? ' disabled' : '') + '>← 앞 묶음</button>' +
+        '<button class="chat-pick" onclick="sgStep(1)"' + (sgCur === groups.length - 1 ? ' disabled' : '') + '>다음 묶음 →</button>' +
+      '</div>' +
+    '</div>';
+
+  // 기록 전문 — 질문이 가리키는 대목은 색을 입혀 둡니다. 어디서 나온 질문인지 바로 보이게.
+  html += '<p class="sg-rlabel">기록 <span class="sg-len">' +
+            String(record.length).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '자</span></p>' +
+          '<div class="sg-record">' + sgMarkRecord(sgMaskText(record), topics.map(sgMaskText)) + '</div>' +
+          sgWholeHTML(g);
+
+  // 질문
+  html += '<p class="sg-rlabel">질문 <span class="sg-len">' +
+            (ranked.length ? ranked.length + '개 뽑음' : '못 뽑음') + '</span></p>' +
+          '<div class="sg-list">' + shown.map(sgItemHTML).join('');
+  if (hidden > 0) {
+    html += '<button class="sg-more" onclick="toggleSgMore(\'' + g.key.replace(/'/g, "\\'") + '\')">' +
+            hidden + '개 더 보기</button>';
+  } else if (ranked.length > SG_MAX_SHOW) {
+    html += '<button class="sg-more" onclick="toggleSgMore(\'' + g.key.replace(/'/g, "\\'") + '\')">접기</button>';
+  }
+  if (g.blank) html += sgBlankHTML(g.blank);
+  html += '</div>';
+  return html;
+}
+
+// 질문이 가리키는 구절(topic)에 <mark> 를 입힙니다. 긴 구절부터, 한 번씩만.
+function sgMarkRecord(text, topics) {
+  var out = esc(text);
+  var done = {};
+  topics.slice().sort(function (a, b) { return String(b).length - String(a).length; })
+    .forEach(function (t) {
+      t = esc(String(t || '').trim());
+      if (t.length < 2 || done[t]) return;
+      done[t] = true;
+      var at = out.indexOf(t);
+      if (at < 0) return;
+      // 이미 색을 입힌 자리 안이면 건너뜁니다 (겹치면 태그가 깨집니다)
+      var before = out.slice(0, at);
+      var opens = (before.match(/<mark>/g) || []).length, closes = (before.match(/<\/mark>/g) || []).length;
+      if (opens !== closes) return;
+      out = before + '<mark>' + t + '</mark>' + out.slice(at + t.length);
+    });
+  return out;
+}
+
 // ⚠️ 마지막 안전판 — 칸(갈래·과목) 나누기가 어긋나도 원문은 다 보이게 합니다.
 //    나이스 판이 조금만 달라져도 칸이 어긋나는데, 그때마다 선생님이
 //    «내용이 잘렸다» 고 느끼셔야 할 까닭이 없습니다. 접어 두고, 펴면 다 나옵니다.
-function sgWholeHTML(g, wk) {
-  var parts = sgWholes[wk];
+function sgWholeHTML(g) {
+  var parts = sgWholes[g.grade + '|' + g.area];
   if (!parts || !parts.length) return '';
 
   var chars = 0;
   parts.forEach(function (p) { chars += p.text.length; });
-  var title = (g.grade ? g.grade + '학년' : '학년 모름') + ' ' + sgSectionTitle(g.area);
 
   return '<details class="sg-whole">' +
-    '<summary>' + esc(title) + ' <b>원문 전체</b>' +
+    '<summary>' + esc(sgGradeText(g.grade) + ' ' + sgSectionTitle(g.area)) + ' <b>원문 전체</b>' +
       '<span class="n">' + String(chars).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '자</span>' +
     '</summary>' +
     '<div class="sg-wholetext">' + parts.map(function (p) {
@@ -1543,28 +1800,11 @@ function sgTagClass(label) {
   return SG_TAG_CLASS[sgNorm(label).replace(/\s/g, '')] || 'etc';
 }
 
-function sgGroupHTML(g) {
-  var head = (g.grade ? g.grade + '학년' : '학년 모름') + ' · ' + esc(g.label);
-  // 행특은 묶음 이름이 곧 영역 이름이라 두 번 쓰지 않습니다
-  if (g.label !== sgSectionTitle(g.area)) head += ' <span class="sg-gsec">' + esc(sgSectionTitle(g.area)) + '</span>';
-
-  return '<section class="sg-group">' +
-    '<p class="sg-gtitle">' + head +
-      '<span class="n">뽑은 질문 ' + g.items.length + '개</span></p>' +
-    '<div class="sg-list">' +
-      g.blanks.map(sgBlankHTML).join('') +
-      g.items.map(sgItemHTML).join('') +
-    '</div></section>';
-}
-
-// 기록을 통째로 펼쳐 놓고 그 자리에서 직접 적는 칸
+// 기록을 보고 직접 적는 칸 — 묶음의 맨 아래
 function sgBlankHTML(x) {
   var note = x.q.lonely
     ? '<b class="sg-warn">여기서는 탐구 제목을 못 찾았습니다 — 기록을 보고 직접 적어 주세요</b>'
     : '<b class="sg-own">기록을 보고 직접 물으셔도 됩니다</b>';
-  // 글자 수를 적어 둡니다. 잘렸는지 아닌지 선생님이 바로 보실 수 있게.
-  note += ' <span class="sg-len">· 기록 ' +
-          String((x.q.source || '').length).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '자</span>';
   return '<div class="sg-item blank' + (sgPicked[x.i] ? ' on' : '') + '" data-i="' + x.i + '">' +
     '<input type="checkbox"' + (sgPicked[x.i] ? ' checked' : '') +
       ' onchange="toggleSgPick(' + x.i + ')" title="이 질문 담기">' +
@@ -1572,18 +1812,18 @@ function sgBlankHTML(x) {
       '<span class="sg-meta">' + note + '</span>' +
       '<input class="sg-write" type="text" value="' + esc(sgTextOf(x.i)) + '"' +
         ' oninput="setSgText(' + x.i + ', this.value)" placeholder="여기에 낼 질문을 적으세요">' +
-      '<span class="sg-src full">' + esc(sgMaskText(x.q.source)) + '</span>' +
     '</span></div>';
 }
 
+// 질문 한 줄 — 원문은 위 기록에서 색으로 표시되므로 여기엔 짧은 근거만 둡니다
 function sgItemHTML(x) {
-  return '<label class="sg-item' + (sgPicked[x.i] ? ' on' : '') + '">' +
+  return '<label class="sg-item' + (sgPicked[x.i] ? ' on' : '') + '" data-i="' + x.i + '">' +
     '<input type="checkbox"' + (sgPicked[x.i] ? ' checked' : '') +
       ' onchange="toggleSgPick(' + x.i + ')">' +
     '<span class="sg-q">' +
       '<span class="sg-qtext">' + esc(x.q.text) + '</span>' +
-      '<span class="sg-meta">' + esc(x.q.competency) + '</span>' +
-      '<span class="sg-src">' + esc(sgMaskText(x.q.source)) + '</span>' +
+      '<span class="sg-meta">' + esc(x.q.competency) +
+        (x.q.topic ? ' · 「' + esc(sgMaskText(x.q.topic)) + '」' : '') + '</span>' +
     '</span></label>';
 }
 
