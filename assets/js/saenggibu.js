@@ -381,14 +381,25 @@ function sgRecordParts(lines) {
 
 // ══ 질문 만들기용 — 문장으로 쪼갭니다 ══
 // 생기부는 「~함.」 「~음.」 으로 끝나는 문장이 이어 붙어 있습니다.
+// ⚠️ 날짜의 점은 문장 끝이 아닙니다. 「큐리어톤(2026.05.26.~2026.07.14.)에 참여해 …」 가
+//    「14.」 에서 끊겨, 이야깃거리가 「)에 참여해 호기심에서출발한 질문」 이 됐습니다(2026-10-05).
+//    숫자 뒤의 점은 잠깐 다른 글자로 바꿔 두고 문장을 나눈 뒤 되돌립니다.
+var SG_DOT_HOLD = '\u2024';
+function sgShieldDots(text) {
+  return String(text || '').replace(/(\d)\.(?=\s*(?:\d|~|\)|$))/g, '$1' + SG_DOT_HOLD);
+}
+function sgUnshieldDots(text) {
+  return String(text || '').split(SG_DOT_HOLD).join('.');
+}
+
 function sgSentences(lines) {
-  var text = sgRecordText(lines)
+  var text = sgShieldDots(sgRecordText(lines))
     // 갈래 이름이 문장 앞에 붙어 오면 이야깃거리로 잘못 잡힙니다
     .replace(new RegExp('(' + SG_AREAS.join('|') + ')\\s*\\d*\\s*', 'g'), ' ')
     .replace(/\s+/g, ' ');
 
   return text.split(/(?<=[.!?])\s+/)
-    .map(sgNorm)
+    .map(function (s) { return sgNorm(sgUnshieldDots(s)); })
     .filter(function (s) { return s.length >= 12; });   // 토막 글자는 버립니다
 }
 
@@ -669,6 +680,72 @@ var SG_TOPIC_RULES = [
 // 창체 갈래 이름·과목 꼬리표가 앞에 붙어 오면 떼어 냅니다.
 // 「동아리활동 (과학탐구부) 미세먼지와 식물 생장」 처럼 통째로 잡히면
 // 질문이 우스워집니다.
+// ══ 이야기 나누기 ══
+//
+// 한 갈래(진로활동 한 해치) 기록에는 보통 활동이 여럿 이어집니다 —
+//   「큐리어톤 프로젝트에 참여해 … 탐구함. 이전 동아리의 … 발전시킴. 선행연구로 … 분석함.」
+//   「진로독서 프로젝트로 「나노 화학」을 읽고 … 토론하며 … 다짐함.」
+// 예전엔 문장을 하나씩 따로 봐서 어느 활동 이야기인지 몰랐습니다(선생님 말씀: «새 내용으로
+// 넘어가는 걸 인식하나? 주제별로 나누면 오류가 줄지 않을까» — 2026-10-05).
+// 그래서 «새 활동을 여는 문장» 을 찾아 이야기(story)로 묶습니다.
+//   · 새 활동을 여는 말이 있으면 새 이야기 — 참여·프로젝트·특강·캠프·대회·수업·독서·강연…
+//   · 다만 「이를 …」 「이전 …」 「또한 …」 처럼 앞 문장을 받는 말로 시작하면 이어지는 이야기
+// 이야기 이름은 여는 문장에서 그 말 둘레의 낱말 두 개로 짓습니다 — 「프로젝트 큐리어톤」 「진로독서 프로젝트」
+var SG_STORY_CUE = /(참여|참가|프로젝트|특강|캠프|대회|수업|독서|읽고|강연|탐방|체험|발표회|축제|행사|동아리|부스|멘토링|봉사|캠페인|공모전|워크숍|박람회|주간|세미나|견학|실습|토론회|경진|페스티벌|톤\b)/;
+var SG_STORY_CONT = /^(?:이를|이전|이후|이어|이어서|또한|또|그\s|그러한|그런|그러나|그래서|그 결과|이에|이러한|이런|나아가|특히|한편|아울러|더불어|이때|여기서|결과적으로|끝으로|마지막으로|먼저|후속|추가로|같은|해당|위|이\s|본인|자신|스스로|더\s|덧붙여|뿐만|한발|한 걸음)/;
+
+var SG_STORY_PREV_WEAK = /^(?:기반|관련|다양한|여러|각종|교내|교외|학교|학급|지역|주제|탐구|진로|자율|동아리|봉사|연계|융합|심화|기초|공동|단체|개인)/;
+function sgStoryWord(w) {
+  // 낱말 하나를 이름에 쓸 수 있는 꼴로 — 괄호·따옴표·토씨를 뗍니다
+  var t = sgUnshieldDots(String(w || ''))
+    .replace(/\([^)]*\)?/g, '')
+    .replace(/[「『"'\u2018\u201c\u2019\u201d」』.,]/g, '');
+  // ⚠️ 토씨는 떼고도 두 글자 넘게 남을 때만 뗍니다 — 「진로」의 «로» 를 떼면 「진」이 됩니다
+  var cut = t.replace(/(?:에서|에게|으로|로|에|을|를|은|는|이|가|의|와|과|도)$/, '');
+  return cut.length >= 2 ? cut : t;
+}
+function sgStoryLabel(sentence, n) {
+  var words = sgShieldDots(sentence).split(/\s+/);
+  var at = -1;
+  for (var i = 0; i < words.length; i++) {
+    if (SG_STORY_CUE.test(words[i])) { at = i; break; }
+  }
+  var pick = [];
+  if (at >= 0) {
+    var cue = sgStoryWord(words[at]);
+    var prev = at > 0 ? sgStoryWord(words[at - 1]) : '';
+    var next = at + 1 < words.length ? words[at + 1] : '';
+    // 다음 낱말이 «이름» 처럼 생겼으면(따옴표 없고 서술어 아님) 그쪽을 씁니다 — 「프로젝트 큐리어톤」
+    var nextOK = next && !/[「『"'\u2018\u201c]/.test(next) &&
+                 !/(?:함|됨|임|음|해|하여|고|며|서|자|여|면|든|던)$/.test(sgUnshieldDots(next).replace(/[.,)]+$/, '')) &&
+                 (sgStoryWord(next).match(/[가-힣A-Za-z]/g) || []).length >= 2;
+    var prevOK = !!prev && (prev.match(/[가-힣A-Za-z]/g) || []).length >= 2;
+    if (nextOK && (!prevOK || SG_STORY_PREV_WEAK.test(prev))) pick = [cue, sgStoryWord(next)];
+    else if (prevOK) pick = [prev, cue];
+    else pick = [cue];
+  }
+  var label = pick.join(' ')
+    .replace(/\([^)]*\)?/g, '')                                 // 괄호(날짜 등)
+    .replace(/[「『"'\u2018\u201c\u2019\u201d」』]/g, '')
+    .replace(/(?:에서|에게|으로|로|에|을|를|은|는|이|가|의|와|과|하여|해|하고|한|들|도)$/, '')
+    .replace(/(?:에서|에게|으로|로|에|을|를|은|는|이|가|의|와|과)$/, '');
+  label = sgUnshieldDots(sgNorm(label));
+  if (label.length < 2 || label.length > 18) label = '';
+  return label || ('이야기 ' + n);
+}
+
+// 반환: [{ n, label, head, from, to }] — from/to 는 문장 번호(끝은 포함하지 않음)
+function sgStories(sentences) {
+  var out = [];
+  (sentences || []).forEach(function (sen, i) {
+    var opens = i === 0 || (SG_STORY_CUE.test(sgShieldDots(sen)) && !SG_STORY_CONT.test(sen));
+    if (opens) out.push({ n: out.length + 1, label: '', head: sen, from: i, to: i + 1 });
+    else out[out.length - 1].to = i + 1;
+  });
+  out.forEach(function (st) { st.label = sgStoryLabel(st.head, st.n); });
+  return out;
+}
+
 function sgCleanTopic(raw) {
   var t = sgNorm(raw);
 
@@ -686,7 +763,7 @@ function sgCleanTopic(raw) {
   t = sgTrimClause(t);
 
   // 문장을 여는 부사는 제목의 일부가 아닙니다 — 「나아가 수처리 공정 기술」
-  t = t.replace(/^(?:나아가|또한|특히|한편|아울러|그리고|이후|이를|먼저|끝으로|더불어|이에|또)\s+/, '');
+  t = t.replace(/^(?:나아가|또한|특히|한편|아울러|그리고|이후|이를|먼저|끝으로|더불어|이에|또|우선|이어서|선행\s*연구로|후속\s*연구로)\s+/, '');
   // 「…탐색하고자 Kerry…」 처럼 앞말의 꼬리 한 글자가 떨어져 나와 붙기도 합니다
   t = t.replace(/^(?:자|서|고|며|여|면|워|해|돼)\s+/, '');
 
@@ -708,7 +785,7 @@ var SG_JUNK_HEAD = /^(?:라는|이라는|라고|이라고|하는|되는|하여|�
 //    수도권 정수장의 월별 수질을 분석하고 시각화하는 프로젝트」
 // 여기서 쓸 것은 마지막 절뿐입니다. 통째로 버리면 그 과목이 아예 빠지므로,
 // «절을 잇는 말» 뒤만 잘라 씁니다.
-var SG_JOINERS = /(?:바탕으로|토대로|중심으로|비롯하여|통하여|통해|위하여|위해|활용하여|이용하여|연계하여|접목하여|주목하여|배운\s*후|하고자|하고서)\s+/g;
+var SG_JOINERS = /(?:바탕으로|토대로|중심으로|비롯하여|통하여|통해|위하여|위해|활용하여|이용하여|연계하여|접목하여|주목하여|배운\s*후|하고자|하고서|위한|참여하여|참여해|참가하여|참가해|읽고|듣고|거쳐|마치고|맡아|시작해|이어)\s+/g;
 
 function sgTrimClause(t) {
   var last = -1, m;
@@ -720,9 +797,14 @@ function sgTrimClause(t) {
 // 잘라 내고도 서술로 끝나면 제목이 아닙니다.
 var SG_CLAUSE = /(?:하면서|하며$|하고$|하여$|면서$|보며$|으며$|는데$|지만$|고자$)/;
 
+// 「호기심에서 출발한 질문」 「탐구 결과」 처럼 무엇을 가리키는지 없는 뭉뚱그린 말은 제목이 아닙니다.
+var SG_GENERIC_TAIL = /(?:^|\s)(?:질문|물음|결과|내용|과정|태도|자세|능력|모습|경험|방법|방안|의미|가치|점)$/;
 function sgLooksJunk(t) {
   if (SG_JUNK_HEAD.test(t)) return true;
   if (SG_CLAUSE.test(t)) return true;
+  if (/^[)\]」』'"]/.test(t)) return true;                         // 괄호 뒤부터 잘린 토막
+  if ((t.match(/\(/g) || []).length !== (t.match(/\)/g) || []).length) return true;   // 괄호가 안 맞음
+  if (SG_GENERIC_TAIL.test(t) && !/[「『]/.test(t)) return true;
   // 한글이 거의 없으면 표에서 흘러든 조각입니다
   var hangul = (t.match(/[가-힣]/g) || []).length;
   return hangul < 2;
@@ -730,11 +812,12 @@ function sgLooksJunk(t) {
 
 function sgTopics(sentence) {
   var found = [];
+  var text = sgShieldDots(sentence);   // 규칙은 «점이 없는 구간» 을 찾습니다. 날짜의 점은 숨깁니다
   SG_TOPIC_RULES.forEach(function (rule) {
     var re = new RegExp(rule.re.source, 'g');
     var m;
-    while ((m = re.exec(sentence)) !== null) {
-      var t = sgCleanTopic(m[1]);
+    while ((m = re.exec(text)) !== null) {
+      var t = sgCleanTopic(sgUnshieldDots(m[1]));
       if (t.length < 3 || t.length > 80) continue;
       // 아직도 따옴표가 남아 있으면 제대로 못 잘린 것입니다. 버립니다.
       if (new RegExp('[' + SG_QUOTES + ']').test(t)) continue;
@@ -890,10 +973,11 @@ function sgShapeOf(sectionKey, sentence, topic, book, groupLabel) {
   if (sectionKey === 'haengteuk') return (topic.kind === '제목') ? '활동명' : '칭찬';
   if (sectionKey === 'changche') {
     if (SG_CUE_ROLE.test(sentence)) return '역할';
-    if (sgNorm(groupLabel || '').indexOf('진로') === 0 || SG_CUE_CAREER.test(sentence)) return '진로';
     if (SG_CUE_EXPERIMENT.test(sentence)) return '실험';
     if (SG_CUE_PRESENT.test(sentence)) return '발표';
-    if (SG_CUE_INQUIRY.test(sentence)) return '탐구';     // 동아리에서 한 탐구는 탐구로 묻습니다
+    if (SG_CUE_INQUIRY.test(sentence)) return '탐구';     // 진로활동·동아리에서 한 탐구도 탐구로 묻습니다
+    // 탐구·발표가 아닌 진로활동 기록(특강을 듣고 관심을 가짐 등)만 진로와 이어 묻습니다
+    if (sgNorm(groupLabel || '').indexOf('진로') === 0 || SG_CUE_CAREER.test(sentence)) return '진로';
     return '활동';
   }
   // 세특
@@ -990,14 +1074,17 @@ function sgBlankText(sectionKey, label) {
 //    과목 이름이 «문장 맨 앞» 에 없으면 그 과목이 통째로 새 버렸습니다.
 //
 // 반환: [{ text, competency, topic, subject, source, grade, area }]
-function sgMakeQuestions(sectionKey, grade, sentences, groupLabel) {
+function sgMakeQuestions(sectionKey, grade, sentences, groupLabel, stories) {
   var made = [];
   var seen = {};
   var turn = {};          // 생김새마다 몇 번째 틀을 쓸 차례인지
   var label = groupLabel || SG_NO_SUBJECT;
   var subject = (label === SG_NO_SUBJECT) ? '' : label;
+  stories = stories || sgStories(sentences);
+  var storyOf = {};       // 문장 번호 → 이야기 번호
+  stories.forEach(function (st) { for (var k = st.from; k < st.to; k++) storyOf[k] = st.n; });
 
-  (sentences || []).forEach(function (sentence) {
+  (sentences || []).forEach(function (sentence, si) {
     var topics;
     if (sectionKey === 'haengteuk') {
       // 칭찬하는 말 + 따옴표로 묶인 활동 이름만. «독서 토론 등의 다양한» 같은
@@ -1032,6 +1119,7 @@ function sgMakeQuestions(sectionKey, grade, sentences, groupLabel) {
         topic: book ? book.title : topic.text,
         kind: book ? '제목' : topic.kind,
         shape: shape,
+        story: storyOf[si] || 1,  // 몇 번째 이야기(활동)에서 나온 질문인지
         subject: subject,
         source: sentence,        // 원문을 같이 보여줍니다. 이상하면 바로 알아채도록
         grade: grade,
@@ -1273,12 +1361,16 @@ function sgBuild(lines) {
         var record = sgRecordText(c.lines);
         if (!record) return;
 
+        var sents = sgSentences(c.lines);
+        var stories = sgStories(sents);
         var qs = sgDropContained(
-          sgMakeQuestions(sec.key, g, sgSentences(c.lines), c.label));
+          sgMakeQuestions(sec.key, g, sents, c.label, stories));
         counts[sec.key] += qs.length;
 
         // 「기록 보고 직접 적기」 칸이 묶음마다 맨 위에 옵니다
-        all.push(sgBlankItem(sec.key, g, c.label || SG_NO_SUBJECT, record, qs.length > 0));
+        var blank = sgBlankItem(sec.key, g, c.label || SG_NO_SUBJECT, record, qs.length > 0);
+        blank.stories = stories.map(function (st) { return { n: st.n, label: st.label, head: st.head }; });
+        all.push(blank);
         all = all.concat(qs);
       });
     });
@@ -1300,6 +1392,7 @@ if (typeof module !== 'undefined' && module.exports) {
                      sgIsHeadCell: sgIsHeadCell, sgIsCellLabel: sgIsCellLabel,
                      sgIsScoreHead: sgIsScoreHead, SG_CELL_BREAK: SG_CELL_BREAK,
                      sgMakeQuestions: sgMakeQuestions, sgBuild: sgBuild,
+                     sgSentences: sgSentences, sgStories: sgStories, sgStoryLabel: sgStoryLabel,
                      SG_SECTIONS: SG_SECTIONS };
 }
 
@@ -1707,13 +1800,51 @@ function sgJumpHTML(groups) {
 }
 
 // ── 오른쪽: 기록 전문 → 질문(체크) → 직접 적는 칸 ──
+// 묶음마다 처음에 보여 주는 질문 수 — 이야기(활동)가 여럿이면 이야기마다 이만큼씩
+var SG_MAX_PER_STORY = 3;
+
+// 기록을 이야기별 문단으로 자릅니다. 이야기의 첫 문장 머리를 기록에서 찾아 그 앞에서 끊습니다.
+// (문장은 띄어쓰기를 다듬은 것이라, 띄어쓰기를 다 뺀 글자로 맞춥니다)
+function sgStoryParts(record, stories) {
+  if (!stories || stories.length < 2) return [{ label: '', text: record }];
+  var flat = '', map = [];
+  for (var i = 0; i < record.length; i++) { if (!/\s/.test(record[i])) { flat += record[i]; map.push(i); } }
+  var cuts = [0];
+  for (var k = 1; k < stories.length; k++) {
+    var head = sgNorm(stories[k].head).replace(/\s+/g, '').slice(0, 14);
+    var at = head.length >= 6 ? flat.indexOf(head, map.indexOf(cuts[cuts.length - 1]) + 1) : -1;
+    if (at < 0) return [{ label: '', text: record }];   // 하나라도 못 찾으면 자르지 않습니다
+    cuts.push(map[at]);
+  }
+  return stories.map(function (st, k) {
+    return { label: st.label, text: sgNorm(record.slice(cuts[k], cuts[k + 1] === undefined ? record.length : cuts[k + 1])) };
+  });
+}
+
 function sgMainHTML(g, groups) {
   var record = g.blank ? g.blank.q.source : '';
-  var ranked = sgRanked(g.items);
-  var topics = ranked.map(function (x) { return x.q.topic; });
-  var open = sgMore[g.key] || ranked.length <= SG_MAX_SHOW;
-  var shown = open ? ranked : ranked.slice(0, SG_MAX_SHOW);
-  var hidden = ranked.length - shown.length;
+  var stories = (g.blank && g.blank.q.stories) || [];
+  var many = stories.length > 1;
+  var topics = g.items.map(function (x) { return x.q.topic; });
+
+  // 이야기마다 또렷한 것부터 몇 개씩. 「더 보기」를 누르면 전부
+  var perStory = many ? SG_MAX_PER_STORY : SG_MAX_SHOW;
+  var byStory = {};
+  sgRanked(g.items).forEach(function (x) { (byStory[x.q.story || 1] = byStory[x.q.story || 1] || []).push(x); });
+  var storyKeys = Object.keys(byStory).map(Number).sort(function (a, b) { return a - b; });
+  var open = !!sgMore[g.key];
+  var total = g.items.length, shownN = 0;
+  var listHTML = '';
+  storyKeys.forEach(function (n) {
+    var list = open ? byStory[n] : byStory[n].slice(0, perStory);
+    shownN += list.length;
+    if (many) {
+      var st = stories[n - 1];
+      listHTML += '<p class="sg-qstory"><span class="sg-stag">' + n + '</span>' + esc(st ? st.label : '이야기 ' + n) + '</p>';
+    }
+    listHTML += list.map(sgItemHTML).join('');
+  });
+  var hidden = total - shownN;
 
   var html =
     '<div class="sg-head">' +
@@ -1726,19 +1857,26 @@ function sgMainHTML(g, groups) {
       '</div>' +
     '</div>';
 
-  // 기록 전문 — 질문이 가리키는 대목은 색을 입혀 둡니다. 어디서 나온 질문인지 바로 보이게.
+  // 기록 전문 — 이야기(활동)마다 문단으로 나누고, 질문이 가리키는 대목은 색을 입혀 둡니다.
+  var parts = sgStoryParts(record, stories);
   html += '<p class="sg-rlabel">기록 <span class="sg-len">' +
-            String(record.length).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '자</span></p>' +
-          '<div class="sg-record">' + sgMarkRecord(sgMaskText(record), topics.map(sgMaskText)) + '</div>';
+            String(record.length).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '자' +
+            (many ? ' · 이야기 ' + stories.length + '개' : '') + '</span></p>' +
+          '<div class="sg-record' + (many ? ' stories' : '') + '">' + parts.map(function (pt, k) {
+            return '<div class="sg-rpart">' +
+              (many ? '<p class="sg-rstory"><span class="sg-stag">' + (k + 1) + '</span>' + esc(pt.label) + '</p>' : '') +
+              '<p class="sg-rtext">' + sgMarkRecord(sgMaskText(pt.text), topics.map(sgMaskText)) + '</p>' +
+              '</div>';
+          }).join('') + '</div>';
 
   // 질문
   html += '<p class="sg-rlabel">질문 <span class="sg-len">' +
-            (ranked.length ? ranked.length + '개 뽑음' : '못 뽑음') + '</span></p>' +
-          '<div class="sg-list">' + shown.map(sgItemHTML).join('');
+            (total ? total + '개 뽑음' : '못 뽑음') + '</span></p>' +
+          '<div class="sg-list">' + listHTML;
   if (hidden > 0) {
     html += '<button class="sg-more" onclick="toggleSgMore(\'' + g.key.replace(/'/g, "\\'") + '\')">' +
             hidden + '개 더 보기</button>';
-  } else if (ranked.length > SG_MAX_SHOW) {
+  } else if (open && total > (many ? SG_MAX_PER_STORY * storyKeys.length : SG_MAX_SHOW)) {
     html += '<button class="sg-more" onclick="toggleSgMore(\'' + g.key.replace(/'/g, "\\'") + '\')">접기</button>';
   }
   if (g.blank) html += sgBlankHTML(g.blank);

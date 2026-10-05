@@ -94,6 +94,21 @@
   padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);
   font-size:13.5px;line-height:1.85;color:var(--ink-2);word-break:keep-all;white-space:pre-wrap;
 }
+/* 이야기(활동)별 문단 — 기록 안에서 새 활동이 시작되는 자리마다 번호와 이름을 붙입니다 */
+.sg-record .sg-rtext{margin:0}
+.sg-record.stories .sg-rpart{padding:10px 0 12px;border-top:1px dashed var(--line-2)}
+.sg-record.stories .sg-rpart:first-child{padding-top:0;border-top:0}
+.sg-record.stories .sg-rpart:last-child{padding-bottom:0}
+.sg-rstory,.sg-qstory{
+  display:flex;align-items:center;gap:7px;margin:0 0 6px;
+  font-size:12px;font-weight:800;letter-spacing:.02em;color:var(--ink-2);
+}
+.sg-qstory{margin:10px 0 2px}
+.sg-qstory:first-child{margin-top:0}
+.sg-stag{
+  display:inline-block;min-width:18px;height:18px;border-radius:9px;
+  background:var(--ink);color:#fff;font-size:11px;font-weight:800;line-height:18px;text-align:center;
+}
 /* 질문이 가리키는 대목 */
 .sg-record mark{background:var(--amber-soft);color:inherit;padding:0 2px;border-radius:3px}
 .sg-more{
