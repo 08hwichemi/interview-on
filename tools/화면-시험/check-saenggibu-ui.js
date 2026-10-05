@@ -42,6 +42,10 @@ async function 열기(viewport) {
   }, LINES);
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message));
+  // confirm() 창 — 검사가 «예/아니오» 를 정합니다. 묻는 글은 모아 둡니다
+  const 물음 = []; let 대답 = true;
+  p.on('dialog', async d => { 물음.push(d.message()); if (대답) await d.accept(); else await d.dismiss(); });
+  p.대답 = v => { 대답 = v; }; p.물음 = 물음;
   await p.goto('http://127.0.0.1:8777/teacher/'); await p.waitForSelector('#app:not([hidden])');
   await p.click('#student-list .railrow'); await p.waitForTimeout(200);
   await p.evaluate(() => { window.sgReadPdf = async () => window.__LINES; });
@@ -56,6 +60,7 @@ async function 열기(viewport) {
   console.log('\n── 노트북 ──');
   {
     const { b, p, errs } = await 열기({ width: 1440, height: 900 });
+    const 물음 = p.물음;
     // 왼쪽: 학년 단추 → 그 학년의 묶음만
     확인('학년 단추가 뜨는가 (1학년 · 2학년)',
          (await p.$$eval('#sg-rail .sg-gbtn', es => es.map(e => e.textContent.trim()))).join() === '1학년,2학년');
@@ -103,13 +108,35 @@ async function 열기(viewport) {
     확인('체크해도 읽던 자리가 안 튀는가', (await p.$eval('.sg-main', e => e.scrollTop)) === 200);
     확인('왼쪽 목록에 담은 수가 붙는가', (await p.$eval('#sg-rail .sg-rentry[aria-current="true"] .n b', e => e.textContent)) === '1');
     확인('학년 단추에도 담은 수가 붙는가', (await p.$eval('#sg-rail .sg-gbtn[aria-pressed="true"] b', e => e.textContent)) === '1');
-    확인('아래 단추에 담을 수가 뜨는가', (await p.textContent('#sg-add')).indexOf('1개') === 0);
+    확인('「담아 두기」 단추에 고른 수가 뜨는가', (await p.textContent('#sg-keep')).indexOf('고른 1개') === 0);
+    확인('「올리기」 단추에도 수가 뜨는가', (await p.textContent('#sg-add')).indexOf('1개') === 0);
 
     // 직접 적는 칸은 맨 아래
     const lastItem = await p.$eval('.sg-list > :last-child', e => e.classList.contains('blank'));
     확인('직접 적는 칸이 질문 맨 아래에 있는가', lastItem);
     await p.fill('.sg-item.blank .sg-write', '직접 쓴 질문'); await p.waitForTimeout(100);
-    확인('직접 적으면 저절로 담기는가', (await p.textContent('#sg-add')).indexOf('2개') === 0);
+    확인('직접 적으면 저절로 고른 것에 들어가는가', (await p.textContent('#sg-keep')).indexOf('고른 2개') === 0);
+
+    // 담아 두기 — 화면은 그대로
+    await p.click('#sg-keep'); await p.waitForTimeout(200);
+    확인('담아 두기를 눌러도 생기부 화면이 안 닫히는가', !(await p.$eval('#view-saenggibu', e => e.hidden)));
+    확인('아래 글에 담아 둔 수가 뜨는가', (await p.textContent('#sg-foot-note')).indexOf('담아 둔 질문 2개') === 0);
+    확인('담아 둔 줄에 「담아 둠」 꼬리표(kept)가 붙는가', (await p.$$('.sg-list .sg-item.kept')).length === 2);
+    확인('담아 두면 「담아 두기」 단추는 쉬는가', await p.$eval('#sg-keep', e => e.disabled));
+    확인('담아 둔 것을 체크 해제하면 꼬리표도 빠지는가', await (async () => {
+      await p.click('.sg-list label.sg-item >> nth=0'); await p.waitForTimeout(100);
+      const gone = (await p.$$('.sg-list .sg-item.kept')).length === 1;
+      await p.click('.sg-list label.sg-item >> nth=0'); await p.waitForTimeout(100);   // 다시 체크
+      return gone && (await p.textContent('#sg-foot-note')).indexOf('고른 1개는 아직 안 담음') > -1;
+    })());
+    await p.click('#sg-keep'); await p.waitForTimeout(100);
+
+    // 「← 준비 화면으로」 — 담아 둔 게 있으면 묻고, 아니오면 남습니다
+    p.대답(false); await p.click('button:has-text("준비 화면으로")'); await p.waitForTimeout(200);
+    확인('담아 둔 채 나가려 하면 묻는가', 물음.length === 1 && /올리지 않았습니다/.test(물음[0]), 물음[0]);
+    확인('아니오를 누르면 생기부 화면에 남는가', !(await p.$eval('#view-saenggibu', e => e.hidden)));
+    확인('담아 둔 것이 그대로인가', (await p.textContent('#sg-foot-note')).indexOf('담아 둔 질문 2개') === 0);
+    p.대답(true);
 
     // 앞·다음 묶음
     await p.click('button:has-text("다음 묶음")'); await p.waitForTimeout(150);
@@ -123,11 +150,14 @@ async function 열기(viewport) {
          (await p.$eval('.sg-panel', e => e.getBoundingClientRect().height)) > 700);
     확인('머리줄에 학생 이름이 있는가', (await p.textContent('#sg-who')).indexOf('고다윤') > -1);
 
-    // 담기
-    await p.click('#sg-add'); await p.waitForTimeout(200);
-    확인('담으면 준비 화면으로 돌아오는가', !(await p.$eval('#view-setup', e => e.hidden)));
+    // 올리기 — 묻고 나서 닫습니다. 아니오면 남고, 예면 «낼 질문» 으로
+    p.대답(false); await p.click('#sg-add'); await p.waitForTimeout(200);
+    확인('올리기를 누르면 묻는가', 물음.length === 2 && /올리고 생기부 화면을 닫습니다/.test(물음[1]), 물음[1]);
+    확인('취소하면 생기부 화면에 남는가', !(await p.$eval('#view-saenggibu', e => e.hidden)));
+    p.대답(true); await p.click('#sg-add'); await p.waitForTimeout(200);
+    확인('예를 누르면 준비 화면으로 돌아오는가', !(await p.$eval('#view-setup', e => e.hidden)));
     const q = await p.evaluate(() => midQuestions.map(x => x.text));
-    확인('담은 질문이 «낼 질문» 으로 가는가', q.length === 2 && q.indexOf('직접 쓴 질문') > -1, q.join(' | '));
+    확인('올린 질문이 «낼 질문» 으로 가는가', q.length === 2 && q.indexOf('직접 쓴 질문') > -1, q.join(' | '));
     확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
     await b.close();
   }

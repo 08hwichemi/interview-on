@@ -1572,7 +1572,11 @@ async function sgPageRules(page, pdfjsLib) {
 var sgFound = [];        // 뽑은 질문들 (묶음마다 «직접 적는 칸» 하나 + 규칙이 뽑은 질문들)
 var sgWholes = {};       // 「학년|영역」 통째 원문 — 칸 나누기가 틀려도 볼 수 있게
 var sgEdited = {};       // 선생님이 직접 고쳐 쓴 질문 { 번호: 글자 }
-var sgPicked = {};       // { 번호: true } — 담을 것
+var sgPicked = {};       // { 번호: true } — 체크한 것
+// ⚠️ 「담기」 단추 하나가 바로 «낼 질문» 에 넣고 화면을 닫았더니, 하나만 고르고 담기를 눌러
+//    화면이 닫혀 버리는 분이 많았습니다(2026-10-05). 그래서 둘로 나눴습니다:
+//    «담아 두기»(화면에 남아 다른 묶음도 이어서 고름) 와 «낼 질문으로 올리기»(묻고 나서 닫음).
+var sgKept = {};         // { 번호: true } — 담아 둔 것. 체크한 것 가운데 일부입니다
 var sgCur = null;        // 지금 보고 있는 묶음 (sgGroupList() 의 차례)
 var sgRailGrade = null;  // 왼쪽 목록에 보이는 학년 (null 이면 지금 묶음의 학년을 따라감)
 var sgMore = {};         // { 묶음키: true } — 최대 개수 너머 질문까지 펼쳐 둔 묶음
@@ -1595,7 +1599,7 @@ var SG_MAX_SHOW = 5;
 // 준비 화면 자리에 통째로 바꿔 끼웁니다 (떠 있는 창은 작아서 불편하다는 말씀 — 2026-10-05).
 // 왼쪽 학생 명단은 그대로, 오른쪽 칸 전체가 이 화면이 됩니다.
 function openSaenggibu() {
-  sgFound = []; sgPicked = {}; sgEdited = {}; sgCur = null; sgMore = {}; sgRailGrade = null;
+  sgFound = []; sgPicked = {}; sgKept = {}; sgEdited = {}; sgCur = null; sgMore = {}; sgRailGrade = null;
   show('saenggibu');      // teacher-app.js — 오른쪽 칸의 다른 화면을 다 감추고 이것만 보입니다
   document.getElementById('sg-file').value = '';
   var who = document.getElementById('sg-who');
@@ -1604,9 +1608,14 @@ function openSaenggibu() {
   window.scrollTo(0, 0);
 }
 
-function closeSaenggibu() {
+// 「← 준비 화면으로」 단추에서 부릅니다. 담아 둔 것이 있으면 한 번 묻습니다 — 실수로 닫는 일을 막습니다.
+// 올린 뒤에 닫을 때는 force 로 묻지 않습니다.
+function closeSaenggibu(force) {
+  var n = Object.keys(sgPicked).length;
+  if (!force && n > 0 &&
+      !confirm('담아 둔 질문 ' + n + '개를 아직 「낼 질문」으로 올리지 않았습니다.\n그래도 나갈까요? (나가면 버려집니다)')) return;
   show('setup');
-  sgFound = []; sgPicked = {};   // 화면을 닫으면 읽은 내용도 버립니다
+  sgFound = []; sgPicked = {}; sgKept = {};   // 화면을 닫으면 읽은 내용도 버립니다
 }
 
 async function onSaenggibuFile(input) {
@@ -1633,6 +1642,7 @@ async function onSaenggibuFile(input) {
     sgFound = r.questions;
     sgWholes = r.wholes || {};
     sgPicked = {};
+    sgKept = {};
     sgEdited = {};
     sgCur = null;
     sgMore = {};
@@ -1665,7 +1675,7 @@ function toggleSgMask() { sgMask = !sgMask; renderSaenggibu(); }
 //    그래서 아래 단추와 이 줄의 겉모습만 손으로 고칩니다.
 function setSgText(i, v) {
   sgEdited[i] = v;
-  if (v.trim()) sgPicked[i] = true; else delete sgPicked[i];
+  if (v.trim()) sgPicked[i] = true; else { delete sgPicked[i]; delete sgKept[i]; }
   sgPaintItem(i);
   paintSgRail();
   paintSgFoot();
@@ -1678,7 +1688,7 @@ function sgTextOf(i) {
 // ⚠️ 체크 하나 눌렀다고 화면을 통째로 다시 그리면 기록을 읽던 자리가 맨 위로 튑니다.
 //    그 줄과 왼쪽 목록의 숫자만 고칩니다.
 function toggleSgPick(i) {
-  if (sgPicked[i]) delete sgPicked[i]; else sgPicked[i] = true;
+  if (sgPicked[i]) { delete sgPicked[i]; delete sgKept[i]; } else sgPicked[i] = true;
   sgPaintItem(i);
   paintSgRail();
   paintSgFoot();
@@ -1688,6 +1698,7 @@ function sgPaintItem(i) {
   var row = document.querySelector('.sg-item[data-i="' + i + '"]');
   if (!row) return;
   row.classList.toggle('on', !!sgPicked[i]);
+  row.classList.toggle('kept', !!sgKept[i]);
   var box = row.querySelector('input[type="checkbox"]');
   if (box) box.checked = !!sgPicked[i];
 }
@@ -1927,7 +1938,7 @@ function sgBlankHTML(x) {
   var note = x.q.lonely
     ? '<b class="sg-warn">여기서는 탐구 제목을 못 찾았습니다 — 기록을 보고 직접 적어 주세요</b>'
     : '<b class="sg-own">기록을 보고 직접 물으셔도 됩니다</b>';
-  return '<div class="sg-item blank' + (sgPicked[x.i] ? ' on' : '') + '" data-i="' + x.i + '">' +
+  return '<div class="sg-item blank' + (sgPicked[x.i] ? ' on' : '') + (sgKept[x.i] ? ' kept' : '') + '" data-i="' + x.i + '">' +
     '<input type="checkbox"' + (sgPicked[x.i] ? ' checked' : '') +
       ' onchange="toggleSgPick(' + x.i + ')" title="이 질문 담기">' +
     '<span class="sg-q">' +
@@ -1939,7 +1950,7 @@ function sgBlankHTML(x) {
 
 // 질문 한 줄 — 원문은 위 기록에서 색으로 표시되므로 여기엔 짧은 근거만 둡니다
 function sgItemHTML(x) {
-  return '<label class="sg-item' + (sgPicked[x.i] ? ' on' : '') + '" data-i="' + x.i + '">' +
+  return '<label class="sg-item' + (sgPicked[x.i] ? ' on' : '') + (sgKept[x.i] ? ' kept' : '') + '" data-i="' + x.i + '">' +
     '<input type="checkbox"' + (sgPicked[x.i] ? ' checked' : '') +
       ' onchange="toggleSgPick(' + x.i + ')">' +
     '<span class="sg-q">' +
@@ -1951,21 +1962,48 @@ function sgItemHTML(x) {
 
 // 글자를 고칠 때마다 목록을 통째로 다시 그리면 커서가 튑니다.
 // 아래 단추만 고쳐 그립니다.
+// 단추 둘: «담아 두기» 는 체크한 것을 담아 두고 화면에 남습니다. «올리기» 는 묻고 나서 닫습니다.
 function paintSgFoot() {
   var foot = document.getElementById('sg-foot');
+  var keep = document.getElementById('sg-keep');
   var btn = document.getElementById('sg-add');
+  var note = document.getElementById('sg-foot-note');
   if (!foot || !btn) return;
-  var n = Object.keys(sgPicked).length;
+  var n = Object.keys(sgPicked).length;              // 체크한 것 전부
+  var k = Object.keys(sgKept).length;                // 그중 담아 둔 것
+  var fresh = n - k;                                 // 체크만 하고 아직 안 담은 것
   foot.hidden = !sgFound.length;
+  if (keep) {
+    keep.disabled = (fresh === 0);
+    keep.textContent = fresh ? '고른 ' + fresh + '개 담아 두기' : '담아 두기';
+  }
   btn.disabled = (n === 0);
-  btn.textContent = n ? n + '개를 「낼 질문」에 담기' : '담을 질문을 고르세요';
+  btn.textContent = n ? n + '개 「낼 질문」으로 올리기' : '「낼 질문」으로 올리기';
+  if (note) {
+    note.textContent = k
+      ? '담아 둔 질문 ' + k + '개' + (fresh ? ' · 고른 ' + fresh + '개는 아직 안 담음' : '') + ' — 다른 묶음도 이어서 고를 수 있습니다'
+      : '질문을 체크하고 「담아 두기」를 누르세요. 화면은 그대로 남습니다.';
+  }
 }
 
-// 고른 질문을 면접 준비 화면의 «낼 질문» 으로 옮깁니다.
+// 체크한 것을 담아 둡니다. 화면은 닫히지 않습니다 — 앞·다음 묶음에서 더 고를 수 있습니다.
+function keepSaenggibuPicks() {
+  var fresh = Object.keys(sgPicked).filter(function (i) { return !sgKept[i]; });
+  if (!fresh.length) return;
+  fresh.forEach(function (i) { sgKept[i] = true; sgPaintItem(Number(i)); });
+  paintSgFoot();
+  toast(fresh.length + '개를 담아 뒀습니다. 모두 ' + Object.keys(sgKept).length + '개 — 다른 묶음도 이어서 고르세요.', 'ok');
+}
+
+// 담아 둔(그리고 체크한) 질문을 면접 준비 화면의 «낼 질문» 으로 옮기고 화면을 닫습니다.
 // 여기서부터는 평범한 질문 글자일 뿐입니다. 생기부 원문은 따라가지 않습니다.
 function addSaenggibuPicks() {
   var picked = Object.keys(sgPicked).map(Number).sort(function (a, b) { return a - b; });
   if (!picked.length) return;
+  var fresh = picked.filter(function (i) { return !sgKept[i]; }).length;
+  if (!confirm(picked.length + '개를 「낼 질문」으로 올리고 생기부 화면을 닫습니다.' +
+               (fresh ? '\n(체크만 하고 담아 두지 않은 ' + fresh + '개도 같이 올라갑니다)' : '') +
+               '\n\n다른 묶음에서 더 고르려면 「취소」를 누르세요.')) return;
 
   picked.forEach(function (i) {
     var q = sgFound[i];
@@ -1974,6 +2012,6 @@ function addSaenggibuPicks() {
     midQuestions.push({ text: text, competency: q.competency });
   });
   renderQuestions();
-  closeSaenggibu();
-  toast(picked.length + '개를 「낼 질문」에 담았습니다. 글자는 고쳐 쓰셔도 됩니다.', 'ok');
+  closeSaenggibu(true);
+  toast(picked.length + '개를 「낼 질문」에 올렸습니다. 글자는 고쳐 쓰셔도 됩니다.', 'ok');
 }
