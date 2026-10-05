@@ -901,12 +901,14 @@ function sgMakeQuestions(sectionKey, grade, sentences, groupLabel) {
       //    담은 뒤에 글자를 고칠 수 있으니 하나면 됩니다.
       var tpl;
       if (book) tpl = SG_BOOK_TEMPLATE;
+      // 「…어떻게 반응할까?」 처럼 물음으로 된 제목은 영역이 어디든 그 답을 묻는 게 맞습니다.
+      // (창체 동아리 기록에 물음이 적혀 있는데 «그때 한 일과 어려웠던 판단» 을 묻고 있었습니다)
+      else if (topic.kind === '물음' || /[?？]\s*$/.test(topic.text)) tpl = SG_QUESTION_TEMPLATE;
       else if (sectionKey === 'haengteuk')
         tpl = (topic.kind === '제목') ? SG_HT_ACT_TEMPLATE : SG_TEMPLATES.haengteuk;
       else if (sectionKey === 'sesa') {
         // 물음이면 답을 묻고, 탐구·실험이면 과정을 묻고, 개념·제목이면 설명을 시킵니다
-        if (topic.kind === '물음' || /[?？]\s*$/.test(topic.text)) tpl = SG_QUESTION_TEMPLATE;
-        else if (topic.kind === '의문') tpl = SG_WONDER_TEMPLATE;
+        if (topic.kind === '의문') tpl = SG_WONDER_TEMPLATE;
         else if (topic.kind === '개념') tpl = SG_CONCEPT_TEMPLATE;
         else if (topic.kind === '탐구' || topic.kind === '활동') tpl = SG_SESA_INQUIRY;
         else tpl = SG_TEMPLATES.sesa;
@@ -1313,20 +1315,30 @@ async function sgPageRules(page, pdfjsLib) {
 
 // ══════════════ 화면 (교사) ══════════════
 
-var sgFound = [];        // 뽑은 질문들
+var sgFound = [];        // 뽑은 질문들 (묶음마다 «직접 적는 칸» 하나 + 규칙이 뽑은 질문들)
 var sgWholes = {};       // 「학년|영역」 통째 원문 — 칸 나누기가 틀려도 볼 수 있게
 var sgEdited = {};       // 선생님이 직접 고쳐 쓴 질문 { 번호: 글자 }
 var sgPicked = {};       // { 번호: true } — 담을 것
-// ⚠️ «모든 학년» 을 0 으로 두면 안 됩니다. 0 은 «학년 모름» 의 값입니다.
-//    같은 값이라 「학년 모름」 단추가 늘 눌린 것처럼 보이고, 눌러도
-//    걸러지지 않아 1학년·2학년 질문이 그대로 나왔습니다.
-var sgGrade = null;      // null = 모든 학년, 0 = 학년 모름, 1~3 = 그 학년
-var sgArea = '';         // '' = 모든 영역
-var sgSubject = '';      // '' = 모든 과목·갈래
+var sgCur = null;        // 지금 보고 있는 묶음 (sgGroupList() 의 차례)
+var sgMore = {};         // { 묶음키: true } — 최대 개수 너머 질문까지 펼쳐 둔 묶음
 var sgMask = true;       // 개인정보 가림
 
+// 묶음마다 처음에 보여 주는 질문 수. 열 개 넘게 늘어놓으면 고르기가 더 힘듭니다(선생님 말씀).
+// 또렷한 규칙으로 잡힌 것(따옴표 제목·스스로 던진 물음)부터 보여 주고, 나머지는 「더 보기」 뒤에 둡니다.
+var SG_MAX_SHOW = 5;
+
+// ══ 화면 짜임 (2026-10-05 에 바꿈) ══
+//
+// 예전엔 학년·영역 칩으로 걸러서 모든 묶음을 한 줄로 늘어놓고, 질문마다 근거 문장을
+// 따로 붙였습니다. 선생님 말씀: «질문마다 원문을 보는 게 아니라, 원문을 먼저 보고
+// 그 아래에서 질문을 고르고 싶다. 대신 원문이 기니까 자율·동아리·진로(학년별)로
+// 하나씩 골라 보게.»  그래서 지금은
+//   왼쪽  : 묶음 목록 (영역 → 학년 · 갈래/과목)   ← 2 : 8 로 나눕니다
+//   오른쪽: 고른 묶음의 기록 전문 → 그 아래 질문(체크) → 맨 아래 직접 적는 칸
+// 휴대폰처럼 좁으면 왼쪽 목록 대신 위에 고르는 칸(select)이 뜹니다.
+
 function openSaenggibu() {
-  sgFound = []; sgPicked = {}; sgEdited = {}; sgGrade = null; sgArea = ''; sgSubject = '';
+  sgFound = []; sgPicked = {}; sgEdited = {}; sgCur = null; sgMore = {};
   document.getElementById('sg-modal').style.display = 'flex';
   document.getElementById('sg-file').value = '';
   renderSaenggibu();
@@ -1342,6 +1354,7 @@ async function onSaenggibuFile(input) {
   if (!file) return;
 
   var body = document.getElementById('sg-body');
+  body.classList.remove('split');
   body.innerHTML = '<p class="sg-note">읽는 중입니다...</p>';
 
   try {
@@ -1361,6 +1374,8 @@ async function onSaenggibuFile(input) {
     sgWholes = r.wholes || {};
     sgPicked = {};
     sgEdited = {};
+    sgCur = null;
+    sgMore = {};
 
     if (!sgFound.length) {
       body.innerHTML = '<p class="sg-note bad">질문을 만들 만한 대목을 못 찾았습니다.<br>' +
@@ -1383,9 +1398,6 @@ function sgMaskText(s) {
 }
 
 function toggleSgMask() { sgMask = !sgMask; renderSaenggibu(); }
-function pickSgGrade(g) { sgGrade = (sgGrade === g) ? null : g; renderSaenggibu(); }
-function pickSgArea(a) { sgArea = (sgArea === a) ? '' : a; sgSubject = ''; renderSaenggibu(); }
-function pickSgSubject(x) { sgSubject = (sgSubject === x) ? '' : x; renderSaenggibu(); }
 
 // 못 찾은 과목은 선생님이 직접 적습니다. 적기 시작하면 저절로 담깁니다.
 // ⚠️ 여기서 목록을 다시 그리면 글자 한 자 칠 때마다 커서가 맨 뒤로 튑니다.
@@ -1393,12 +1405,8 @@ function pickSgSubject(x) { sgSubject = (sgSubject === x) ? '' : x; renderSaengg
 function setSgText(i, v) {
   sgEdited[i] = v;
   if (v.trim()) sgPicked[i] = true; else delete sgPicked[i];
-  var row = document.querySelector('.sg-item[data-i="' + i + '"]');
-  if (row) {
-    row.classList.toggle('on', !!sgPicked[i]);
-    var box = row.querySelector('input[type="checkbox"]');
-    if (box) box.checked = !!sgPicked[i];
-  }
+  sgPaintItem(i);
+  paintSgRail();
   paintSgFoot();
 }
 
@@ -1406,100 +1414,35 @@ function sgTextOf(i) {
   return (sgEdited[i] !== undefined) ? sgEdited[i] : sgFound[i].text;
 }
 
+// ⚠️ 체크 하나 눌렀다고 화면을 통째로 다시 그리면 기록을 읽던 자리가 맨 위로 튑니다.
+//    그 줄과 왼쪽 목록의 숫자만 고칩니다.
 function toggleSgPick(i) {
   if (sgPicked[i]) delete sgPicked[i]; else sgPicked[i] = true;
-  renderSaenggibu();
-}
-
-function sgVisible() {
-  return sgFound.map(function (q, i) { return { q: q, i: i }; })
-    .filter(function (x) {
-      if (sgGrade !== null && x.q.grade !== sgGrade) return false;
-      if (sgArea && x.q.area !== sgArea) return false;
-      // 「(과목 모름)」도 골라 볼 수 있어야 합니다. 빈 값이면 거르기가 안 먹습니다.
-      if (sgSubject && (x.q.subject || SG_NO_SUBJECT) !== sgSubject) return false;
-      return true;
-    });
-}
-
-function renderSaenggibu() {
-  var body = document.getElementById('sg-body');
-  var foot = document.getElementById('sg-foot');
-
-  if (!sgFound.length) {
-    body.innerHTML =
-      '<p class="sg-note">나이스에서 뽑은 <b>생기부 PDF</b> 를 고르세요.<br>' +
-      '<b>파일은 이 브라우저 안에서만 읽고 바로 버립니다.</b> 서버에 올라가지 않습니다.</p>';
-    foot.hidden = true;
-    return;
-  }
-
-  // 걸러 보기 — 학년·영역
-  var grades = {};
-  sgFound.forEach(function (q) { grades[q.grade] = (grades[q.grade] || 0) + 1; });
-  var chips = '<div class="chat-picks cls-row">' +
-    [1, 2, 3, 0].filter(function (g) { return grades[g]; }).map(function (g) {
-      return '<button class="chat-pick cls" aria-pressed="' + (sgGrade === g) + '"' +
-             ' onclick="pickSgGrade(' + g + ')">' + (g ? g + '학년' : '학년 모름') +
-             '<span class="n">' + grades[g] + '</span></button>';
-    }).join('') + '</div>' +
-    '<div class="chat-picks cls-row">' + SG_SECTIONS.map(function (sec) {
-      var n = sgFound.filter(function (q) { return q.area === sec.key; }).length;
-      if (!n) return '';
-      return '<button class="chat-pick cls" aria-pressed="' + (sgArea === sec.key) + '"' +
-             ' onclick="pickSgArea(\'' + sec.key + '\')">' + sec.title +
-             '<span class="n">' + n + '</span></button>';
-    }).join('') +
-    '<button class="chat-pick" aria-pressed="' + sgMask + '" onclick="toggleSgMask()">개인정보 가림</button>' +
-    '</div>';
-
-  // 세특은 과목이, 창체는 갈래(자율·동아리·진로)가 많아 한 번에 훑기 어렵습니다.
-  // 영역을 고르면 그 안에서 한 번 더 추립니다.
-  if (sgArea) {
-    var subs = {};
-    sgFound.forEach(function (q) {
-      if (q.area !== sgArea) return;
-      if (sgGrade !== null && q.grade !== sgGrade) return;
-      var k = q.subject || SG_NO_SUBJECT;
-      subs[k] = (subs[k] || 0) + 1;
-    });
-    var keys = Object.keys(subs).sort();
-    if (keys.length > 1) {
-      chips += '<div class="chat-picks cls-row">' + keys.map(function (k) {
-        return '<button class="chat-pick cls" aria-pressed="' + (sgSubject === k) + '"' +
-               ' onclick="pickSgSubject(\'' + k.replace(/'/g, "\\'") + '\')">' + esc(k) +
-               '<span class="n">' + subs[k] + '</span></button>';
-      }).join('') + '</div>';
-    }
-  }
-
-  var groups = sgGroups(sgVisible());
-  // 영역·학년이 바뀌는 자리마다 «통째 원문» 을 한 번 끼워 넣습니다
-  var seenWhole = {}, html = '';
-  groups.forEach(function (g) {
-    var wk = g.grade + '|' + g.area;
-    if (!seenWhole[wk]) { seenWhole[wk] = true; html += sgWholeHTML(g, wk); }
-    html += sgGroupHTML(g);
-  });
-  body.innerHTML = chips + (groups.length
-    ? html
-    : '<p class="sg-note">그 조건에 맞는 질문이 없습니다.</p>');
-
+  sgPaintItem(i);
+  paintSgRail();
   paintSgFoot();
 }
 
-// 학년 · 과목(또는 갈래) 으로 묶습니다.
-// 묶음마다 «기록 보고 직접 적기» 칸이 맨 위, 뽑힌 질문이 그 아래입니다.
-function sgGroups(list) {
+function sgPaintItem(i) {
+  var row = document.querySelector('.sg-item[data-i="' + i + '"]');
+  if (!row) return;
+  row.classList.toggle('on', !!sgPicked[i]);
+  var box = row.querySelector('input[type="checkbox"]');
+  if (box) box.checked = !!sgPicked[i];
+}
+
+// ══ 묶음 ══ — 학년 · 영역 · 갈래(또는 과목) 하나가 한 묶음입니다.
+// sgBuild 가 묶음마다 «직접 적는 칸»(blank) 을 맨 앞에 두고 질문을 뒤에 붙여 두었습니다.
+function sgGroupList() {
   var order = [], by = {};
-  list.forEach(function (x) {
-    var k = x.q.grade + '|' + x.q.area + '|' + (x.q.subject || SG_NO_SUBJECT);
+  sgFound.forEach(function (q, i) {
+    var k = q.grade + '|' + q.area + '|' + (q.subject || SG_NO_SUBJECT);
     if (!by[k]) {
-      by[k] = { grade: x.q.grade, area: x.q.area, label: x.q.subject || SG_NO_SUBJECT,
-                blanks: [], items: [] };
+      by[k] = { key: k, grade: q.grade, area: q.area, label: q.subject || SG_NO_SUBJECT, blank: null, items: [] };
       order.push(by[k]);
     }
-    (x.q.blank ? by[k].blanks : by[k].items).push(x);
+    if (q.blank) by[k].blank = { q: q, i: i };
+    else by[k].items.push({ q: q, i: i });
   });
   return order;
 }
@@ -1509,19 +1452,175 @@ function sgSectionTitle(key) {
   return hit ? hit.title : '';
 }
 
+function sgGradeText(g) { return g ? g + '학년' : '학년 모름'; }
+
+// 묶음 이름 — 행특은 갈래 이름이 곧 영역 이름이라 두 번 쓰지 않습니다
+function sgGroupName(g) {
+  var sub = (g.label === sgSectionTitle(g.area)) ? '' : g.label;
+  return sgGradeText(g.grade) + (sub ? ' · ' + sub : '');
+}
+
+// 또렷한 규칙으로 잡힌 질문부터. 같은 등급이면 기록에 나온 차례대로.
+function sgRanked(items) {
+  return items.slice().sort(function (a, b) {
+    return (SG_KIND_RANK[b.q.kind] || 1) - (SG_KIND_RANK[a.q.kind] || 1) || (a.i - b.i);
+  });
+}
+
+function sgPickedCount(g) {
+  var n = g.items.filter(function (x) { return sgPicked[x.i]; }).length;
+  if (g.blank && sgPicked[g.blank.i]) n++;
+  return n;
+}
+
+function pickSgGroup(i) {
+  sgCur = i;
+  sgMore = {};
+  renderSaenggibu();
+  var main = document.querySelector('.sg-main');
+  if (main) main.scrollTop = 0;
+}
+
+function sgStep(d) {
+  var n = sgGroupList().length;
+  if (!n) return;
+  pickSgGroup(Math.max(0, Math.min(n - 1, (sgCur || 0) + d)));
+}
+
+function toggleSgMore(key) {
+  if (sgMore[key]) delete sgMore[key]; else sgMore[key] = true;
+  renderSaenggibu();
+}
+
+function renderSaenggibu() {
+  var body = document.getElementById('sg-body');
+  var foot = document.getElementById('sg-foot');
+
+  if (!sgFound.length) {
+    body.classList.remove('split');
+    body.innerHTML =
+      '<p class="sg-note">나이스에서 뽑은 <b>생기부 PDF</b> 를 고르세요.<br>' +
+      '<b>파일은 이 브라우저 안에서만 읽고 바로 버립니다.</b> 서버에 올라가지 않습니다.</p>';
+    foot.hidden = true;
+    return;
+  }
+
+  var groups = sgGroupList();
+  if (sgCur === null || sgCur >= groups.length) sgCur = 0;
+
+  body.classList.add('split');
+  body.innerHTML =
+    '<nav class="sg-rail" id="sg-rail">' + sgRailHTML(groups) + '</nav>' +
+    '<div class="sg-main">' + sgJumpHTML(groups) + sgMainHTML(groups[sgCur], groups) + '</div>';
+
+  paintSgFoot();
+}
+
+// ── 왼쪽: 묶음 목록 — 영역마다 머리줄, 그 아래 학년 · 갈래/과목 ──
+function sgRailHTML(groups) {
+  var html = '', lastArea = null;
+  groups.forEach(function (g, i) {
+    if (g.area !== lastArea) {
+      lastArea = g.area;
+      html += '<p class="sg-rhead">' + esc(sgSectionTitle(g.area)) + '</p>';
+    }
+    var picked = sgPickedCount(g);
+    html += '<button class="sg-rentry' + (g.items.length ? '' : ' none') + '" aria-current="' + (i === sgCur) + '"' +
+              ' onclick="pickSgGroup(' + i + ')">' +
+      '<span class="nm">' + esc(sgGroupName(g)) + '</span>' +
+      '<span class="n">' + (picked ? '<b>' + picked + '</b>' : '') + '</span>' +
+      '</button>';
+  });
+  return html;
+}
+
+function paintSgRail() {
+  var rail = document.getElementById('sg-rail');
+  if (rail) rail.innerHTML = sgRailHTML(sgGroupList());
+}
+
+// 좁은 화면에서는 왼쪽 목록 대신 위에 고르는 칸
+function sgJumpHTML(groups) {
+  return '<select class="sg-jump" onchange="pickSgGroup(+this.value)" aria-label="묶음 고르기">' +
+    groups.map(function (g, i) {
+      return '<option value="' + i + '"' + (i === sgCur ? ' selected' : '') + '>' +
+        esc(sgSectionTitle(g.area) + ' · ' + sgGroupName(g)) + '</option>';
+    }).join('') + '</select>';
+}
+
+// ── 오른쪽: 기록 전문 → 질문(체크) → 직접 적는 칸 ──
+function sgMainHTML(g, groups) {
+  var record = g.blank ? g.blank.q.source : '';
+  var ranked = sgRanked(g.items);
+  var topics = ranked.map(function (x) { return x.q.topic; });
+  var open = sgMore[g.key] || ranked.length <= SG_MAX_SHOW;
+  var shown = open ? ranked : ranked.slice(0, SG_MAX_SHOW);
+  var hidden = ranked.length - shown.length;
+
+  var html =
+    '<div class="sg-head">' +
+      '<p class="sg-gtitle">' + esc(sgSectionTitle(g.area)) + ' <b>' + esc(sgGroupName(g)) + '</b>' +
+        '<span class="n">' + (sgCur + 1) + ' / ' + groups.length + '</span></p>' +
+      '<div class="sg-nav">' +
+        '<button class="chat-pick" aria-pressed="' + sgMask + '" onclick="toggleSgMask()">개인정보 가림</button>' +
+        '<button class="chat-pick" onclick="sgStep(-1)"' + (sgCur === 0 ? ' disabled' : '') + '>← 앞 묶음</button>' +
+        '<button class="chat-pick" onclick="sgStep(1)"' + (sgCur === groups.length - 1 ? ' disabled' : '') + '>다음 묶음 →</button>' +
+      '</div>' +
+    '</div>';
+
+  // 기록 전문 — 질문이 가리키는 대목은 색을 입혀 둡니다. 어디서 나온 질문인지 바로 보이게.
+  html += '<p class="sg-rlabel">기록 <span class="sg-len">' +
+            String(record.length).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '자</span></p>' +
+          '<div class="sg-record">' + sgMarkRecord(sgMaskText(record), topics.map(sgMaskText)) + '</div>' +
+          sgWholeHTML(g);
+
+  // 질문
+  html += '<p class="sg-rlabel">질문 <span class="sg-len">' +
+            (ranked.length ? ranked.length + '개 뽑음' : '못 뽑음') + '</span></p>' +
+          '<div class="sg-list">' + shown.map(sgItemHTML).join('');
+  if (hidden > 0) {
+    html += '<button class="sg-more" onclick="toggleSgMore(\'' + g.key.replace(/'/g, "\\'") + '\')">' +
+            hidden + '개 더 보기</button>';
+  } else if (ranked.length > SG_MAX_SHOW) {
+    html += '<button class="sg-more" onclick="toggleSgMore(\'' + g.key.replace(/'/g, "\\'") + '\')">접기</button>';
+  }
+  if (g.blank) html += sgBlankHTML(g.blank);
+  html += '</div>';
+  return html;
+}
+
+// 질문이 가리키는 구절(topic)에 <mark> 를 입힙니다. 긴 구절부터, 한 번씩만.
+function sgMarkRecord(text, topics) {
+  var out = esc(text);
+  var done = {};
+  topics.slice().sort(function (a, b) { return String(b).length - String(a).length; })
+    .forEach(function (t) {
+      t = esc(String(t || '').trim());
+      if (t.length < 2 || done[t]) return;
+      done[t] = true;
+      var at = out.indexOf(t);
+      if (at < 0) return;
+      // 이미 색을 입힌 자리 안이면 건너뜁니다 (겹치면 태그가 깨집니다)
+      var before = out.slice(0, at);
+      var opens = (before.match(/<mark>/g) || []).length, closes = (before.match(/<\/mark>/g) || []).length;
+      if (opens !== closes) return;
+      out = before + '<mark>' + t + '</mark>' + out.slice(at + t.length);
+    });
+  return out;
+}
+
 // ⚠️ 마지막 안전판 — 칸(갈래·과목) 나누기가 어긋나도 원문은 다 보이게 합니다.
 //    나이스 판이 조금만 달라져도 칸이 어긋나는데, 그때마다 선생님이
 //    «내용이 잘렸다» 고 느끼셔야 할 까닭이 없습니다. 접어 두고, 펴면 다 나옵니다.
-function sgWholeHTML(g, wk) {
-  var parts = sgWholes[wk];
+function sgWholeHTML(g) {
+  var parts = sgWholes[g.grade + '|' + g.area];
   if (!parts || !parts.length) return '';
 
   var chars = 0;
   parts.forEach(function (p) { chars += p.text.length; });
-  var title = (g.grade ? g.grade + '학년' : '학년 모름') + ' ' + sgSectionTitle(g.area);
 
   return '<details class="sg-whole">' +
-    '<summary>' + esc(title) + ' <b>원문 전체</b>' +
+    '<summary>' + esc(sgGradeText(g.grade) + ' ' + sgSectionTitle(g.area)) + ' <b>원문 전체</b>' +
       '<span class="n">' + String(chars).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '자</span>' +
     '</summary>' +
     '<div class="sg-wholetext">' + parts.map(function (p) {
@@ -1543,28 +1642,11 @@ function sgTagClass(label) {
   return SG_TAG_CLASS[sgNorm(label).replace(/\s/g, '')] || 'etc';
 }
 
-function sgGroupHTML(g) {
-  var head = (g.grade ? g.grade + '학년' : '학년 모름') + ' · ' + esc(g.label);
-  // 행특은 묶음 이름이 곧 영역 이름이라 두 번 쓰지 않습니다
-  if (g.label !== sgSectionTitle(g.area)) head += ' <span class="sg-gsec">' + esc(sgSectionTitle(g.area)) + '</span>';
-
-  return '<section class="sg-group">' +
-    '<p class="sg-gtitle">' + head +
-      '<span class="n">뽑은 질문 ' + g.items.length + '개</span></p>' +
-    '<div class="sg-list">' +
-      g.blanks.map(sgBlankHTML).join('') +
-      g.items.map(sgItemHTML).join('') +
-    '</div></section>';
-}
-
-// 기록을 통째로 펼쳐 놓고 그 자리에서 직접 적는 칸
+// 기록을 보고 직접 적는 칸 — 묶음의 맨 아래
 function sgBlankHTML(x) {
   var note = x.q.lonely
     ? '<b class="sg-warn">여기서는 탐구 제목을 못 찾았습니다 — 기록을 보고 직접 적어 주세요</b>'
     : '<b class="sg-own">기록을 보고 직접 물으셔도 됩니다</b>';
-  // 글자 수를 적어 둡니다. 잘렸는지 아닌지 선생님이 바로 보실 수 있게.
-  note += ' <span class="sg-len">· 기록 ' +
-          String((x.q.source || '').length).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '자</span>';
   return '<div class="sg-item blank' + (sgPicked[x.i] ? ' on' : '') + '" data-i="' + x.i + '">' +
     '<input type="checkbox"' + (sgPicked[x.i] ? ' checked' : '') +
       ' onchange="toggleSgPick(' + x.i + ')" title="이 질문 담기">' +
@@ -1572,18 +1654,18 @@ function sgBlankHTML(x) {
       '<span class="sg-meta">' + note + '</span>' +
       '<input class="sg-write" type="text" value="' + esc(sgTextOf(x.i)) + '"' +
         ' oninput="setSgText(' + x.i + ', this.value)" placeholder="여기에 낼 질문을 적으세요">' +
-      '<span class="sg-src full">' + esc(sgMaskText(x.q.source)) + '</span>' +
     '</span></div>';
 }
 
+// 질문 한 줄 — 원문은 위 기록에서 색으로 표시되므로 여기엔 짧은 근거만 둡니다
 function sgItemHTML(x) {
-  return '<label class="sg-item' + (sgPicked[x.i] ? ' on' : '') + '">' +
+  return '<label class="sg-item' + (sgPicked[x.i] ? ' on' : '') + '" data-i="' + x.i + '">' +
     '<input type="checkbox"' + (sgPicked[x.i] ? ' checked' : '') +
       ' onchange="toggleSgPick(' + x.i + ')">' +
     '<span class="sg-q">' +
       '<span class="sg-qtext">' + esc(x.q.text) + '</span>' +
-      '<span class="sg-meta">' + esc(x.q.competency) + '</span>' +
-      '<span class="sg-src">' + esc(sgMaskText(x.q.source)) + '</span>' +
+      '<span class="sg-meta">' + esc(x.q.competency) +
+        (x.q.topic ? ' · 「' + esc(sgMaskText(x.q.topic)) + '」' : '') + '</span>' +
     '</span></label>';
 }
 
