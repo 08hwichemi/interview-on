@@ -669,6 +669,8 @@ var SG_TOPIC_RULES = [
   { re: /([^,.\s][^,.]{3,70}?)(?:이|가)\s*궁금(?:하여|해서|해져)/g,                        kind: '의문' },
   { re: /([^,.\s][^,.]{3,70}?)에\s*대한\s*(?:[^,.]{0,12}?\s*)?질문(?:을|를)\s*(?:도출|던지|제기|만들)/g, kind: '의문' },
   { re: /([^,.\s][^,.]{3,70}?)(?:라는|이라는)\s*(?:후속\s*)?(?:질문|물음)/g,                kind: '물음' },
+  // 「…무엇일까?를 핵심 질문으로 설정해 탐구함」 — 따옴표가 없어도 물음입니다(2026-10-05 진로활동 기록)
+  { re: /([^,.\s][^,.]{3,70}?)(?:을|를)\s*(?:핵심|탐구|연구|중심|주요)?\s*(?:질문|물음)으로\s*(?:설정|삼|정하|선정|세우|잡|두)/g, kind: '물음' },
 
   // ── 끝까지 파고든 흔적 ──
   { re: /([^,.\s][^,.]{3,70}?)(?:을|를)\s*(?:설계|고안|제작|개발|구현)/g,  kind: '활동' },
@@ -898,6 +900,13 @@ var SG_FRAMES = {
     '{S}「{T}」 발표에서 받은 질문이나 반론이 있었나요? 어떻게 답했는지 말해 주세요.',
     '{S}「{T}」{T}을 주제로 발표했다고 되어 있습니다. 그 주제를 고른 이유와, 조사하며 새로 알게 된 사실을 하나만 말해 주세요.'
   ] },
+  // 토론·토의 — 발표와 달리 «찬반·반론» 을 묻습니다.
+  // ⚠️ 2026-10-05 진로활동 기록의 「…을 토론하며 …」 가 발표 틀에 걸려 «주제로 발표했다고» 라고 나왔습니다.
+  '토론': { comp: '학업역량', frames: [
+    '{S}「{T}」{T}을 토론했다고 기록되어 있습니다. 본인은 어느 쪽 입장이었고, 그 근거는 무엇이었나요?',
+    '{S}「{T}」 토론에서 상대편의 가장 강한 반론은 무엇이었고, 거기에 어떻게 답했나요?',
+    '{S}「{T}」{T}을 토론한 뒤 생각이 달라진 점이 있나요? 있었다면 무엇이 그렇게 만들었는지 말해 주세요.'
+  ] },
   // 세특 — 배운 개념
   '개념': { comp: '학업역량', frames: [
     '{S}「{T}」{T}을 배웠다고 기록되어 있습니다. 이 개념을 처음 듣는 사람에게 설명하듯 말해 주세요.',
@@ -958,7 +967,8 @@ var SG_FRAMES = {
 
 // 문장을 보고 이야깃거리의 생김새를 정합니다. 위 SG_FRAMES 의 열쇠 가운데 하나를 돌려줍니다.
 var SG_CUE_EXPERIMENT = /실험|측정|관찰|대조군|변인|검증/;
-var SG_CUE_PRESENT = /발표|카드뉴스|보고서|작성|제작|토론|토의|기고|제안/;
+var SG_CUE_PRESENT = /발표|카드뉴스|보고서|작성|제작|기고|제안/;
+var SG_CUE_DEBATE = /토론|토의|논쟁|찬반|디베이트/;
 var SG_CUE_ROLE = /회장|부회장|부장|조장|반장|멘토|리더|주도|기획|이끌|역할|협력|모둠|팀원|팀을|함께|소통|조율/;
 var SG_CUE_CAREER = /진로|직업|학과|전공|장래|꿈/;
 var SG_CUE_INQUIRY = /탐구|조사|분석|연구|고찰|탐색/;
@@ -974,6 +984,7 @@ function sgShapeOf(sectionKey, sentence, topic, book, groupLabel) {
   if (sectionKey === 'changche') {
     if (SG_CUE_ROLE.test(sentence)) return '역할';
     if (SG_CUE_EXPERIMENT.test(sentence)) return '실험';
+    if (SG_CUE_DEBATE.test(sentence)) return '토론';
     if (SG_CUE_PRESENT.test(sentence)) return '발표';
     if (SG_CUE_INQUIRY.test(sentence)) return '탐구';     // 진로활동·동아리에서 한 탐구도 탐구로 묻습니다
     // 탐구·발표가 아닌 진로활동 기록(특강을 듣고 관심을 가짐 등)만 진로와 이어 묻습니다
@@ -982,6 +993,7 @@ function sgShapeOf(sectionKey, sentence, topic, book, groupLabel) {
   }
   // 세특
   if (SG_CUE_EXPERIMENT.test(sentence)) return '실험';
+  if (SG_CUE_DEBATE.test(sentence) && topic.kind !== '개념') return '토론';
   if (SG_CUE_PRESENT.test(sentence) && topic.kind !== '개념') return '발표';
   if (topic.kind === '개념') return '개념';
   if (SG_CUE_INQUIRY.test(sentence)) return '탐구';
