@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>면접ON — 받아 둔 AI 모델 지우기</title>
+  <style>
+    :root{--ink:#1a1a1a;--ink-3:#777;--line:#ddd;--blue:#2563eb;--rose:#dc2626;--green:#16a34a}
+    body{margin:0;font-family:Pretendard,-apple-system,"Malgun Gothic",sans-serif;color:var(--ink);background:#f6f6f6;line-height:1.7}
+    main{max-width:720px;margin:0 auto;padding:28px 16px 60px}
+    h1{font-size:20px;margin:0 0 8px}
+    p{margin:0 0 12px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:16px}
+    button{font:inherit;padding:10px 18px;border-radius:8px;border:1px solid var(--blue);background:var(--blue);color:#fff;cursor:pointer}
+    button:disabled{opacity:.5;cursor:default}
+    .note{font-size:13px;color:var(--ink-3)}
+    .ok{color:var(--green)} .bad{color:var(--rose)}
+    #state{margin-top:10px;font-size:15px}
+  </style>
+</head>
+<body>
+<main>
+  <h1>받아 둔 AI 모델 지우기</h1>
+  <p>2026년 10월에 「노트북에서 작은 AI 로 질문 뽑기」를 시험했습니다. 선생님 노트북의 내장 그래픽이 버티지 못해 접었습니다.
+     그때 받아 둔 모델 파일(1.5B ≈ 1GB · 3B ≈ 2GB)이 이 브라우저 안에 남아 있을 수 있습니다. 여기서 지웁니다.</p>
+  <p class="note">생기부 글은 애초에 어디에도 저장되지 않았습니다. 여기서 지우는 것은 AI 모델 파일뿐입니다. 면접ON 로그인에는 영향이 없습니다.</p>
+
+  <div class="card">
+    <div id="usage">이 사이트가 브라우저에서 쓰는 공간: 재는 중...</div>
+    <div style="margin-top:12px"><button id="btn-wipe">받아 둔 모델 전부 지우기</button></div>
+    <div id="state"></div>
+  </div>
+
+  <p class="note" style="margin-top:18px">시험해 본 노트북마다 한 번씩 눌러 주세요(파일은 노트북마다 따로 받았습니다). 크롬과 엣지를 둘 다 썼다면 각각에서 눌러야 합니다.</p>
+</main>
+
+<script>
+  // 모델 파일은 WebLLM 이 브라우저 캐시(Cache Storage)에 둔 것입니다. 전부 지웁니다.
+  // 면접ON 앱은 Cache Storage 를 쓰지 않아서 같이 지워질 것이 없습니다.
+  var $ = function (id) { return document.getElementById(id); };
+  function fmt(bytes) {
+    var gb = bytes / 1024 / 1024 / 1024;
+    return gb >= 0.1 ? gb.toFixed(1) + 'GB' : Math.round(gb * 1024) + 'MB';
+  }
+  async function paint() {
+    try {
+      var names = window.caches ? await caches.keys() : [];
+      var est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : {};
+      $('usage').innerHTML = '이 사이트가 브라우저에서 쓰는 공간: <b>' + fmt(est.usage || 0) + '</b>' +
+        (names.length ? ' — 받아 둔 모델 파일이 있습니다 (' + names.length + '묶음)' : ' — <span class="ok">받아 둔 모델 파일이 없습니다</span>');
+      $('btn-wipe').disabled = !names.length;
+    } catch (e) {
+      $('usage').innerHTML = '<span class="bad">공간을 재지 못했습니다:</span> ' + (e.message || e);
+    }
+  }
+  paint();
+  $('btn-wipe').onclick = async function () {
+    if (!confirm('받아 둔 AI 모델 파일을 모두 지울까요?')) return;
+    $('btn-wipe').disabled = true;
+    try {
+      var names = await caches.keys();
+      for (var i = 0; i < names.length; i++) await caches.delete(names[i]);
+      $('state').innerHTML = '<span class="ok">지웠습니다.</span> 브라우저가 공간을 돌려주는 데 잠깐 걸릴 수 있습니다.';
+      await paint();
+    } catch (e) {
+      $('state').innerHTML = '<span class="bad">지우지 못했습니다:</span> ' + (e.message || e) +
+        '<br>크롬 설정 → 개인정보 보호 및 보안 → 인터넷 사용 기록 삭제 → 「캐시된 이미지 및 파일」 로도 지워집니다.';
+    }
+  };
+</script>
+</body>
+</html>
