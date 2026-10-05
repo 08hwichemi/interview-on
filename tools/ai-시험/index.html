@@ -141,7 +141,7 @@
     $('btn-load').disabled = true; $('model-state').textContent = '받는 중...'; $('model-bar').style.width = '0';
     const t0 = Date.now();
     try {
-      if (engine) { await engine.unload(); engine = null; }
+      if (engine) { try { await engine.unload(); } catch (e) { /* 이미 내려감 */ } engine = null; refreshButtons(); }
       engine = await CreateMLCEngine(id, {
         initProgressCallback: (p) => {
           $('model-state').textContent = p.text;
@@ -153,6 +153,7 @@
       $('model-state').innerHTML = '<span class="ok">준비됐습니다</span> (' + Math.round((Date.now() - t0) / 1000) + '초)';
       refreshButtons();
     } catch (e) {
+      engine = null; refreshButtons();
       $('model-state').innerHTML = '<span class="bad">실패:</span> ' + esc(e.message || e) +
         '<br>램이 모자라면 더 작은 모델(1.5B)을 골라 다시 눌러 보세요.';
     } finally { $('btn-load').disabled = false; }
@@ -253,8 +254,21 @@
       $('ai-state').innerHTML = '<span class="ok">끝</span>';
       $('ai-meta').textContent = engineModel + ' · 첫 글자까지 ' + Math.round(((t1 || Date.now()) - t0) / 1000) + '초 · 전체 ' + sec + '초 · ' + n + '자' + cut;
     } catch (e) {
-      $('ai-state').innerHTML = '<span class="bad">실패:</span> ' + esc(e.message || e);
-    } finally { running = false; $('btn-ai').disabled = false; $('btn-stop').disabled = true; }
+      const msg = String(e && e.message || e);
+      if (/not loaded|device.*lost|lost.*device/i.test(msg)) {
+        // WebLLM 은 그래픽 장치를 놓치면(대개 그래픽 메모리 부족) 모델을 조용히 내립니다.
+        // 그 뒤 질문을 만들려 하면 «Model not loaded» 가 뜹니다.
+        engine = null; engineModel = null;
+        $('model-state').innerHTML = '<span class="bad">모델이 내려갔습니다</span> — 다시 받아야 합니다';
+        $('model-bar').style.width = '0';
+        $('ai-state').innerHTML = '<span class="bad">모델이 중간에 내려갔습니다.</span> ' +
+          '대개 <b>그래픽 메모리가 모자라서</b>입니다. 다른 탭·프로그램을 닫고, ' +
+          '<b>더 작은 모델(1.5B)</b>을 골라 「모델 받기」를 다시 눌러 보세요.<br>' +
+          '<span class="note">원문: ' + esc(msg) + '</span>';
+      } else {
+        $('ai-state').innerHTML = '<span class="bad">실패:</span> ' + esc(msg);
+      }
+    } finally { running = false; refreshButtons(); $('btn-stop').disabled = true; }
   };
 </script>
 </body>
