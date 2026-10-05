@@ -80,10 +80,12 @@ async function 열기(viewport) {
     확인('기록이 통째로 보이는가', (await p.textContent('.sg-record')).indexOf('우리 반 생활 협약') > -1);
     확인('질문에는 따로 원문 칸이 없는가', (await p.$$('.sg-list .sg-src')).length === 0);
     확인('질문이 가리키는 대목에 색이 입혀지는가', (await p.$$('.sg-record mark')).length >= 1);
-    // 이야기(활동)별로 — 자율활동에 «학급 회의» 와 «탐구 대회» 두 이야기
-    확인('기록이 이야기별 문단으로 나뉘는가 (2개)', (await p.$$('.sg-record .sg-rpart')).length === 2);
-    확인('이야기 이름이 붙는가 (탐구 대회)', (await p.$$eval('.sg-record .sg-rstory', es => es.map(e => e.textContent))).some(t => t.indexOf('탐구 대회') > -1));
-    확인('질문도 이야기별로 묶이는가', (await p.$$('.sg-list .sg-qstory')).length === 2);
+    // 이야기(활동)는 화면에 안 나눕니다(선생님 말씀: 형광펜이면 충분). 안쪽에서 줄 세우기·자리말에만 씁니다
+    확인('기록이 문단으로 안 나뉘고 통째인가', (await p.$$('.sg-record .sg-rpart, .sg-record .sg-rstory')).length === 0);
+    확인('질문 목록에 이야기 머리글이 없는가', (await p.$$('.sg-list .sg-qstory')).length === 0);
+    const 자율질문 = await p.$$eval('.sg-list .sg-item .sg-q', es => es.map(e => e.textContent));
+    확인('자율활동 두 활동(학급 회의 · 탐구 대회)이 첫 두 질문에 하나씩 오는가',
+         자율질문.length >= 2 && /생활 협약/.test(자율질문[0]) && /탐구 대회/.test(자율질문[1]), 자율질문.slice(0, 2).join(' | '));
 
     // 동아리활동 묶음 — 질문이 5개를 넘습니다
     const idx = rail.findIndex(t => t.indexOf('동아리') > -1);

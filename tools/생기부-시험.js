@@ -241,6 +241,25 @@ var 진로질문 = 뽑힌(sg.sgMakeQuestions('changche', 3, 진로문장, '진�
 확인('진로활동 안의 탐구는 진로 틀이 아니라 탐구 틀인가', 진로질문.filter(function (q) { return q.shape === '탐구'; }).length >= 2);
 확인('「진로 특강」처럼 «로» 로 끝나는 낱말이 안 잘리는가', sg.sgStoryLabel('진로 특강을 듣고 생명공학 분야에 관심을 가지게 됨.', 1) === '진로 특강');
 
+// 이야기는 화면에 보여 주는 게 아니라(선생님 말씀: 형광펜이면 충분) 질문을 «고르는» 데 씁니다
+제목('이야기별로 돌아가며 줄 세우기 · 자리말에 활동 이름');
+var 줄 = sg.sgOrderByStory(sg.sgDropContained(진로질문.slice()));
+확인('첫째는 1번 이야기의 물음인가', 줄[0] && 줄[0].story === 1 && 줄[0].shape === '물음', 줄[0] && 줄[0].topic.slice(0, 20));
+확인('둘째는 2번 이야기의 책(「나노 화학」)인가 — 1번의 잔가지보다 먼저', 줄[1] && 줄[1].story === 2 && 줄[1].topic === '나노 화학', 줄[1] && 줄[1].topic);
+확인('셋째는 다시 1번 이야기인가', 줄[2] && 줄[2].story === 1);
+확인('처음 5개 안에 두 이야기가 다 들어 있는가', 줄.slice(0, 5).some(function (q) { return q.story === 1; }) && 줄.slice(0, 5).some(function (q) { return q.story === 2; }));
+확인('order 번호가 0부터 차례로 붙는가', 줄.every(function (q, i) { return q.order === i; }));
+확인('자리말에 활동 이름이 붙는가 (「진로활동 프로젝트 큐리어톤에서」)',
+     진로질문.some(function (q) { return q.text.indexOf('진로활동 프로젝트 큐리어톤에서') === 0; }),
+     (진로질문.filter(function (q) { return q.story === 1 && q.shape === '탐구'; })[0] || {}).text);
+확인('2번 이야기 질문엔 「진로활동 진로독서 프로젝트에서」', 진로질문.some(function (q) { return q.text.indexOf('진로활동 진로독서 프로젝트에서') === 0; }));
+확인('활동이 하나뿐인 묶음엔 활동 이름을 안 붙이는가',
+     틀('changche', '「미세먼지와 식물 생장」에 대해 탐구를 진행함.', '동아리활동').text.indexOf('동아리활동에서') === 0);
+확인('이야기가 하나면 또렷한 것부터인가', (function () {
+  var one = sg.sgOrderByStory([{ kind: '탐구', topic: 'a' }, { kind: '제목', topic: 'b' }, { kind: '주제', topic: 'c' }]);
+  return one.map(function (q) { return q.topic; }).join('') === 'bca';
+})());
+
 제목('한 묶음 안에서 같은 틀을 되풀이하지 않는가');
 var 여럿 = 뽑힌(sg.sgMakeQuestions('sesa', 2, [
   '「대조군 설정의 중요성」을 주제로 탐구함.', '「측정 오차의 원인」을 주제로 탐구함.', '「잎의 표면적과 흡착량」을 주제로 탐구함.'
