@@ -26,6 +26,8 @@
   한도와 모델 크기가 같아서 작업 공간을 더 잡을 자리가 없습니다
   (WebLLM 오류 «Model not loaded before trying to complete ChatCompletionRequest»)
 - → 내장 그래픽 노트북은 **1.5B** 로 갑니다. 화면에서 이 경우를 알아채 한국어로 안내합니다
+- 한 번 떨어진 그래픽 장치는 **브라우저를 전부 닫았다 열기 전까지 떨어진 채로 남습니다**
+  (윈도우 «DXGI_ERROR_DEVICE_REMOVED»). 그 상태에서는 1.5B 도 못 받습니다 — 화면이 이것도 안내합니다
 
 ## 아직 모르는 것
 
