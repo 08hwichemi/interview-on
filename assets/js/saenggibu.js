@@ -1428,6 +1428,7 @@ var sgWholes = {};       // 「학년|영역」 통째 원문 — 칸 나누기�
 var sgEdited = {};       // 선생님이 직접 고쳐 쓴 질문 { 번호: 글자 }
 var sgPicked = {};       // { 번호: true } — 담을 것
 var sgCur = null;        // 지금 보고 있는 묶음 (sgGroupList() 의 차례)
+var sgRailGrade = null;  // 왼쪽 목록에 보이는 학년 (null 이면 지금 묶음의 학년을 따라감)
 var sgMore = {};         // { 묶음키: true } — 최대 개수 너머 질문까지 펼쳐 둔 묶음
 var sgMask = true;       // 개인정보 가림
 
@@ -1448,7 +1449,7 @@ var SG_MAX_SHOW = 5;
 // 준비 화면 자리에 통째로 바꿔 끼웁니다 (떠 있는 창은 작아서 불편하다는 말씀 — 2026-10-05).
 // 왼쪽 학생 명단은 그대로, 오른쪽 칸 전체가 이 화면이 됩니다.
 function openSaenggibu() {
-  sgFound = []; sgPicked = {}; sgEdited = {}; sgCur = null; sgMore = {};
+  sgFound = []; sgPicked = {}; sgEdited = {}; sgCur = null; sgMore = {}; sgRailGrade = null;
   show('saenggibu');      // teacher-app.js — 오른쪽 칸의 다른 화면을 다 감추고 이것만 보입니다
   document.getElementById('sg-file').value = '';
   var who = document.getElementById('sg-who');
@@ -1489,6 +1490,7 @@ async function onSaenggibuFile(input) {
     sgEdited = {};
     sgCur = null;
     sgMore = {};
+    sgRailGrade = null;
 
     if (!sgFound.length) {
       body.innerHTML = '<p class="sg-note bad">질문을 만들 만한 대목을 못 찾았습니다.<br>' +
@@ -1589,6 +1591,7 @@ function sgPickedCount(g) {
 function pickSgGroup(i) {
   sgCur = i;
   sgMore = {};
+  sgRailGrade = null;     // 왼쪽 목록은 고른 묶음의 학년을 따라갑니다
   renderSaenggibu();
   var main = document.querySelector('.sg-main');
   if (main) main.scrollTop = 0;
@@ -1629,22 +1632,56 @@ function renderSaenggibu() {
   paintSgFoot();
 }
 
-// ── 왼쪽: 묶음 목록 — 영역마다 머리줄, 그 아래 학년 · 갈래/과목 ──
+// ── 왼쪽: 묶음 목록 ──
+//
+// ⚠️ 실제 생기부는 묶음이 50개 넘게 나옵니다(과목이 많아서). 한 줄로 늘어놓으면 3학년은
+//    맨 밑에 묻혀서 스크롤해야 보였습니다(선생님 말씀). 그래서 맨 위에 학년 단추를 두고
+//    그 학년 것만 보입니다 — 창체 4개 + 과목 10여 개 + 행특 1개면 스크롤 없이 다 들어갑니다.
+function sgRailGradeNow(groups) {
+  if (sgRailGrade !== null) return sgRailGrade;
+  return groups[sgCur] ? groups[sgCur].grade : (groups[0] ? groups[0].grade : 1);
+}
+
 function sgRailHTML(groups) {
-  var html = '', lastArea = null;
+  var g0 = sgRailGradeNow(groups);
+
+  // 학년 단추 — 있는 학년만. 담은 수가 있으면 숫자를 붙입니다
+  var grades = [];
+  groups.forEach(function (g) { if (grades.indexOf(g.grade) === -1) grades.push(g.grade); });
+  grades.sort(function (a, b) { return (a || 9) - (b || 9); });   // 「학년 모름」(0)은 맨 뒤
+  var html = '<div class="sg-grades">' + grades.map(function (gr) {
+    var n = 0;
+    groups.forEach(function (g) { if (g.grade === gr) n += sgPickedCount(g); });
+    return '<button class="sg-gbtn" aria-pressed="' + (gr === g0) + '" onclick="pickSgRailGrade(' + gr + ')">' +
+      esc(sgGradeText(gr)) + (n ? '<b>' + n + '</b>' : '') + '</button>';
+  }).join('') + '</div>';
+
+  // 그 학년의 묶음 — 영역마다 머리줄
+  var lastArea = null;
   groups.forEach(function (g, i) {
+    if (g.grade !== g0) return;
     if (g.area !== lastArea) {
       lastArea = g.area;
       html += '<p class="sg-rhead">' + esc(sgSectionTitle(g.area)) + '</p>';
     }
     var picked = sgPickedCount(g);
+    var sub = (g.label === sgSectionTitle(g.area)) ? '전체' : g.label;
     html += '<button class="sg-rentry' + (g.items.length ? '' : ' none') + '" aria-current="' + (i === sgCur) + '"' +
               ' onclick="pickSgGroup(' + i + ')">' +
-      '<span class="nm">' + esc(sgGroupName(g)) + '</span>' +
+      '<span class="nm">' + esc(sub) + '</span>' +
       '<span class="n">' + (picked ? '<b>' + picked + '</b>' : '') + '</span>' +
       '</button>';
   });
   return html;
+}
+
+// 학년 단추 — 그 학년의 첫 묶음으로 갑니다 (지금 보던 묶음이 그 학년이면 그대로)
+function pickSgRailGrade(gr) {
+  var groups = sgGroupList();
+  if (groups[sgCur] && groups[sgCur].grade === gr) { sgRailGrade = gr; paintSgRail(); return; }
+  for (var i = 0; i < groups.length; i++) {
+    if (groups[i].grade === gr) { pickSgGroup(i); return; }
+  }
 }
 
 function paintSgRail() {
@@ -1654,10 +1691,18 @@ function paintSgRail() {
 
 // 좁은 화면에서는 왼쪽 목록 대신 위에 고르는 칸
 function sgJumpHTML(groups) {
+  var grades = [];
+  groups.forEach(function (g) { if (grades.indexOf(g.grade) === -1) grades.push(g.grade); });
+  grades.sort(function (a, b) { return (a || 9) - (b || 9); });
   return '<select class="sg-jump" onchange="pickSgGroup(+this.value)" aria-label="묶음 고르기">' +
-    groups.map(function (g, i) {
-      return '<option value="' + i + '"' + (i === sgCur ? ' selected' : '') + '>' +
-        esc(sgSectionTitle(g.area) + ' · ' + sgGroupName(g)) + '</option>';
+    grades.map(function (gr) {
+      return '<optgroup label="' + esc(sgGradeText(gr)) + '">' +
+        groups.map(function (g, i) {
+          if (g.grade !== gr) return '';
+          var sub = (g.label === sgSectionTitle(g.area)) ? '' : ' · ' + g.label;
+          return '<option value="' + i + '"' + (i === sgCur ? ' selected' : '') + '>' +
+            esc(sgSectionTitle(g.area) + sub) + '</option>';
+        }).join('') + '</optgroup>';
     }).join('') + '</select>';
 }
 

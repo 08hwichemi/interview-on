@@ -55,11 +55,22 @@ async function 열기(viewport) {
   console.log('\n── 노트북 ──');
   {
     const { b, p, errs } = await 열기({ width: 1440, height: 900 });
-    const rail = await p.$$eval('#sg-rail .sg-rentry', es => es.map(e => e.textContent.trim()));
-    확인('왼쪽에 묶음 목록이 뜨는가 (학년 · 갈래/과목)', rail.length >= 5, rail.join(' | '));
+    // 왼쪽: 학년 단추 → 그 학년의 묶음만
+    확인('학년 단추가 뜨는가 (1학년 · 2학년)',
+         (await p.$$eval('#sg-rail .sg-gbtn', es => es.map(e => e.textContent.trim()))).join() === '1학년,2학년');
+    확인('처음엔 첫 묶음의 학년(1학년)이 눌려 있는가', (await p.textContent('#sg-rail .sg-gbtn[aria-pressed="true"]')).indexOf('1학년') === 0);
+    let rail = await p.$$eval('#sg-rail .sg-rentry', es => es.map(e => e.textContent.trim()));
+    확인('1학년 묶음만 보이는가 (자율·동아리·통합과학·행특)', rail.length === 4, rail.join(' | '));
     확인('영역 머리줄(창체·세특·행특)이 있는가',
          (await p.$$eval('#sg-rail .sg-rhead', es => es.map(e => e.textContent))).join() === '창의적 체험활동,세부능력 및 특기사항,행동특성 및 종합의견');
-    확인('첫 묶음이 골라져 있는가', (await p.$eval('#sg-rail .sg-rentry[aria-current="true"]', e => e.textContent)).indexOf('1학년') === 0);
+    확인('첫 묶음(자율활동)이 골라져 있는가', (await p.$eval('#sg-rail .sg-rentry[aria-current="true"]', e => e.textContent)).indexOf('자율활동') === 0);
+    await p.click('#sg-rail .sg-gbtn:has-text("2학년")'); await p.waitForTimeout(150);
+    확인('2학년을 누르면 2학년 첫 묶음(진로활동)으로 가는가', (await p.textContent('.sg-gtitle')).indexOf('2학년 · 진로활동') > -1);
+    확인('2학년 묶음만 보이는가', (await p.$$eval('#sg-rail .sg-rentry', es => es.length)) === 1);
+    await p.click('button:has-text("앞 묶음")'); await p.waitForTimeout(150);
+    확인('앞 묶음으로 1학년에 가면 학년 단추도 따라오는가', (await p.textContent('#sg-rail .sg-gbtn[aria-pressed="true"]')).indexOf('1학년') === 0);
+    await p.click('#sg-rail .sg-rentry >> nth=0'); await p.waitForTimeout(150);
+    rail = await p.$$eval('#sg-rail .sg-rentry', es => es.map(e => e.textContent.trim()));
 
     // 기록이 위, 질문이 아래
     const recordTop = await p.$eval('.sg-record', e => e.getBoundingClientRect().top);
@@ -84,6 +95,7 @@ async function 열기(viewport) {
     await p.click('.sg-list label.sg-item >> nth=0'); await p.waitForTimeout(100);
     확인('체크해도 읽던 자리가 안 튀는가', (await p.$eval('.sg-main', e => e.scrollTop)) === 200);
     확인('왼쪽 목록에 담은 수가 붙는가', (await p.$eval('#sg-rail .sg-rentry[aria-current="true"] .n b', e => e.textContent)) === '1');
+    확인('학년 단추에도 담은 수가 붙는가', (await p.$eval('#sg-rail .sg-gbtn[aria-pressed="true"] b', e => e.textContent)) === '1');
     확인('아래 단추에 담을 수가 뜨는가', (await p.textContent('#sg-add')).indexOf('1개') === 0);
 
     // 직접 적는 칸은 맨 아래
@@ -118,6 +130,7 @@ async function 열기(viewport) {
     const { b, p, errs } = await 열기({ width: 400, height: 800 });
     확인('왼쪽 목록은 숨고 고르는 칸이 뜨는가',
          !(await p.$eval('#sg-rail', e => e.offsetParent !== null)) && (await p.$eval('.sg-jump', e => e.offsetParent !== null)));
+    확인('고르는 칸이 학년별로 묶여 있는가', (await p.$$eval('.sg-jump optgroup', es => es.map(e => e.label))).join() === '1학년,2학년');
     await p.selectOption('.sg-jump', '2'); await p.waitForTimeout(150);
     확인('고르는 칸으로 묶음을 바꿀 수 있는가', (await p.textContent('.sg-gtitle')).indexOf('진로') > -1);
     const over = await p.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);

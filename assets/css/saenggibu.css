@@ -36,6 +36,20 @@
   padding:10px 8px;border-right:1px solid var(--line);background:var(--surface-2);
 }
 .sg-main{flex:1 1 auto;min-width:0;overflow-y:auto;padding:16px 20px 24px}
+/* 학년 단추 — 왼쪽 목록 맨 위. 누른 학년 것만 아래에 보입니다 */
+.sg-grades{display:flex;gap:4px;margin:2px 4px 8px}
+.sg-gbtn{
+  flex:1 1 0;display:flex;align-items:center;justify-content:center;gap:5px;
+  padding:8px 4px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface);
+  font-family:inherit;font-size:13px;font-weight:700;color:var(--ink-2);cursor:pointer;white-space:nowrap;
+}
+.sg-gbtn:hover{border-color:var(--ink);color:var(--ink)}
+.sg-gbtn[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.sg-gbtn b{
+  display:inline-block;min-width:16px;padding:0 4px;border-radius:8px;
+  background:var(--ink);color:#fff;font-size:10.5px;line-height:16px;text-align:center;
+}
+.sg-gbtn[aria-pressed="true"] b{background:#fff;color:var(--ink)}
 .sg-rhead{
   margin:12px 6px 4px;font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--ink-3);
 }
