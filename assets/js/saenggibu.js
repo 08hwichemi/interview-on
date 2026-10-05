@@ -757,57 +757,169 @@ function sgTopics(sentence) {
 }
 
 // 「1984(조지 오웰)」 처럼 괄호 안이 사람 이름이면 읽은 책입니다.
-// 책에 「아는 대로 설명해 보세요」 는 안 맞습니다.
+// 책은 「제목 (지은이)」 꼴로 적힙니다. 책에는 책에 맞는 틀을 씁니다.
 function sgBookOf(topic) {
   var m = String(topic).match(/^(.{2,40}?)\s*\(([가-힣]{2,4}(?:\s[가-힣]{1,10})?)\)$/);
   return m ? { title: sgNorm(m[1]), author: sgNorm(m[2]) } : null;
 }
 
-// ⚠️ 한 이야깃거리에 질문 하나만 냅니다. 여럿이면 같은 말이 두 줄로 늘어섭니다.
-var SG_BOOK_TEMPLATE =
-  { comp: '학업역량',
-    make: function (b) { return '「' + b.title + '」을(를) 읽었군요. 어떤 대목이 가장 기억에 남고, 왜 그랬나요?'; } };
+// ══ 토씨 ══ — 「T」 뒤에 «을/를» «이/가» 를 받침에 맞춰 붙입니다.
+// 받침이 있으면 을·이, 없으면 를·가. 한글이 아니면(영어·숫자) 둘 다 적습니다.
+function sgJosa(word, withBatchim, without) {
+  var t = String(word || '').replace(/[」』"'’”\s)]+$/, '');
+  var ch = t.charCodeAt(t.length - 1);
+  if (ch >= 0xAC00 && ch <= 0xD7A3) return ((ch - 0xAC00) % 28) ? withBatchim : without;
+  if (ch >= 0x30 && ch <= 0x39) return (/[013678]$/.test(t)) ? withBatchim : without;   // 1·3·6·7·8·0 은 받침
+  return withBatchim + '(' + without + ')';
+}
+function 을(t) { return sgJosa(t, '을', '를'); }
+function 이(t) { return sgJosa(t, '이', '가'); }
+function 은(t) { return sgJosa(t, '은', '는'); }
 
-// 영역마다 다른 질문 틀입니다.
-// 영역마다 질문 틀 하나씩.
-var SG_TEMPLATES = {
-  changche:
-    { comp: '공동체역량',
-      make: function (t) { return '「' + t + '」 기록이 있습니다. 그때 본인이 실제로 한 일과, 가장 어려웠던 판단은 무엇이었나요?'; } },
-  sesa:
-    { comp: '학업역량',
-      make: function (t) { return '「' + t + '」이(가) 기록에 나옵니다. 아는 대로 설명해 보세요.'; } },
-  haengteuk:
-    { comp: '공동체역량',
-      make: function (t) { return '선생님이 「' + t + '」이라고 적어 주셨습니다. 그렇게 보였을 장면을 하나 들어 주세요.'; } }
+// ══ 질문 틀 ══
+//
+// 2026-10-05 에 틀 8개에서 이렇게 늘렸습니다. 선생님 말씀: 규칙으로 뽑은 질문이
+// AI 에 넣은 것보다 훨씬 못하다 — 돈 안 드는 길로, 지금보다 나으면 된다.
+// 틀은 앱에 들어 있는 대학별 기출 질문 2,360줄(questions 표)을 읽고 그 말투를 따랐습니다.
+//   · 「…했다고 기록되어 있습니다. ~을 설명하고, ~도 말해 주세요.」 — 본 질문 + 꼬리 질문을 한 줄에
+//   · 묻는 것: 내용 · 고른 이유(계기) · 과정과 어려움 · 결론과 근거 · 다시 한다면 · 지원 분야와의 연결
+// 이야깃거리의 «생김새»(실험·발표·역할·진로·책·물음…)에 따라 틀 묶음을 고르고,
+// 한 묶음 안에서는 틀을 돌려 가며 써서 같은 말이 줄줄이 나오지 않게 합니다.
+//
+// ⚠️ 틀은 기록을 «이해» 하지 못합니다. 「평형상수의 원리를 설명해 보세요」 까지는 되지만
+//    「압력은 왜 평형상수를 못 바꾸나」 같은 내용 질문은 못 합니다. 그건 언어 모델 몫입니다
+//    (노트북 AI 는 내장 그래픽에서 안 돌아 접었습니다 — docs/할-일.md).
+//
+// 틀 안의 {S} 는 자리말(「화학Ⅰ 시간에」 「동아리활동에서」), {T} 는 이야깃거리입니다.
+// 토씨는 틀 안에 «{T}을» «{T}이» «{T}은» 으로 적으면 받침에 맞춰 바뀝니다.
+var SG_FRAMES = {
+  // 세특 — 탐구·조사·분석
+  '탐구': { comp: '학업역량', frames: [
+    '{S}「{T}」{T}을 탐구했다고 기록되어 있습니다. 탐구한 주요 내용을 설명하고, 그 주제를 고르게 된 계기를 말해 주세요.',
+    '{S}「{T}」{T}을 탐구했는데, 어떤 자료나 방법으로 알아봤고 그 과정에서 가장 어려웠던 점은 무엇이었나요?',
+    '{S}「{T}」에 대해 탐구했다고 되어 있습니다. 탐구 끝에 무엇을 알게 되었고, 그것이 지원하려는 분야와 어떻게 이어지나요?',
+    '{S}「{T}」 탐구에서 본인이 내린 결론은 무엇이며, 그 결론을 뒷받침하는 근거는 무엇인가요?',
+    '{S}「{T}」{T}을 탐구했다고 기록되어 있습니다. 지금 다시 한다면 어떤 점을 보완하고 싶은지, 그 이유와 함께 말해 주세요.'
+  ] },
+  // 세특·창체 — 실험·측정·관찰
+  '실험': { comp: '학업역량', frames: [
+    '{S}「{T}」 실험을 했다고 기록되어 있습니다. 실험의 원리와 과정을 설명하고, 결과를 어떻게 해석했는지 말해 주세요.',
+    '{S}「{T}」 실험에서 변인은 어떻게 통제했고, 오차가 있었다면 그 원인은 무엇이라고 보나요?',
+    '{S}「{T}」 실험 결과가 예상과 달랐던 부분이 있었나요? 있었다면 그것을 어떻게 설명했는지 말해 주세요.',
+    '{S}「{T}」 실험을 했다고 되어 있는데, 거기서 쓴 원리를 다른 사례에 적용해 설명해 보세요.'
+  ] },
+  // 발표·보고서·카드뉴스·토론
+  '발표': { comp: '학업역량', frames: [
+    '{S}「{T}」{T}을 주제로 발표했다고 기록되어 있습니다. 발표의 핵심 주장과 그 근거를 설명해 주세요.',
+    '{S}「{T}」{T}을 발표했는데, 준비하며 가장 공들인 부분과 듣는 사람에게 꼭 전하고 싶었던 한 가지는 무엇이었나요?',
+    '{S}「{T}」 발표에서 받은 질문이나 반론이 있었나요? 어떻게 답했는지 말해 주세요.',
+    '{S}「{T}」{T}을 주제로 발표했다고 되어 있습니다. 그 주제를 고른 이유와, 조사하며 새로 알게 된 사실을 하나만 말해 주세요.'
+  ] },
+  // 세특 — 배운 개념
+  '개념': { comp: '학업역량', frames: [
+    '{S}「{T}」{T}을 배웠다고 기록되어 있습니다. 이 개념을 처음 듣는 사람에게 설명하듯 말해 주세요.',
+    '{S}「{T}」{T}이 기록에 나옵니다. 이 개념이 실생활이나 지원 분야에 어떻게 쓰이는지 예를 들어 설명해 주세요.',
+    '{S}「{T}」{T}을 공부하며 가장 헷갈렸던 부분은 무엇이었고, 어떻게 이해하게 되었나요?'
+  ] },
+  // 스스로 던진 물음 (「…할까?」)
+  '물음': { comp: '학업역량', frames: [
+    '「{T}」 — 이 물음을 스스로 던졌다고 기록되어 있습니다. 어떤 답을 찾았고, 무엇이 아직 풀리지 않았나요?',
+    '「{T}」라는 물음은 어디에서 비롯됐나요? 답을 찾으려고 무엇을 했는지 순서대로 말해 주세요.',
+    '「{T}」 — 이 물음에 지금 다시 답한다면 그때와 달라진 점이 있나요?'
+  ] },
+  // 의문을 품음
+  '의문': { comp: '학업역량', frames: [
+    '「{T}」에 의문을 품었다고 적혀 있습니다. 무엇이 궁금했고, 어떻게 확인했나요?',
+    '「{T}」에 의문을 가졌다고 기록되어 있습니다. 그 의문이 풀렸는지, 풀렸다면 핵심은 무엇이었는지 말해 주세요.',
+    '「{T}」에 의문을 품게 된 계기는 무엇이고, 그 뒤 어떤 자료를 찾아봤나요?'
+  ] },
+  // 책
+  '책': { comp: '학업역량', frames: [
+    '「{T}」{T}을 읽었다고 기록되어 있습니다. 책의 핵심 내용과 본인이 내린 결론을 설명해 주세요.',
+    '「{T}」{T}을 읽었군요. 어떤 대목이 가장 기억에 남고, 그것이 본인의 생각을 어떻게 바꿨나요?',
+    '「{T}」{T}을 읽었다고 되어 있는데, 이 책을 고른 기준은 무엇이었고 읽은 뒤 더 알아본 것이 있나요?',
+    '「{T}」에서 지은이의 주장에 동의하지 않는 부분이 있었나요? 있었다면 어떤 근거로 그렇게 생각했는지 말해 주세요.'
+  ] },
+  // 창체 — 활동 일반
+  '활동': { comp: '공동체역량', frames: [
+    '{S}「{T}」 활동이 기록되어 있습니다. 이 활동을 시작하게 된 계기와 본인이 실제로 한 일을 설명해 주세요.',
+    '{S}「{T}」 활동에서 본인이 맡은 역할은 무엇이었고, 준비하면서 어떤 점을 가장 고려했나요?',
+    '{S}「{T}」 활동을 하며 가장 어려웠던 판단은 무엇이었고, 어떻게 결정했나요?',
+    '{S}「{T}」 활동을 지금 다시 한다면 어떤 점을 보완하고 싶은지, 그 이유와 함께 말해 주세요.',
+    '{S}「{T}」 활동으로 새로 배운 점은 무엇이고, 그 뒤 어떤 활동으로 이어졌나요?'
+  ] },
+  // 창체 — 여럿이 함께·이끎
+  '역할': { comp: '공동체역량', frames: [
+    '{S}「{T}」{T}을 사람들과 함께했다고 기록되어 있습니다. 본인의 역할은 무엇이었고, 협력을 위해 구체적으로 어떤 행동을 했나요?',
+    '{S}「{T}」 과정에서 의견이 갈렸던 적이 있나요? 어떻게 조율했는지 말해 주세요.',
+    '{S}「{T}」{T}을 이끌었다고 되어 있는데, 함께한 사람들은 본인을 어떻게 평가했을 것 같나요? 그렇게 생각하는 이유는요?'
+  ] },
+  // 창체 — 진로와 이어지는 활동
+  '진로': { comp: '진로역량', frames: [
+    '{S}「{T}」{T}이 진로와 관련된 활동으로 기록되어 있습니다. 이 활동이 진로를 정하는 데 어떤 영향을 주었나요?',
+    '{S}「{T}」{T}을 통해 알게 된 것 가운데 지원하려는 학과와 이어지는 것은 무엇인가요?',
+    '{S}「{T}」 뒤에 진로 생각이 달라진 점이 있나요? 있었다면 무엇이 그렇게 만들었나요?'
+  ] },
+  // 행특 — 선생님의 칭찬하는 말
+  '칭찬': { comp: '공동체역량', frames: [
+    '선생님이 「{T}」이라고 적어 주셨습니다. 그렇게 보였을 장면을 하나 들어 주세요.',
+    '「{T}」이라는 평가를 받게 된 이유가 무엇이라고 생각하나요? 구체적인 사례로 말해 주세요.',
+    '「{T}」이라고 기록되어 있는데, 스스로는 그 평가에 얼마나 동의하나요? 반대로 그렇지 못했던 순간이 있었다면 말해 주세요.'
+  ] },
+  // 행특 — 따옴표로 묶인 활동 이름
+  '활동명': { comp: '공동체역량', frames: [
+    '「{T}」 이야기가 적혀 있습니다. 어떻게 시작했고 본인이 맡은 몫은 무엇이었나요?',
+    '「{T}」{T}을 하면서 주변 친구들에게 어떤 영향을 주었다고 생각하나요?'
+  ] }
 };
 
-// 「…어떻게 높일까?」 처럼 물음으로 된 제목에 «아는 대로 설명해 보세요» 는 어색합니다.
-var SG_QUESTION_TEMPLATE =
-  { comp: '학업역량',
-    make: function (t) { return '「' + t + '」 이 물음을 스스로 던졌군요. 어떤 답을 찾았고, 무엇이 아직 안 풀렸나요?'; } };
+// 문장을 보고 이야깃거리의 생김새를 정합니다. 위 SG_FRAMES 의 열쇠 가운데 하나를 돌려줍니다.
+var SG_CUE_EXPERIMENT = /실험|측정|관찰|대조군|변인|검증/;
+var SG_CUE_PRESENT = /발표|카드뉴스|보고서|작성|제작|토론|토의|기고|제안/;
+var SG_CUE_ROLE = /회장|부회장|부장|조장|반장|멘토|리더|주도|기획|이끌|역할|협력|모둠|팀원|팀을|함께|소통|조율/;
+var SG_CUE_CAREER = /진로|직업|학과|전공|장래|꿈/;
+var SG_CUE_INQUIRY = /탐구|조사|분석|연구|고찰|탐색/;
+var SG_CUE_CONCEPT = /배움|배우|학습|이해|단원|개념|원리|정리|파악|익힘/;
+function sgShapeOf(sectionKey, sentence, topic, book, groupLabel) {
+  if (book) return '책';
+  if (topic.kind === '물음' || /[?？]\s*$/.test(topic.text)) return '물음';
+  if (topic.kind === '의문') return '의문';
+  if (sectionKey === 'haengteuk') return (topic.kind === '제목') ? '활동명' : '칭찬';
+  if (sectionKey === 'changche') {
+    if (SG_CUE_ROLE.test(sentence)) return '역할';
+    if (sgNorm(groupLabel || '').indexOf('진로') === 0 || SG_CUE_CAREER.test(sentence)) return '진로';
+    if (SG_CUE_EXPERIMENT.test(sentence)) return '실험';
+    if (SG_CUE_PRESENT.test(sentence)) return '발표';
+    if (SG_CUE_INQUIRY.test(sentence)) return '탐구';     // 동아리에서 한 탐구는 탐구로 묻습니다
+    return '활동';
+  }
+  // 세특
+  if (SG_CUE_EXPERIMENT.test(sentence)) return '실험';
+  if (SG_CUE_PRESENT.test(sentence) && topic.kind !== '개념') return '발표';
+  if (topic.kind === '개념') return '개념';
+  if (SG_CUE_INQUIRY.test(sentence)) return '탐구';
+  // 「…단원을 배움」 「…의 원리를 이해함」 — 탐구가 아니라 배운 개념입니다
+  if (SG_CUE_CONCEPT.test(sentence)) return '개념';
+  return '탐구';
+}
 
-// 스스로 품은 물음은 면접에서 제일 좋은 재료입니다. 그대로 되물어 봅니다.
-var SG_WONDER_TEMPLATE =
-  { comp: '학업역량',
-    make: function (t) { return '「' + t + '」에 의문을 품었다고 적혀 있습니다. 무엇이 궁금했고, 어떻게 확인했나요?'; } };
+// 자리말 — 「화학Ⅰ 시간에」 「동아리활동에서」. 과목을 모르면 비웁니다.
+function sgPlaceOf(sectionKey, subject) {
+  if (!subject) return '';
+  if (sectionKey === 'sesa') return subject + ' 시간에 ';
+  if (sectionKey === 'changche') return subject + '에서 ';
+  return '';
+}
 
-// 「…임을 파악함」 처럼 알아낸 것은 그 자리에서 설명을 시킵니다.
-var SG_CONCEPT_TEMPLATE =
-  { comp: '학업역량',
-    make: function (t) { return '「' + t + '」 — 이것을 어떻게 알게 되었는지, 근거와 함께 설명해 보세요.'; } };
-
-// 세특에서 «탐구·실험» 으로 잡힌 것은 과정을 묻는 편이 낫습니다.
-var SG_SESA_INQUIRY =
-  { comp: '학업역량',
-    make: function (t) { return '「' + t + '」은(는) 무엇이 궁금해서 시작했고, 결과를 어떻게 확인했나요?'; } };
-
-
-// 행동특성에 따옴표로 묶인 것은 «칭찬하는 말» 이 아니라 활동 이름입니다.
-// 「30분의 기적」에 «이라고 적어 주셨습니다» 를 붙이면 말이 안 됩니다.
-var SG_HT_ACT_TEMPLATE =
-  { comp: '공동체역량',
-    make: function (t) { return '「' + t + '」 이야기가 있습니다. 어떻게 시작했고 본인이 맡은 몫은 무엇이었나요?'; } };
+// 틀에 이야깃거리와 자리말을 끼웁니다. 「{T}」 뒤에 붙은 {T}을 같은 토씨 표시는 받침에 맞춰 바뀝니다.
+function sgFill(frame, topic, place) {
+  return frame
+    .replace(/\{S\}/g, place || '')
+    .replace(/「\{T\}」\{T\}을/g, '「' + topic + '」' + 을(topic))
+    .replace(/「\{T\}」\{T\}이/g, '「' + topic + '」' + 이(topic))
+    .replace(/「\{T\}」\{T\}은/g, '「' + topic + '」' + 은(topic))
+    .replace(/\{T\}/g, topic);
+}
 
 // 행동특성은 «칭찬하는 말» 자체가 이야깃거리입니다.
 // 따옴표가 없을 때가 많아서 서술어를 보고 찾습니다.
@@ -878,6 +990,7 @@ function sgBlankText(sectionKey, label) {
 function sgMakeQuestions(sectionKey, grade, sentences, groupLabel) {
   var made = [];
   var seen = {};
+  var turn = {};          // 생김새마다 몇 번째 틀을 쓸 차례인지
   var label = groupLabel || SG_NO_SUBJECT;
   var subject = (label === SG_NO_SUBJECT) ? '' : label;
 
@@ -896,27 +1009,18 @@ function sgMakeQuestions(sectionKey, grade, sentences, groupLabel) {
       var book = (sectionKey === 'haengteuk') ? null : sgBookOf(topic.text);
 
       // ⚠️ 이야깃거리 하나에 질문 하나만 냅니다.
-      //    「…아는 대로 설명해 보세요」 와 「…무엇이 궁금해서 시작했고…」 가
-      //    나란히 나오면 같은 말이 두 줄로 늘어서 고르기만 번거롭습니다.
+      //    두 틀을 나란히 내면 같은 말이 두 줄로 늘어서 고르기만 번거롭습니다.
       //    담은 뒤에 글자를 고칠 수 있으니 하나면 됩니다.
-      var tpl;
-      if (book) tpl = SG_BOOK_TEMPLATE;
-      // 「…어떻게 반응할까?」 처럼 물음으로 된 제목은 영역이 어디든 그 답을 묻는 게 맞습니다.
-      // (창체 동아리 기록에 물음이 적혀 있는데 «그때 한 일과 어려웠던 판단» 을 묻고 있었습니다)
-      else if (topic.kind === '물음' || /[?？]\s*$/.test(topic.text)) tpl = SG_QUESTION_TEMPLATE;
-      else if (sectionKey === 'haengteuk')
-        tpl = (topic.kind === '제목') ? SG_HT_ACT_TEMPLATE : SG_TEMPLATES.haengteuk;
-      else if (sectionKey === 'sesa') {
-        // 물음이면 답을 묻고, 탐구·실험이면 과정을 묻고, 개념·제목이면 설명을 시킵니다
-        if (topic.kind === '의문') tpl = SG_WONDER_TEMPLATE;
-        else if (topic.kind === '개념') tpl = SG_CONCEPT_TEMPLATE;
-        else if (topic.kind === '탐구' || topic.kind === '활동') tpl = SG_SESA_INQUIRY;
-        else tpl = SG_TEMPLATES.sesa;
-      }
-      else tpl = SG_TEMPLATES[sectionKey];
-      if (!tpl) return;
+      var shape = sgShapeOf(sectionKey, sentence, topic, book, label);
+      var bank = SG_FRAMES[shape];
+      if (!bank) return;
+      // 한 묶음 안에서는 같은 생김새의 틀을 돌려 가며 씁니다 (1번, 2번, 3번 … 다시 1번)
+      turn[shape] = (turn[shape] || 0);
+      var frame = bank.frames[turn[shape] % bank.frames.length];
+      turn[shape]++;
+      var tpl = { comp: bank.comp };
 
-      var text = book ? tpl.make(book) : tpl.make(topic.text);
+      var text = sgFill(frame, book ? book.title : topic.text, sgPlaceOf(sectionKey, subject));
       if (seen[text]) return;
       seen[text] = true;
       made.push({
@@ -924,6 +1028,7 @@ function sgMakeQuestions(sectionKey, grade, sentences, groupLabel) {
         competency: tpl.comp,
         topic: book ? book.title : topic.text,
         kind: book ? '제목' : topic.kind,
+        shape: shape,
         subject: subject,
         source: sentence,        // 원문을 같이 보여줍니다. 이상하면 바로 알아채도록
         grade: grade,
