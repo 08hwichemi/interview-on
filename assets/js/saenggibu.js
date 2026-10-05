@@ -1729,8 +1729,7 @@ function sgMainHTML(g, groups) {
   // 기록 전문 — 질문이 가리키는 대목은 색을 입혀 둡니다. 어디서 나온 질문인지 바로 보이게.
   html += '<p class="sg-rlabel">기록 <span class="sg-len">' +
             String(record.length).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '자</span></p>' +
-          '<div class="sg-record">' + sgMarkRecord(sgMaskText(record), topics.map(sgMaskText)) + '</div>' +
-          sgWholeHTML(g);
+          '<div class="sg-record">' + sgMarkRecord(sgMaskText(record), topics.map(sgMaskText)) + '</div>';
 
   // 질문
   html += '<p class="sg-rlabel">질문 <span class="sg-len">' +
@@ -1767,38 +1766,10 @@ function sgMarkRecord(text, topics) {
   return out;
 }
 
-// ⚠️ 마지막 안전판 — 칸(갈래·과목) 나누기가 어긋나도 원문은 다 보이게 합니다.
-//    나이스 판이 조금만 달라져도 칸이 어긋나는데, 그때마다 선생님이
-//    «내용이 잘렸다» 고 느끼셔야 할 까닭이 없습니다. 접어 두고, 펴면 다 나옵니다.
-function sgWholeHTML(g) {
-  var parts = sgWholes[g.grade + '|' + g.area];
-  if (!parts || !parts.length) return '';
-
-  var chars = 0;
-  parts.forEach(function (p) { chars += p.text.length; });
-
-  return '<details class="sg-whole">' +
-    '<summary>' + esc(sgGradeText(g.grade) + ' ' + sgSectionTitle(g.area)) + ' <b>원문 전체</b>' +
-      '<span class="n">' + String(chars).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '자</span>' +
-    '</summary>' +
-    '<div class="sg-wholetext">' + parts.map(function (p) {
-      // 갈래 이름은 «제 줄» 에 색 네모로. 글에 눌어붙으면 구별이 안 됩니다.
-      return '<div class="sg-wpart">' +
-        (p.label ? '<div class="sg-wlabel"><b class="sg-tag ' + sgTagClass(p.label) + '">' +
-                   esc(p.label) + '</b></div>' : '') +
-        '<p class="sg-wtext">' + esc(sgMaskText(p.text)) + '</p>' +
-        '</div>';
-    }).join('') + '</div>' +
-    '</details>';
-}
-
-// 갈래마다 다른 색 네모. 이름을 CSS 반에 직접 넣지 않고 정해진 것만 씁니다.
-var SG_TAG_CLASS = {
-  '자율활동': 'jayul', '동아리활동': 'dongari', '봉사활동': 'bongsa', '진로활동': 'jinro'
-};
-function sgTagClass(label) {
-  return SG_TAG_CLASS[sgNorm(label).replace(/\s/g, '')] || 'etc';
-}
+// 「원문 전체」(학년 × 영역의 모든 갈래를 통째로) 접이식은 2026-10-05 에 뺐습니다 —
+// 묶음마다 그 기록이 위에 다 보이니 같은 글을 두 번 보는 셈이라는 말씀.
+// sgBuild 가 돌려주는 wholes(sgWholes) 는 그대로 두었습니다. 칸 나누기가 어긋나는 일이
+// 다시 생기면 그때 다시 꺼내 쓰면 됩니다.
 
 // 기록을 보고 직접 적는 칸 — 묶음의 맨 아래
 function sgBlankHTML(x) {
