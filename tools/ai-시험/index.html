@@ -3,258 +3,69 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>면접ON — 노트북 AI 시험</title>
+  <title>면접ON — 받아 둔 AI 모델 지우기</title>
   <style>
-    :root{--ink:#1a1a1a;--ink-3:#777;--line:#ddd;--surface:#fff;--surface-2:#f6f6f6;--blue:#2563eb;--rose:#dc2626;--green:#16a34a}
-    *{box-sizing:border-box}
-    body{margin:0;font-family:Pretendard,-apple-system,"Malgun Gothic",sans-serif;color:var(--ink);background:var(--surface-2);line-height:1.6}
-    main{max-width:1200px;margin:0 auto;padding:20px 16px 60px}
-    h1{font-size:20px;margin:0 0 4px}
-    .sub{color:var(--ink-3);font-size:13px;margin:0 0 18px}
-    section{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
-    section h2{font-size:15px;margin:0 0 10px}
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
-    button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+    :root{--ink:#1a1a1a;--ink-3:#777;--line:#ddd;--blue:#2563eb;--rose:#dc2626;--green:#16a34a}
+    body{margin:0;font-family:Pretendard,-apple-system,"Malgun Gothic",sans-serif;color:var(--ink);background:#f6f6f6;line-height:1.7}
+    main{max-width:720px;margin:0 auto;padding:28px 16px 60px}
+    h1{font-size:20px;margin:0 0 8px}
+    p{margin:0 0 12px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:16px}
+    button{font:inherit;padding:10px 18px;border-radius:8px;border:1px solid var(--blue);background:var(--blue);color:#fff;cursor:pointer}
     button:disabled{opacity:.5;cursor:default}
-    select,input[type=file]{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:8px;max-width:100%}
-    .note{font-size:13px;color:var(--ink-3);margin:8px 0 0}
-    .bad{color:var(--rose)} .ok{color:var(--green)}
-    .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-    @media(max-width:800px){.cols{grid-template-columns:1fr}}
-    .box{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--surface-2);min-height:120px;white-space:pre-wrap;word-break:keep-all;font-size:14px}
-    .box.ai{background:#eef4ff;border-color:#c7d7fb}
-    .rec{max-height:260px;overflow:auto;font-size:13px;color:#333}
-    .bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:8px}
-    .bar i{display:block;height:100%;width:0;background:var(--blue);transition:width .3s}
-    .meta{font-size:12px;color:var(--ink-3);margin-top:6px}
-    textarea{width:100%;font:inherit;font-size:13px;padding:10px;border:1px solid var(--line);border-radius:8px;min-height:140px}
-    details summary{cursor:pointer;font-size:13px;color:var(--ink-3)}
+    .note{font-size:13px;color:var(--ink-3)}
+    .ok{color:var(--green)} .bad{color:var(--rose)}
+    #state{margin-top:10px;font-size:15px}
   </style>
 </head>
 <body>
 <main>
-  <h1>노트북에서 작은 AI 로 면접 질문 뽑기 — 시험</h1>
-  <p class="sub">앱 본체와는 따로 있는 시험 화면입니다. 생기부는 이 노트북 밖으로 나가지 않습니다. AI 모델 파일은 Hugging Face(공개 사이트)에서 한 번만 받아 브라우저에 보관합니다.</p>
+  <h1>받아 둔 AI 모델 지우기</h1>
+  <p>2026년 10월에 「노트북에서 작은 AI 로 질문 뽑기」를 시험했습니다. 선생님 노트북의 내장 그래픽이 버티지 못해 접었습니다.
+     그때 받아 둔 모델 파일(1.5B ≈ 1GB · 3B ≈ 2GB)이 이 브라우저 안에 남아 있을 수 있습니다. 여기서 지웁니다.</p>
+  <p class="note">생기부 글은 애초에 어디에도 저장되지 않았습니다. 여기서 지우는 것은 AI 모델 파일뿐입니다. 면접ON 로그인에는 영향이 없습니다.</p>
 
-  <section>
-    <h2>1. 이 노트북에서 되는가</h2>
-    <div id="gpu" class="note">확인 중...</div>
-  </section>
+  <div class="card">
+    <div id="usage">이 사이트가 브라우저에서 쓰는 공간: 재는 중...</div>
+    <div style="margin-top:12px"><button id="btn-wipe">받아 둔 모델 전부 지우기</button></div>
+    <div id="state"></div>
+  </div>
 
-  <section>
-    <h2>2. AI 모델 고르고 받기</h2>
-    <div class="row">
-      <select id="model"></select>
-      <button class="primary" id="btn-load">모델 받기 · 준비</button>
-      <span id="model-state" class="note"></span>
-    </div>
-    <div class="bar"><i id="model-bar"></i></div>
-    <p class="note">3B(약 2GB)는 램 16GB 노트북에 맞습니다. 램 8GB 면 1.5B(약 1GB)부터 해 보세요. 처음 받을 때만 몇 분 걸리고, 그 뒤로는 바로 켜집니다.</p>
-  </section>
-
-  <section>
-    <h2>3. 생기부 PDF 넣기</h2>
-    <div class="row">
-      <input type="file" id="pdf" accept="application/pdf,.pdf">
-      <span id="pdf-state" class="note"></span>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <label>묶음 고르기: <select id="chunk" disabled><option>먼저 PDF 를 넣어 주세요</option></select></label>
-    </div>
-    <details style="margin-top:10px"><summary>이 묶음의 기록 전문 보기</summary>
-      <div id="record" class="box rec" style="margin-top:8px"></div>
-    </details>
-  </section>
-
-  <section>
-    <h2>4. 견주어 보기</h2>
-    <div class="row">
-      <button class="primary" id="btn-ai" disabled>AI 로 질문 만들기</button>
-      <button id="btn-stop" disabled>멈추기</button>
-      <span id="ai-state" class="note"></span>
-    </div>
-    <div class="cols" style="margin-top:12px">
-      <div>
-        <h3 style="font-size:14px;margin:0 0 6px">지금 앱(규칙)이 뽑은 것</h3>
-        <div id="rule" class="box">—</div>
-      </div>
-      <div>
-        <h3 style="font-size:14px;margin:0 0 6px">작은 AI 가 만든 것</h3>
-        <div id="ai" class="box ai">—</div>
-        <div id="ai-meta" class="meta"></div>
-      </div>
-    </div>
-    <details style="margin-top:12px"><summary>AI 에게 주는 지시문 (고쳐서 다시 눌러 볼 수 있습니다)</summary>
-      <textarea id="prompt"></textarea>
-    </details>
-  </section>
+  <p class="note" style="margin-top:18px">시험해 본 노트북마다 한 번씩 눌러 주세요(파일은 노트북마다 따로 받았습니다). 크롬과 엣지를 둘 다 썼다면 각각에서 눌러야 합니다.</p>
 </main>
 
-<!-- 앱이 쓰는 그 자르기 코드를 그대로 씁니다 (글자 꺼내기 · 영역·학년·과목으로 자르기 · 규칙 질문) -->
-<script src="../../assets/js/saenggibu.js"></script>
-
-<script type="module">
-  // ⚠️ WebLLM — 브라우저 안에서 언어 모델을 돌리는 도구입니다. 서버가 없습니다.
-  //    모델 파일은 Hugging Face 에서 받아 브라우저 캐시(Cache Storage)에 둡니다.
-  import { CreateMLCEngine, prebuiltAppConfig } from 'https://esm.run/@mlc-ai/web-llm';
-
-  const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-
-  // ── 1. WebGPU 가 되는가 ──
-  (async () => {
-    const el = $('gpu');
-    if (!navigator.gpu) {
-      el.innerHTML = '<span class="bad">이 브라우저는 WebGPU 가 없습니다.</span> 크롬 또는 엣지 <b>최신판</b>으로 열어 주세요. (사파리·구형 브라우저는 안 됩니다)';
-      return;
-    }
-    try {
-      const adapter = await navigator.gpu.requestAdapter();
-      if (!adapter) throw new Error('그래픽 장치를 못 찾았습니다');
-      const info = adapter.info || {};
-      const mem = navigator.deviceMemory ? navigator.deviceMemory + 'GB 이상' : '모름';
-      el.innerHTML = '<span class="ok">됩니다.</span> 그래픽: ' + esc(info.vendor || '') + ' ' + esc(info.architecture || info.device || '') +
-        ' · 브라우저가 보는 램: ' + esc(mem) + ' · 그래픽 메모리 한도: ' + Math.round(adapter.limits.maxBufferSize / 1024 / 1024) + 'MB';
-    } catch (e) {
-      el.innerHTML = '<span class="bad">WebGPU 를 켜지 못했습니다:</span> ' + esc(e.message);
-    }
-  })();
-
-  // ── 2. 모델 목록 — WebLLM 이 미리 만들어 둔 것 가운데 Qwen2.5 (한국어가 되는 작은 모델) ──
-  const want = ['Qwen2.5-3B-Instruct-q4f16_1-MLC', 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', 'Qwen2.5-7B-Instruct-q4f16_1-MLC'];
-  const list = prebuiltAppConfig.model_list
-    .map((m) => m.model_id)
-    .filter((id) => /Qwen2\.5-(1\.5|3|7)B-Instruct-q4f16_1/.test(id) || /Qwen3-(1\.7|4)B/.test(id) || /gemma-2-2b/i.test(id) || /Llama-3\.2-3B/.test(id));
-  const sel = $('model');
-  const sizeOf = (id) => { const m = id.match(/(\d+(?:\.\d+)?)B/i); return m ? m[1] + 'B' : '?'; };
-  (list.length ? list : want).forEach((id) => {
-    const o = document.createElement('option');
-    o.value = id; o.textContent = id + '  (' + sizeOf(id) + ')';
-    sel.appendChild(o);
-  });
-  sel.value = list.includes(want[0]) ? want[0] : sel.options[0].value;
-
-  let engine = null, engineModel = null;
-  $('btn-load').onclick = async () => {
-    const id = sel.value;
-    $('btn-load').disabled = true; $('model-state').textContent = '받는 중...'; $('model-bar').style.width = '0';
-    const t0 = Date.now();
-    try {
-      if (engine) { await engine.unload(); engine = null; }
-      engine = await CreateMLCEngine(id, {
-        initProgressCallback: (p) => {
-          $('model-state').textContent = p.text;
-          if (typeof p.progress === 'number') $('model-bar').style.width = Math.round(p.progress * 100) + '%';
-        }
-      });
-      engineModel = id;
-      $('model-bar').style.width = '100%';
-      $('model-state').innerHTML = '<span class="ok">준비됐습니다</span> (' + Math.round((Date.now() - t0) / 1000) + '초)';
-      refreshButtons();
-    } catch (e) {
-      $('model-state').innerHTML = '<span class="bad">실패:</span> ' + esc(e.message || e) +
-        '<br>램이 모자라면 더 작은 모델(1.5B)을 골라 다시 눌러 보세요.';
-    } finally { $('btn-load').disabled = false; }
-  };
-
-  // ── 3. PDF → 앱과 같은 방식으로 자르기 ──
-  let chunks = [];     // [{ label, record, rules: [질문...] }]
-  $('pdf').onchange = async (ev) => {
-    const file = ev.target.files && ev.target.files[0];
-    if (!file) return;
-    $('pdf-state').textContent = '읽는 중...';
-    try {
-      const lines = await sgReadPdf(file);
-      const r = sgBuild(lines);
-      // 묶음마다 맨 위에 «직접 적는 칸»(blank) 이 있고, 그 뒤에 규칙이 뽑은 질문이 따라옵니다
-      chunks = [];
-      let cur = null;
-      r.questions.forEach((q) => {
-        if (q.blank) {
-          const area = (SG_SECTIONS.find((s) => s.key === q.area) || {}).title || q.area;
-          cur = { label: (q.grade ? q.grade + '학년' : '학년 모름') + ' · ' + area + (q.subject && q.subject !== area ? ' · ' + q.subject : ''),
-                  record: q.source, rules: [] };
-          chunks.push(cur);
-        } else if (cur) cur.rules.push(q.text);
-      });
-      const cs = $('chunk');
-      cs.innerHTML = '';
-      chunks.forEach((c, i) => {
-        const o = document.createElement('option');
-        o.value = i; o.textContent = c.label + ' (' + c.record.length + '자 · 규칙 질문 ' + c.rules.length + '개)';
-        cs.appendChild(o);
-      });
-      cs.disabled = !chunks.length;
-      $('pdf-state').textContent = chunks.length ? chunks.length + '묶음으로 잘랐습니다' : '묶음을 못 찾았습니다';
-      showChunk();
-      refreshButtons();
-    } catch (e) {
-      $('pdf-state').innerHTML = '<span class="bad">못 읽었습니다:</span> ' + esc(e.message || e);
-    }
-  };
-  $('chunk').onchange = showChunk;
-  function showChunk() {
-    const c = chunks[$('chunk').value];
-    if (!c) return;
-    $('record').textContent = c.record;
-    $('rule').textContent = c.rules.length ? c.rules.map((q, i) => (i + 1) + '. ' + q).join('\n\n') : '(이 묶음에서는 하나도 못 뽑았습니다)';
-    $('ai').textContent = '—'; $('ai-meta').textContent = '';
+<script>
+  // 모델 파일은 WebLLM 이 브라우저 캐시(Cache Storage)에 둔 것입니다. 전부 지웁니다.
+  // 면접ON 앱은 Cache Storage 를 쓰지 않아서 같이 지워질 것이 없습니다.
+  var $ = function (id) { return document.getElementById(id); };
+  function fmt(bytes) {
+    var gb = bytes / 1024 / 1024 / 1024;
+    return gb >= 0.1 ? gb.toFixed(1) + 'GB' : Math.round(gb * 1024) + 'MB';
   }
-  function refreshButtons() { $('btn-ai').disabled = !(engine && chunks.length); }
-
-  // ── 4. 지시문 ──
-  // 작은 모델은 긴 지시를 잘 못 따릅니다. 짧고 또렷하게, 형식을 못 박습니다.
-  $('prompt').value =
-`당신은 대학 학생부종합전형 면접관입니다. 아래는 한 고등학생의 학교생활기록부 일부입니다.
-이 기록을 바탕으로 면접 질문 5개를 만드세요.
-
-규칙:
-- 기록에 실제로 적힌 활동·탐구·책·역할만 다룹니다. 기록에 없는 내용을 지어내지 않습니다.
-- 질문은 학생이 «정말 했는지», «왜 했는지», «무엇을 배웠는지», «더 깊이 아는지»를 확인하는 것이어야 합니다.
-- 학생이 스스로 품은 물음이나 탐구 주제가 있으면 그 내용을 구체적으로 캐묻습니다.
-- 각 질문은 한 문장, 존댓말로 씁니다.
-- 아래 형식만 지킵니다. 다른 말은 쓰지 않습니다.
-
-형식:
-1. (질문)
-   근거: (기록에서 그대로 옮긴 짧은 구절)
-2. ...`;
-
-  // 기록이 너무 길면 작은 모델이 앞부분만 봅니다(문맥 한도). 2,500자에서 끊고 알려줍니다.
-  const MAX_CHARS = 2500;
-  let running = false;
-  $('btn-stop').onclick = async () => { if (engine) { await engine.interruptGenerate(); } };
-  $('btn-ai').onclick = async () => {
-    const c = chunks[$('chunk').value];
-    if (!c || !engine || running) return;
-    running = true; $('btn-ai').disabled = true; $('btn-stop').disabled = false;
-    let record = c.record;
-    let cut = '';
-    if (record.length > MAX_CHARS) { record = record.slice(0, MAX_CHARS); cut = ' · 기록이 길어 앞 ' + MAX_CHARS + '자만 줬습니다'; }
-    $('ai').textContent = ''; $('ai-state').textContent = '생각하는 중... (첫 글자까지 30초 넘게 걸릴 수 있습니다)';
-    const t0 = Date.now(); let t1 = 0, n = 0;
+  async function paint() {
     try {
-      const stream = await engine.chat.completions.create({
-        stream: true, temperature: 0.4, max_tokens: 700,
-        messages: [
-          { role: 'system', content: $('prompt').value },
-          { role: 'user', content: '[학교생활기록부 — ' + c.label + ']\n' + record }
-        ]
-      });
-      for await (const ch of stream) {
-        const d = ch.choices && ch.choices[0] && ch.choices[0].delta && ch.choices[0].delta.content;
-        if (!d) continue;
-        if (!t1) { t1 = Date.now(); $('ai-state').textContent = '쓰는 중...'; }
-        n += d.length;
-        $('ai').textContent += d;
-      }
-      const sec = Math.round((Date.now() - t0) / 1000);
-      $('ai-state').innerHTML = '<span class="ok">끝</span>';
-      $('ai-meta').textContent = engineModel + ' · 첫 글자까지 ' + Math.round(((t1 || Date.now()) - t0) / 1000) + '초 · 전체 ' + sec + '초 · ' + n + '자' + cut;
+      var names = window.caches ? await caches.keys() : [];
+      var est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : {};
+      $('usage').innerHTML = '이 사이트가 브라우저에서 쓰는 공간: <b>' + fmt(est.usage || 0) + '</b>' +
+        (names.length ? ' — 받아 둔 모델 파일이 있습니다 (' + names.length + '묶음)' : ' — <span class="ok">받아 둔 모델 파일이 없습니다</span>');
+      $('btn-wipe').disabled = !names.length;
     } catch (e) {
-      $('ai-state').innerHTML = '<span class="bad">실패:</span> ' + esc(e.message || e);
-    } finally { running = false; $('btn-ai').disabled = false; $('btn-stop').disabled = true; }
+      $('usage').innerHTML = '<span class="bad">공간을 재지 못했습니다:</span> ' + (e.message || e);
+    }
+  }
+  paint();
+  $('btn-wipe').onclick = async function () {
+    if (!confirm('받아 둔 AI 모델 파일을 모두 지울까요?')) return;
+    $('btn-wipe').disabled = true;
+    try {
+      var names = await caches.keys();
+      for (var i = 0; i < names.length; i++) await caches.delete(names[i]);
+      $('state').innerHTML = '<span class="ok">지웠습니다.</span> 브라우저가 공간을 돌려주는 데 잠깐 걸릴 수 있습니다.';
+      await paint();
+    } catch (e) {
+      $('state').innerHTML = '<span class="bad">지우지 못했습니다:</span> ' + (e.message || e) +
+        '<br>크롬 설정 → 개인정보 보호 및 보안 → 인터넷 사용 기록 삭제 → 「캐시된 이미지 및 파일」 로도 지워집니다.';
+    }
   };
 </script>
 </body>
