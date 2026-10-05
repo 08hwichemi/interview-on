@@ -167,5 +167,9 @@
 .sg-foot{
   flex:0 0 auto;padding:14px 18px;border-top:1px solid var(--line);background:var(--surface);
 }
-.sg-foot .btn{width:100%}
+.sg-foot-note{margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--ink-3)}
+.sg-foot-btns{display:flex;gap:8px;flex-wrap:wrap}
+.sg-foot-btns .btn{flex:1 1 180px}
 .sg-foot[hidden]{display:none!important}
+/* 담아 둔 질문 — 체크한 것과 구별되게 꼬리표를 붙입니다 */
+.sg-item.kept .sg-meta::after{content:' · 담아 둠';color:var(--ink);font-weight:800}
