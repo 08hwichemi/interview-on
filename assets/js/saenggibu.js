@@ -881,6 +881,9 @@ var SG_CUE_CAREER = /진로|직업|학과|전공|장래|꿈/;
 var SG_CUE_INQUIRY = /탐구|조사|분석|연구|고찰|탐색/;
 var SG_CUE_CONCEPT = /배움|배우|학습|이해|단원|개념|원리|정리|파악|익힘/;
 function sgShapeOf(sectionKey, sentence, topic, book, groupLabel) {
+  // ⚠️ 낱말은 이야깃거리를 뺀 나머지 문장에서 찾습니다. 「대조군 설정의 중요성」을 주제로
+  //    발표한 것이, 제목 안의 «대조군» 때문에 실험으로 잡혔습니다.
+  sentence = String(sentence || '').split(topic.text).join(' ');
   if (book) return '책';
   if (topic.kind === '물음' || /[?？]\s*$/.test(topic.text)) return '물음';
   if (topic.kind === '의문') return '의문';
