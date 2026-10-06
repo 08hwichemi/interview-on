@@ -915,22 +915,22 @@ var SG_FRAMES = {
   ] },
   // 스스로 던진 물음 (「…할까?」)
   '물음': { comp: '학업역량', frames: [
-    '「{T}」 — 이 물음을 스스로 던졌다고 기록되어 있습니다. 어떤 답을 찾았고, 무엇이 아직 풀리지 않았나요?',
-    '「{T}」라는 물음은 어디에서 비롯됐나요? 답을 찾으려고 무엇을 했는지 순서대로 말해 주세요.',
-    '「{T}」 — 이 물음에 지금 다시 답한다면 그때와 달라진 점이 있나요?'
+    '{S}「{T}」 — 이 물음을 스스로 던졌다고 기록되어 있습니다. 어떤 답을 찾았고, 무엇이 아직 풀리지 않았나요?',
+    '{S}「{T}」라는 물음은 어디에서 비롯됐나요? 답을 찾으려고 무엇을 했는지 순서대로 말해 주세요.',
+    '{S}「{T}」 — 이 물음에 지금 다시 답한다면 그때와 달라진 점이 있나요?'
   ] },
   // 의문을 품음
   '의문': { comp: '학업역량', frames: [
-    '「{T}」에 의문을 품었다고 적혀 있습니다. 무엇이 궁금했고, 어떻게 확인했나요?',
-    '「{T}」에 의문을 가졌다고 기록되어 있습니다. 그 의문이 풀렸는지, 풀렸다면 핵심은 무엇이었는지 말해 주세요.',
-    '「{T}」에 의문을 품게 된 계기는 무엇이고, 그 뒤 어떤 자료를 찾아봤나요?'
+    '{S}「{T}」에 의문을 품었다고 적혀 있습니다. 무엇이 궁금했고, 어떻게 확인했나요?',
+    '{S}「{T}」에 의문을 가졌다고 기록되어 있습니다. 그 의문이 풀렸는지, 풀렸다면 핵심은 무엇이었는지 말해 주세요.',
+    '{S}「{T}」에 의문을 품게 된 계기는 무엇이고, 그 뒤 어떤 자료를 찾아봤나요?'
   ] },
   // 책
   '책': { comp: '학업역량', frames: [
-    '「{T}」{T}을 읽었다고 기록되어 있습니다. 책의 핵심 내용과 본인이 내린 결론을 설명해 주세요.',
-    '「{T}」{T}을 읽었군요. 어떤 대목이 가장 기억에 남고, 그것이 본인의 생각을 어떻게 바꿨나요?',
-    '「{T}」{T}을 읽었다고 되어 있는데, 이 책을 고른 기준은 무엇이었고 읽은 뒤 더 알아본 것이 있나요?',
-    '「{T}」에서 지은이의 주장에 동의하지 않는 부분이 있었나요? 있었다면 어떤 근거로 그렇게 생각했는지 말해 주세요.'
+    '{S}「{T}」{T}을 읽었다고 기록되어 있습니다. 책의 핵심 내용과 본인이 내린 결론을 설명해 주세요.',
+    '{S}「{T}」{T}을 읽었군요. 어떤 대목이 가장 기억에 남고, 그것이 본인의 생각을 어떻게 바꿨나요?',
+    '{S}「{T}」{T}을 읽었다고 되어 있는데, 이 책을 고른 기준은 무엇이었고 읽은 뒤 더 알아본 것이 있나요?',
+    '{S}읽은 「{T}」에서 지은이의 주장에 동의하지 않는 부분이 있었나요? 있었다면 어떤 근거로 그렇게 생각했는지 말해 주세요.'
   ] },
   // 창체 — 활동 일반
   '활동': { comp: '공동체역량', frames: [
@@ -954,14 +954,14 @@ var SG_FRAMES = {
   ] },
   // 행특 — 선생님의 칭찬하는 말
   '칭찬': { comp: '공동체역량', frames: [
-    '선생님이 「{T}」이라고 적어 주셨습니다. 그렇게 보였을 장면을 하나 들어 주세요.',
-    '「{T}」이라는 평가를 받게 된 이유가 무엇이라고 생각하나요? 구체적인 사례로 말해 주세요.',
-    '「{T}」이라고 기록되어 있는데, 스스로는 그 평가에 얼마나 동의하나요? 반대로 그렇지 못했던 순간이 있었다면 말해 주세요.'
+    '{S}선생님이 「{T}」이라고 적어 주셨습니다. 그렇게 보였을 장면을 하나 들어 주세요.',
+    '{S}「{T}」이라는 평가를 받게 된 이유가 무엇이라고 생각하나요? 구체적인 사례로 말해 주세요.',
+    '{S}「{T}」이라고 기록되어 있는데, 스스로는 그 평가에 얼마나 동의하나요? 반대로 그렇지 못했던 순간이 있었다면 말해 주세요.'
   ] },
   // 행특 — 따옴표로 묶인 활동 이름
   '활동명': { comp: '공동체역량', frames: [
-    '「{T}」 이야기가 적혀 있습니다. 어떻게 시작했고 본인이 맡은 몫은 무엇이었나요?',
-    '「{T}」{T}을 하면서 주변 친구들에게 어떤 영향을 주었다고 생각하나요?'
+    '{S}「{T}」 이야기가 적혀 있습니다. 어떻게 시작했고 본인이 맡은 몫은 무엇이었나요?',
+    '{S}「{T}」{T}을 하면서 주변 친구들에게 어떤 영향을 주었다고 생각하나요?'
   ] }
 };
 
@@ -1003,17 +1003,21 @@ function sgShapeOf(sectionKey, sentence, topic, book, groupLabel) {
 }
 
 // 자리말 — 「화학Ⅰ 시간에」 「동아리활동에서」. 과목을 모르면 비웁니다.
-// 창체에서 한 묶음에 활동(이야기)이 여럿이면 활동 이름을 같이 적습니다 —
-// 「진로활동 프로젝트 큐리어톤에서 「유가식 발효와 산성도 조절 방식」을 탐구했는데」.
-// 어느 활동에서 나온 질문인지 질문만 읽어도 알 수 있게. 이름을 못 지은 이야기(「이야기 2」)는 뺍니다.
-function sgPlaceOf(sectionKey, subject, storyLabel) {
-  if (!subject) return '';
-  if (sectionKey === 'sesa') return subject + ' 시간에 ';
+// 자리말 — 모든 질문이 «어디 내용인지» 로 시작합니다(선생님 말씀, 2026-10-06):
+//   「3학년 동아리활동에서 「이차전지의 환경오염」에 의문을 품었다고 적혀 있습니다.」
+//   「2학년 화학Ⅰ 시간에 …」 「1학년 행동특성 및 종합의견에서 선생님이 …」
+// 창체에서 한 묶음에 활동(이야기)이 여럿이면 활동 이름도 같이 —
+//   「3학년 진로활동 프로젝트 큐리어톤에서 「유가식 발효와 산성도 조절 방식」을 탐구했는데」.
+// 이름을 못 지은 이야기(「이야기 2」)는 뺍니다. 학년을 모르면 학년은 뺍니다.
+function sgPlaceOf(sectionKey, subject, storyLabel, grade) {
+  var g = grade ? grade + '학년 ' : '';
+  if (sectionKey === 'haengteuk') return g + '행동특성 및 종합의견에서 ';
+  if (sectionKey === 'sesa') return subject ? g + subject + ' 시간에 ' : (g ? g + '수업에서 ' : '');
   if (sectionKey === 'changche') {
     var name = (storyLabel && !/^이야기 \d+$/.test(storyLabel)) ? ' ' + storyLabel : '';
-    return subject + name + '에서 ';
+    return subject ? g + subject + name + '에서 ' : (g ? g + '창의적 체험활동에서 ' : '');
   }
-  return '';
+  return g;
 }
 
 // 틀에 이야깃거리와 자리말을 끼웁니다. 「{T}」 뒤에 붙은 {T}을 같은 토씨 표시는 받침에 맞춰 바뀝니다.
@@ -1075,14 +1079,15 @@ var SG_NO_SUBJECT = '(과목 모름)';
 
 // 묶음마다 맨 위에 놓는 «직접 적기» 칸의 미리 채워 둘 질문.
 // 기계가 무엇을 뽑았든, 선생님은 기록을 직접 보고 물으실 수 있어야 합니다.
-function sgBlankText(sectionKey, label) {
+function sgBlankText(sectionKey, label, grade) {
+  var g = grade ? grade + '학년 ' : '';
   if (sectionKey === 'haengteuk')
-    return '선생님이 적어 주신 기록 가운데, 본인을 가장 잘 나타낸다고 생각하는 대목은 어디인가요?';
+    return g + '행동특성 및 종합의견에 선생님이 적어 주신 것 가운데, 본인을 가장 잘 나타낸다고 생각하는 대목은 어디인가요?';
   if (label === SG_NO_SUBJECT)
-    return '이 기록에서 가장 깊이 물어보고 싶은 것은 무엇인가요?';
+    return (g ? g + '기록에서' : '이 기록에서') + ' 가장 깊이 물어보고 싶은 것은 무엇인가요?';
   if (sectionKey === 'changche')
-    return '「' + label + '」에서 본인이 가장 공들인 활동은 무엇이었나요?';
-  return '「' + label + '」 수업에서 가장 기억에 남는 탐구나 활동은 무엇이었나요?';
+    return g + label + '에서 본인이 가장 공들인 활동은 무엇이었나요?';
+  return g + label + ' 시간에 가장 기억에 남는 탐구나 활동은 무엇이었나요?';
 }
 
 // 묶음 하나(한 영역·한 학년·한 과목/갈래)에서 질문을 만듭니다.
@@ -1132,7 +1137,7 @@ function sgMakeQuestions(sectionKey, grade, sentences, groupLabel, stories) {
       turn[shape]++;
       var tpl = { comp: bank.comp };
 
-      var text = sgFill(frame, book ? book.title : topic.text, sgPlaceOf(sectionKey, subject, labelOf[storyOf[si] || 1]));
+      var text = sgFill(frame, book ? book.title : topic.text, sgPlaceOf(sectionKey, subject, labelOf[storyOf[si] || 1], grade));
       if (seen[text]) return;
       seen[text] = true;
       made.push({
@@ -1159,7 +1164,7 @@ function sgMakeQuestions(sectionKey, grade, sentences, groupLabel, stories) {
 //    source 에는 질문용으로 다듬은 글이 아니라 «기록 전문» 이 들어갑니다.
 function sgBlankItem(sectionKey, grade, label, record, gotAny) {
   return {
-    text: sgBlankText(sectionKey, label),
+    text: sgBlankText(sectionKey, label, grade),
     // 역량은 COMPETENCIES 안의 값이어야 합니다. 없는 값을 넣으면
     // «낼 질문» 의 고르는 칸이 엉뚱한 것으로 잡힙니다.
     competency: (sectionKey === 'sesa') ? '학업역량' : '공동체역량',
