@@ -362,14 +362,27 @@ function hugiSheetViewHTML(s) {
 // 저장 전에 화면을 벗어나도 글이 안 날아가게, 쓰는 동안 이 기기에 적어 둡니다(localStorage).
 var HG = { me: null, list: [], cur: null, plans: null, dirty: false };
 
+// ⚠️ 미리보기(raw.githack)는 고친 직후 몇 분 동안 «새 화면 + 옛 스크립트» 를 줄 때가 있습니다. 2026-10-07 그 탓에
+//    목록이 비고 «직접 쓰기» 가 안 먹혔습니다(옛 스크립트가 없어진 칸을 찾다 멈춤). 그래서 칸이 없어도 멈추지 않게 하고,
+//    멈추면 조용히 넘어가지 말고 화면에 까닭과 «Ctrl+F5» 를 적습니다.
+function hugiShow(id, on) { var el = document.getElementById(id); if (el) el.hidden = !on; }
 async function hugiStudentEnter() {
   var box = document.getElementById('hugi-list');
   if (!box) return;
+  try { await hugiStudentLoad(box); }
+  catch (e) {
+    box.innerHTML = '<p class="prac-empty">화면을 그리지 못했습니다: ' + esc(e.message) + '<br>Ctrl+F5(휴대폰은 앱을 껐다 켜기)로 새로 받아 보세요.</p>';
+  }
+}
+async function hugiStudentLoad(box) {
   hugiShowList();
   box.innerHTML = '<p class="prac-empty">불러오는 중...</p>';
   if (!HG.me) {
-    const r = await sb.from('students').select('id, student_no, name').maybeSingle();
-    if (r.error || !r.data) { box.innerHTML = '<p class="prac-empty">내 학번을 찾지 못했습니다. 다시 로그인해 보세요.</p>'; return; }
+    // 로그인한 계정의 학생 줄 — RLS 가 자기 줄만 주지만, 계정으로 한 번 더 좁힙니다
+    var q = sb.from('students').select('id, student_no, name');
+    if (typeof currentUser !== 'undefined' && currentUser && currentUser.id) q = q.eq('auth_user_id', currentUser.id);
+    const r = await q.maybeSingle();
+    if (r.error || !r.data) { box.innerHTML = '<p class="prac-empty">내 학번을 찾지 못했습니다' + (r.error ? '(' + esc(r.error.message) + ')' : '') + '. 다시 로그인해 보세요.</p>'; return; }
     HG.me = r.data;
   }
   // 내 후기 · 내 수시 지원(처음 한 번만) — 둘을 같이 묻습니다
@@ -383,10 +396,7 @@ async function hugiStudentEnter() {
   hugiPaintList();
 }
 
-function hugiShowList() {
-  document.getElementById('hugi-home').hidden = false;
-  document.getElementById('hugi-edit').hidden = true;
-}
+function hugiShowList() { hugiShow('hugi-home', true); hugiShow('hugi-edit', false); }
 
 function hugiPlanKey(p) { return [p.uni_name || '', p.dept_name || '', p.admission_name || ''].join('|'); }
 // 이 지원 카드에 붙은 후기 — plan_key 로, 없으면(옛 줄) 대학·학과 이름으로
@@ -419,7 +429,8 @@ function hugiPaintList() {
         '<span class="hg-card-sub go">' + hugiSheetLine(s) + '</span></button>';
     }).join('');
   } else {
-    html += '<p class="prac-hint">수시 지원 자료가 아직 없습니다. 아래 «직접 쓰기» 로 써 주세요.</p>';
+    html += '<p class="prac-hint">내 학번(' + esc(HG.me.student_no) + ')으로 들어온 수시 지원 자료가 아직 없습니다. ' +
+            '선생님이 수시 지원 자료를 받아 오면 여기에 6곳이 뜹니다. 그동안은 아래 «직접 쓰기» 로 써 주세요.</p>';
   }
   // 수시 지원 카드에 안 붙은 후기(직접 쓴 것)
   var own = HG.list.filter(function (s) { return !used[s.id]; });
@@ -449,6 +460,7 @@ function hugiOpenPlan(i) {
   hugiStartFrom(i);
 }
 function hugiStartFrom(i) {
+  if (!HG.me) { hugiSay('내 학번을 아직 못 불러왔습니다. 화면을 새로 받아(Ctrl+F5) 다시 들어와 주세요.', 'bad'); return; }
   var s = hugiBlank();
   if (i !== null && i !== undefined && HG.plans[i]) {
     var p = HG.plans[i];
@@ -483,8 +495,8 @@ function hugiEdit(s) {
     s = d.sheet; HG.dirty = true;
   } else { if (d) hugiDraftDrop(s); HG.dirty = false; }
   HG.cur = s;
-  document.getElementById('hugi-home').hidden = true;
-  document.getElementById('hugi-edit').hidden = false;
+  hugiShow('hugi-home', false);
+  hugiShow('hugi-edit', true);
   hugiPaintEdit();
   window.scrollTo(0, 0);
 }

@@ -88,7 +88,7 @@ const 글만 = xml => (xml.match(/<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?<\/hp:p>/g
     확인('여러 줄 소감은 문단 둘로 · < & " 는 안전하게', r.xml.indexOf('<hp:t>첫 줄 &lt;b&gt;&amp;"따옴표"</hp:t>') > -1 && t.indexOf('둘째 줄') > -1,
          (r.xml.match(/<hp:t>첫 줄[^<]*<\/hp:t>/) || [''])[0]);
     확인('고친 문단의 줄 배치 기억(linesegarray)을 뺐는가', !/○○대학교<\/hp:t><\/hp:run><hp:linesegarray>/.test(r.xml));
-    확인('표가 «글자처럼 취급» 이 아니고 «쪽 경계에서 나눔» (길면 다음 쪽으로 이어지게)', /<hp:tbl [^>]*pageBreak="TABLE"/.test(r.xml) && /<hp:pos treatAsChar="0"/.test(r.xml));
+    확인('표가 «글자처럼 취급» 이 아니고 «쪽 경계에서 나눔 — 셀 안의 글도 나눔»(CELL) (길면 다음 쪽으로 이어지게)', /<hp:tbl [^>]*pageBreak="CELL"/.test(r.xml) && /<hp:pos treatAsChar="0"/.test(r.xml));
     확인('교내활동 칸은 9pt(글자 모양 15) · 충원합격 칸은 검은 글씨(7)', /<hp:p [^>]*paraPrIDRef="5"[^>]*><hp:run charPrIDRef="15"><hp:t>과학탐구 동아리/.test(r.xml) &&
       !/charPrIDRef="(9|10)"/.test(r.xml.slice(r.xml.indexOf('rowAddr="5"'), r.xml.indexOf('rowAddr="7"'))));
     확인('실제 학생(30224) 내용이 기본 양식에 안 남았는가', ['수원', '전기전자', '버킷리스트', '가천대'].every(x => r.xml.indexOf(x) === -1));
@@ -213,6 +213,35 @@ const 글만 = xml => (xml.match(/<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?<\/hp:p>/g
       await p.click('#hugi-list .hg-card >> nth=0'); await p.waitForTimeout(200);
       return p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
     })());
+    확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
+    await ctx.close();
+  }
+
+  // ════════════ 2-1. 수시 지원 자료가 없는 학생 ════════════
+  console.log('\n════ 2-1. 수시 지원 자료가 없는 학생 ════');
+  {
+    const ctx = await 준비(b, {
+      // 가짜 서버의 로그인은 늘 u1 입니다. 다른 학생 줄이 섞여 와도(앞줄) 내 계정 줄을 찾는지 봅니다
+      profiles: [{ id: 'u1', role: 'student', name: '이하늘', login_id: '30109', school_id: SCHOOL, must_change_password: false }],
+      students: [{ id: 's8', student_no: '30108', name: '다른학생', auth_user_id: 'u8', grade: 3 },
+                 { id: 's9', student_no: '30109', name: '이하늘', auth_user_id: 'u1', grade: 3 }],
+      reviews: [], questions: [], practice_answers: [], practice_comments: [], practice_offers: [], hugi_sheets: [], susi_plans: []
+    }, { width: 420, height: 900 });
+    const p = await ctx.newPage();
+    const errs = []; p.on('pageerror', e => errs.push(e.message));
+    p.on('dialog', async d => { await d.accept(); });
+    await p.goto('http://127.0.0.1:8777/'); await p.waitForSelector('#screen-home.active', { timeout: 15000 });
+    await p.click('.menu-btn:has-text("면접 후기 쓰기")'); await p.waitForTimeout(300);
+    확인('«내 학번(30109)으로 들어온 수시 지원 자료가 아직 없습니다»', /내 학번\(30109\)으로 들어온 수시 지원 자료가 아직 없습니다/.test(await p.textContent('#hugi-list')));
+    await p.click('#hugi-home button:has-text("직접 쓰기")'); await p.waitForTimeout(200);
+    확인('«직접 쓰기» 가 먹힘 — 쓰는 칸이 열림', await p.evaluate(() => !document.getElementById('hugi-edit').hidden && document.getElementById('hugi-home').hidden));
+    await p.fill('#hugi-form input.hg-in >> nth=0', '경희대학교');
+    await p.click('#hugi-edit button:has-text("저장")'); await p.waitForTimeout(300);
+    확인('내 계정(s9)으로 저장됨', await p.evaluate(() => window.__T.hugi_sheets.length === 1 && window.__T.hugi_sheets[0].student_id === 's9'));
+    // 옛 스크립트처럼 칸이 하나 없어도 멈추지 않는가 (미리보기에서 겪은 일)
+    await p.evaluate(() => { document.getElementById('hugi-edit').remove(); });
+    await p.evaluate(() => hugiStudentEnter()); await p.waitForTimeout(300);
+    확인('칸이 하나 없어져도 목록은 그려짐', /경희대학교/.test(await p.textContent('#hugi-list')));
     확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
     await ctx.close();
   }
