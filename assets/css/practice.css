@@ -167,3 +167,9 @@
 /* 질문 카드 아래 «안 쓸래요 · 삭제» */
 .prac-offer-acts{display:inline-flex;gap:12px;align-items:center}
 .prac-offer-skip.del{color:#B42318}
+/* ── 선생님 화면 «학생 질문» 창 (teacher-app.js 의 openStudentQs) — 받은 질문 창과 같은 모양 ── */
+.prac-offer-actions .sq-add{flex:1 1 auto;padding:13px 16px;font-size:15px;font-weight:800;border-radius:10px}
+/* 이미 «낼 질문» 에 있는 것 — 두 번 넣지 않게 체크칸을 막고 흐리게 */
+.prac-offer.sq-in{background:var(--surface-2);opacity:.6}
+.prac-offer.sq-in .prac-offer-pick{cursor:default}
+.prac-offer-foot .sq-tag{color:var(--ink);font-weight:800}

@@ -917,6 +917,12 @@ function toggleQsect() {
 function addQuestion(text, competency) {
   midQuestions.push({ text: text || '', competency: competency || '기타' });
   renderQuestions();
+  // 단추가 맨 위로 올라가서 새 빈 칸은 멀리 아래에 생깁니다. 그 칸으로 옮겨 가 바로 글자를 치게 합니다.
+  if (!text) {
+    var inputs = document.querySelectorAll('#q-list .qrow input');
+    var last = inputs[inputs.length - 1];
+    if (last) { last.scrollIntoView({ block: 'center' }); last.focus({ preventScroll: true }); }
+  }
 }
 function removeQuestion(i) { midQuestions.splice(i, 1); renderQuestions(); }
 function setQText(i, v) { midQuestions[i].text = v; renderGreetings(); }
@@ -927,7 +933,7 @@ function renderQuestions() {
   // 첫인사가 1번이면 가운데 질문은 2번부터입니다. 화면 번호와 실제 순서를 맞춥니다.
   var base = hasOpening() ? 1 : 0;
   if (!midQuestions.length) {
-    box.innerHTML = '<p class="empty">아직 질문이 없습니다. 아래에서 더하세요.</p>';
+    box.innerHTML = '<p class="empty">아직 질문이 없습니다. 위 «질문 더하기» 에서 더하세요.</p>';
   } else {
     box.innerHTML = midQuestions.map(function (q, i) {
       return '<div class="qrow">' +
@@ -969,6 +975,175 @@ async function loadCommon(category, competency) {
   shuffled.slice(0, 3).forEach(function (r) { midQuestions.push({ text: r.content, competency: competency }); });
   renderQuestions();
   toast('추천 질문 3개를 더했습니다.', 'ok');
+}
+
+// ── 학생 질문 — 학생이 답안 연습장에 쓴 질문을 «낼 질문» 으로 끌어오기 (2026-10-07 선생님 말씀) ──
+// «생기부에서 뽑기» 옆 단추. 고른 학생이 연습장에 쓴 질문을 학년 · 분류로 묶어 보여 주고,
+// 여러 개 체크해서 «질문 넣기» 를 누르면 «낼 질문» 맨 아래에 붙습니다(글자는 거기서 고쳐 쓰시면 됩니다).
+// 짜임은 학생 앱의 «받은 질문» 창과 같습니다 — 위에 학년·분류 칩(여러 개, 안 고르면 전부,
+// 쓴 것에 있는 것만), 그 아래 «전체 선택», 「3학년 · 진로」 머리줄마다 질문 카드.
+// 이미 «낼 질문» 에 같은 글자가 있으면 체크칸을 막아 두 번 들어가지 않게 합니다.
+// 서버 요청: 창을 열 때 1번(답안 연습장 탭과 같은 practice_answers 읽기). 넣을 때는 요청 없음.
+var SQ = { list: [], picked: {}, grades: [], cats: [], studentId: null };
+// 분류 → 무엇을 보는 질문인지. 낼 질문 칸에서 바꿀 수 있습니다. 모르는 분류(학생이 만든 것)는 «기타»
+var SQ_COMP = { '인성': '공동체역량', '자율': '공동체역량', '동아리': '공동체역량', '행발': '공동체역량',
+                '진로': '진로역량', '세특': '학업역량' };
+var SQ_GRADE_ORDER = ['1', '2', '3', '공통'];
+
+async function openStudentQs() {
+  if (!target) return;
+  var overlay = document.getElementById('sq-overlay');
+  var box = document.getElementById('sq-list');
+  // 다른 학생으로 바꿨으면 칩도 새로 — 같은 학생이면 골라 둔 칩을 그대로 둡니다
+  if (SQ.studentId !== target.id) SQ = { list: [], picked: {}, grades: [], cats: [], studentId: target.id };
+  SQ.list = []; SQ.picked = {};
+  document.getElementById('sq-title').textContent = '✍️ 학생 질문 — ' + target.name;
+  box.innerHTML = '<p class="prac-empty">불러오는 중...</p>';
+  paintStudentQsBtn();
+  overlay.style.display = 'flex';
+  var rows = await fetchPracticeAnswers(target.id);
+  if (SQ.studentId !== target.id) return;   // 불러오는 사이 다른 학생을 골랐으면 버립니다
+  SQ.list = rows.filter(function (a) { return String(a.question || '').trim(); });
+  paintStudentQs();
+}
+function closeStudentQs() { document.getElementById('sq-overlay').style.display = 'none'; }
+
+function sqGrade(a) { return SQ_GRADE_ORDER.indexOf(a.grade) > -1 ? a.grade : '공통'; }
+function sqCat(a) { return a.category || '분류 없음'; }
+// 분류 순서: 연습장의 기본 분류 → 학생이 만든 분류(가나다)
+function sqCatOrder(c) {
+  var i = PRACTICE_FIXED_CATS.indexOf(c);
+  return i > -1 ? i : PRACTICE_FIXED_CATS.length;
+}
+function sqSort(list) {
+  return list.slice().sort(function (x, y) {
+    return (SQ_GRADE_ORDER.indexOf(sqGrade(x)) - SQ_GRADE_ORDER.indexOf(sqGrade(y))) ||
+           (sqCatOrder(sqCat(x)) - sqCatOrder(sqCat(y))) ||
+           sqCat(x).localeCompare(sqCat(y)) ||
+           String(x.created_at).localeCompare(String(y.created_at));
+  });
+}
+// 이미 «낼 질문» 에 같은 글자가 있는가
+function sqAlreadyIn(a) {
+  var t = String(a.question).trim();
+  return midQuestions.some(function (q) { return String(q.text || '').trim() === t; });
+}
+// 칩에 걸리는(지금 보이는) 질문 중 넣을 수 있는 것
+function sqVisible() {
+  return SQ.list.filter(function (a) {
+    return practiceMatchFilter(sqGrade(a), SQ.grades) && practiceMatchFilter(sqCat(a), SQ.cats);
+  });
+}
+function sqPickable() { return sqVisible().filter(function (a) { return !sqAlreadyIn(a); }); }
+function sqToggleGrade(g) { practiceToggleIn(SQ.grades, g); paintStudentQs(); }
+function sqToggleCat(c) { practiceToggleIn(SQ.cats, c); paintStudentQs(); }
+
+function paintStudentQs() {
+  var box = document.getElementById('sq-list');
+  var gradesHere = SQ_GRADE_ORDER.filter(function (g) { return SQ.list.some(function (a) { return sqGrade(a) === g; }); });
+  var catsHere = [];
+  sqSort(SQ.list).forEach(function (a) { if (catsHere.indexOf(sqCat(a)) === -1) catsHere.push(sqCat(a)); });
+  catsHere.sort(function (x, y) { return (sqCatOrder(x) - sqCatOrder(y)) || x.localeCompare(y); });
+  SQ.grades = SQ.grades.filter(function (g) { return gradesHere.indexOf(g) > -1; });
+  SQ.cats = SQ.cats.filter(function (c) { return catsHere.indexOf(c) > -1; });
+
+  var html;
+  if (!SQ.list.length) {
+    html = '<p class="prac-empty">이 학생은 아직 답안 연습장에 질문을 쓰지 않았습니다.</p>';
+  } else {
+    var visible = sqSort(sqVisible());
+    html = '<p class="prac-hint">학생이 답안 연습장에 쓴 질문입니다. 골라서 「질문 넣기」를 누르면 «낼 질문» 맨 아래에 붙습니다. ' +
+           '글자는 거기서 고쳐 쓰셔도 됩니다.</p>' +
+      '<div class="prac-offer-filter">' +
+        '<div class="prac-offer-frow"><span class="prac-offer-flabel">학년</span><div class="prac-chips">' +
+          gradesHere.map(function (g) {
+            return '<button class="prac-chip" aria-pressed="' + (SQ.grades.indexOf(g) > -1) + '" onclick="sqToggleGrade(\'' + g + '\')">' +
+                   esc(practiceOfferGradeText(g)) + '</button>';
+          }).join('') + '</div></div>' +
+        '<div class="prac-offer-frow"><span class="prac-offer-flabel">분류</span><div class="prac-chips">' +
+          practiceFilterChipsHTML(catsHere, SQ.cats, 'sqToggleCat') + '</div></div>' +
+      '</div>';
+    var narrowed = SQ.grades.length || SQ.cats.length;
+    html += '<label class="prac-offer-bar"><input type="checkbox" id="sq-all" onchange="sqToggleAll()">' +
+              '<b>전체 선택</b><span>' + (narrowed ? '골라 본 질문 ' : '쓴 질문 ') + visible.length + '개' +
+              (narrowed ? ' / 전체 ' + SQ.list.length + '개' : '') + '</span></label>';
+    if (!visible.length) html += '<p class="prac-empty">고른 학년·분류에 맞는 질문이 없습니다.</p>';
+    var lastKey = null;
+    visible.forEach(function (a) {
+      var key = sqGrade(a) + '|' + sqCat(a);
+      if (key !== lastKey) {
+        var n = visible.filter(function (x) { return sqGrade(x) + '|' + sqCat(x) === key; }).length;
+        html += '<p class="prac-offer-group">' + esc(practiceOfferGradeText(sqGrade(a)) + ' · ' + sqCat(a)) +
+                ' <span>' + n + '개</span></p>';
+        lastKey = key;
+      }
+      var inAlready = sqAlreadyIn(a);
+      var on = !inAlready && !!SQ.picked[a.id];
+      var hasAnswer = String(a.answer || '').trim();
+      html += '<div class="prac-offer' + (on ? ' on' : '') + (inAlready ? ' sq-in' : '') + '" data-id="' + esc(a.id) + '">' +
+        '<label class="prac-offer-pick"><input type="checkbox"' + (on ? ' checked' : '') + (inAlready ? ' disabled' : '') +
+          ' onchange="sqToggle(\'' + esc(a.id) + '\')">' +
+          '<span class="prac-offer-q">' + esc(String(a.question).trim()) + '</span></label>' +
+        '<div class="prac-offer-foot"><span>' + (hasAnswer ? '답 씀' : '답은 아직 안 씀') + ' · ' + esc(practiceWhen(a)) + '</span>' +
+          (inAlready ? '<span class="sq-tag">낼 질문에 있음</span>' : '') + '</div>' +
+        '</div>';
+    });
+  }
+  // 칩을 눌러 다시 그려도 읽던 자리가 맨 위로 튀지 않게
+  var keepTop = box.scrollTop;
+  box.innerHTML = html;
+  box.scrollTop = keepTop;
+  paintStudentQsBtn();
+}
+
+// 체크할 때마다 다시 그리면 창 안의 스크롤이 튑니다 — 그 줄과 단추만 고칩니다
+function sqToggle(id) {
+  if (SQ.picked[id]) delete SQ.picked[id]; else SQ.picked[id] = true;
+  var row = document.querySelector('#sq-list .prac-offer[data-id="' + id + '"]');
+  if (row) row.classList.toggle('on', !!SQ.picked[id]);
+  paintStudentQsBtn();
+}
+// 전체 선택 ↔ 해제 — 지금 보이는 것 중 «낼 질문» 에 아직 없는 것만
+function sqToggleAll() {
+  var list = sqPickable();
+  var all = list.length && list.every(function (a) { return SQ.picked[a.id]; });
+  list.forEach(function (a) {
+    if (all) delete SQ.picked[a.id]; else SQ.picked[a.id] = true;
+    var row = document.querySelector('#sq-list .prac-offer[data-id="' + a.id + '"]');
+    if (row) {
+      row.classList.toggle('on', !all);
+      var cb = row.querySelector('input[type="checkbox"]');
+      if (cb) cb.checked = !all;
+    }
+  });
+  paintStudentQsBtn();
+}
+function paintStudentQsBtn() {
+  var allBox = document.getElementById('sq-all');
+  if (allBox) {
+    var list = sqPickable();
+    var some = list.filter(function (a) { return SQ.picked[a.id]; }).length;
+    allBox.checked = list.length > 0 && some === list.length;
+    allBox.indeterminate = some > 0 && some < list.length;
+    allBox.disabled = list.length === 0;
+  }
+  var btn = document.getElementById('sq-add');
+  if (!btn) return;
+  var n = Object.keys(SQ.picked).length;
+  btn.disabled = n === 0;
+  btn.textContent = n ? '고른 ' + n + '개 질문 넣기' : '넣을 질문을 고르세요';
+}
+
+// 고른 질문을 «낼 질문» 맨 아래에 붙이고 창을 닫습니다. 고른 순서가 아니라 창에 보이던 순서(학년 → 분류)대로.
+function addStudentQs() {
+  var picks = sqSort(SQ.list.filter(function (a) { return SQ.picked[a.id] && !sqAlreadyIn(a); }));
+  if (!picks.length) return;
+  picks.forEach(function (a) {
+    midQuestions.push({ text: String(a.question).trim(), competency: SQ_COMP[sqCat(a)] || '기타' });
+  });
+  renderQuestions();
+  closeStudentQs();
+  toast('학생 질문 ' + picks.length + '개를 「낼 질문」에 넣었습니다. 글자는 고쳐 쓰셔도 됩니다.', 'ok');
 }
 
 // ══════════════ 진행 ══════════════
