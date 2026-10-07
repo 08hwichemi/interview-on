@@ -88,6 +88,9 @@ const 글만 = xml => (xml.match(/<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?<\/hp:p>/g
     확인('여러 줄 소감은 문단 둘로 · < & " 는 안전하게', r.xml.indexOf('<hp:t>첫 줄 &lt;b&gt;&amp;"따옴표"</hp:t>') > -1 && t.indexOf('둘째 줄') > -1,
          (r.xml.match(/<hp:t>첫 줄[^<]*<\/hp:t>/) || [''])[0]);
     확인('고친 문단의 줄 배치 기억(linesegarray)을 뺐는가', !/○○대학교<\/hp:t><\/hp:run><hp:linesegarray>/.test(r.xml));
+    확인('표가 «글자처럼 취급» 이 아니고 «쪽 경계에서 나눔» (길면 다음 쪽으로 이어지게)', /<hp:tbl [^>]*pageBreak="TABLE"/.test(r.xml) && /<hp:pos treatAsChar="0"/.test(r.xml));
+    확인('교내활동 칸은 9pt(글자 모양 15) · 충원합격 칸은 검은 글씨(7)', /<hp:p [^>]*paraPrIDRef="5"[^>]*><hp:run charPrIDRef="15"><hp:t>과학탐구 동아리/.test(r.xml) &&
+      !/charPrIDRef="(9|10)"/.test(r.xml.slice(r.xml.indexOf('rowAddr="5"'), r.xml.indexOf('rowAddr="7"'))));
     확인('실제 학생(30224) 내용이 기본 양식에 안 남았는가', ['수원', '전기전자', '버킷리스트', '가천대'].every(x => r.xml.indexOf(x) === -1));
 
     console.log('\n── 자리표가 글자 조각 여럿에 걸쳐 쪼개져 있어도 ──');
@@ -120,7 +123,7 @@ const 글만 = xml => (xml.match(/<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?<\/hp:p>/g
       reviews: [], questions: [], practice_answers: [], practice_comments: [], practice_offers: [],
       hugi_sheets: [],
       susi_plans: [
-        { school_id: SCHOOL, student_no: '30101', slot: 1, uni_name: '수원대학교', dept_name: '전기전자공학부', type_name: '교과', admission_name: '고교추천전형' },
+        { school_id: SCHOOL, student_no: '30101', slot: 1, uni_name: '수원대학교', dept_name: '전기전자공학부', type_name: '교과', admission_name: '고교추천전형', interview_date: '10/18' },
         { school_id: SCHOOL, student_no: '30101', slot: 2, uni_name: '가천대학교', dept_name: '금융빅데이터학부', type_name: '종합', admission_name: '가천바람개비' }
       ]
     }, { width: 420, height: 900 });
@@ -133,11 +136,10 @@ const 글만 = xml => (xml.match(/<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?<\/hp:p>/g
     await p.click('.menu-btn:has-text("면접 후기 쓰기")');
     await p.waitForSelector('#screen-hugi.active'); await p.waitForTimeout(300);
     확인('머리줄 제목', (await p.textContent('#app-title')) === '면접 후기 쓰기');
-    확인('«아직 쓴 후기가 없습니다»', /아직 쓴 후기가 없습니다/.test(await p.textContent('#hugi-list')));
-
-    await p.click('#hugi-home button:has-text("새 후기 쓰기")'); await p.waitForTimeout(300);
-    확인('내 수시 지원 두 곳이 고르는 칸에', await p.evaluate(() => document.querySelectorAll('#hugi-pick-list .hg-card').length === 2));
-    await p.click('#hugi-pick-list .hg-card:has-text("수원대학교")'); await p.waitForTimeout(200);
+    확인('첫 화면에 내 수시 지원 두 곳이 카드로(둘 다 «아직 안 씀»)', await p.evaluate(() =>
+      document.querySelectorAll('#hugi-list .hg-card').length === 2 && document.querySelectorAll('#hugi-list .hg-state.none').length === 2));
+    확인('카드에 학과·전형·면접 날짜', /전기전자공학부 · 교과 · 고교추천전형 · 면접 10\/18/.test(await p.textContent('#hugi-list')));
+    await p.click('#hugi-list .hg-card:has-text("수원대학교")'); await p.waitForTimeout(200);
     확인('대학·학과·전형명이 미리 채워짐', await p.evaluate(() => {
       const v = [...document.querySelectorAll('#hugi-form input.hg-in')].map(x => x.value);
       return v[0] === '수원대학교' && v[1] === '전기전자공학부' && v[2] === '고교추천전형';
@@ -150,13 +152,15 @@ const 글만 = xml => (xml.match(/<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?<\/hp:p>/g
     await p.fill('#hugi-qa .hg-qa:nth-child(1) textarea >> nth=0', '대학교에서 이루고 싶은 버킷리스트는?');
     await p.fill('#hugi-qa .hg-qa:nth-child(1) textarea >> nth=1', '기후 변화에 대처하는 전기 장치를 만들고 싶다고 답함');
     확인('쓰면 «저장하지 않은 글이 있습니다»', /저장하지 않은 글/.test(await p.textContent('#hugi-state')));
-    확인('쓰는 동안 이 기기에 적어 둠', await p.evaluate(() => !!localStorage.getItem('hugiDraft:s1:new')));
+    확인('쓰는 동안 이 기기에 적어 둠', await p.evaluate(() => !!localStorage.getItem('hugiDraft:s1:new:수원대학교|전기전자공학부|고교추천전형')));
+    확인('한 쪽에 들어가는 양 안내(질문·답변 글자 수)', /지금 질문 20자 · 답변 29자/.test(await p.textContent('#hugi-fit')), await p.textContent('#hugi-fit'));
     await p.click('#hugi-edit button:has-text("저장")'); await p.waitForTimeout(300);
     const 표1 = await p.evaluate(() => window.__T.hugi_sheets);
-    확인('저장 → 서버에 한 줄(쓰는 중)', 표1.length === 1 && !표1[0].submitted_at && 표1[0].univ === '수원대학교' && 표1[0].adm_type === '교과' && 표1[0].school_id === '9bf9d65d-9cb0-428b-90a5-0c4b868dc40c');
+    확인('저장 → 서버에 한 줄(쓰는 중) · 어느 지원인지 plan_key', 표1.length === 1 && !표1[0].submitted_at && 표1[0].univ === '수원대학교' && 표1[0].adm_type === '교과' &&
+      표1[0].school_id === '9bf9d65d-9cb0-428b-90a5-0c4b868dc40c' && 표1[0].plan_key === '수원대학교|전기전자공학부|고교추천전형');
     확인('빈 질문 칸은 서버에 안 들어감', 표1[0].qa.length === 1);
     확인('화면에는 빈 칸이 그대로(계속 쓸 수 있게)', await p.evaluate(() => document.querySelectorAll('#hugi-qa .hg-qa').length === 3));
-    확인('저장하면 기기에 적어 둔 것은 지움', await p.evaluate(() => !localStorage.getItem('hugiDraft:s1:new')));
+    확인('저장하면 기기에 적어 둔 것은 지움', await p.evaluate(() => !Object.keys(localStorage).some(k => /^hugiDraft:/.test(k))));
 
     await p.click('#hugi-form .prac-chip:has-text("자연")');
     await p.click('#hugi-form .prac-chip:has-text("불합격")');
@@ -175,28 +179,38 @@ const 글만 = xml => (xml.match(/<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?<\/hp:p>/g
     await p.click('#backBtn'); await p.waitForTimeout(200);
     확인('쓰다가 «뒤로» → 홈이 아니라 목록, 저장 안 했으면 물어봄', await p.evaluate(() =>
       document.getElementById('screen-hugi').classList.contains('active') && !document.getElementById('hugi-home').hidden) && 물음.length === 1);
-    확인('목록에 «다 씀 ✓» 카드', /수원대학교[\s\S]*다 씀 ✓/.test(await p.textContent('#hugi-list')));
-    await p.click('#hugi-list .hg-card'); await p.waitForTimeout(200);
+    확인('수원대 카드가 «다 씀 ✓» · 눌러서 고치기', /수원대학교\s*다 씀 ✓[\s\S]*면접 질문 1개 · 불합격 · 눌러서 고치기/.test(await p.textContent('#hugi-list')), await p.textContent('#hugi-list'));
+    await p.click('#hugi-list .hg-card:has-text("수원대학교")'); await p.waitForTimeout(200);
     확인('다시 열면 «저장 안 한 글» 을 이어 쓸지 물어봄', 물음.some(m => /저장하지 않고 나간 글/.test(m)));
     확인('이어 쓰면 소감이 살아 있음', (await p.inputValue('#hugi-form textarea[placeholder^="후배"]')) === '전기 관련 이슈를 알아 두면 좋습니다');
+    // 대학 이름을 줄여 써도 그 지원 카드에 붙어 있어야 합니다
+    await p.fill('#hugi-form input.hg-in >> nth=0', '수원대');
     await p.click('#hugi-done'); await p.waitForTimeout(300);
+    확인('다 쓴 뒤에도 고쳐 저장됨(소감 · 대학 이름)', await p.evaluate(() => window.__T.hugi_sheets[0].feeling === '전기 관련 이슈를 알아 두면 좋습니다' && window.__T.hugi_sheets[0].univ === '수원대'));
     await p.click('#backBtn'); await p.waitForTimeout(200);
     await p.click('#backBtn'); await p.waitForTimeout(200);
     확인('목록에서 «뒤로» → 홈', await p.evaluate(() => document.getElementById('screen-home').classList.contains('active')));
 
     console.log('\n── 둘째 후기 · 지우기 ──');
     await p.click('.menu-btn:has-text("면접 후기 쓰기")'); await p.waitForTimeout(300);
-    await p.click('#hugi-home button:has-text("새 후기 쓰기")'); await p.waitForTimeout(200);
-    확인('이미 쓴 대학에 «이미 씀»', /수원대학교\s*이미 씀/.test(await p.textContent('#hugi-pick-list')));
-    await p.click('#hugi-pick button:has-text("직접 쓰기")'); await p.waitForTimeout(200);
+    확인('이름을 고쳐 써도 수원대 지원 카드에 그대로 붙어 있음(«직접 쓴 후기» 로 안 떨어짐)', await p.evaluate(() =>
+      !/직접 쓴 후기/.test(document.getElementById('hugi-list').textContent) && document.querySelectorAll('#hugi-list .hg-state.done').length === 1));
+    await p.click('#hugi-home button:has-text("직접 쓰기")'); await p.waitForTimeout(200);
+    확인('직접 쓰기는 빈 칸으로', (await p.inputValue('#hugi-form input.hg-in >> nth=0')) === '');
     await p.fill('#hugi-form input.hg-in >> nth=0', '한국외국어대학교');
     await p.click('#hugi-edit button:has-text("저장")'); await p.waitForTimeout(300);
-    확인('직접 쓴 후기가 둘째 줄로', (await p.evaluate(() => window.__T.hugi_sheets.length)) === 2);
+    확인('직접 쓴 후기가 둘째 줄로(plan_key 빈칸)', await p.evaluate(() => window.__T.hugi_sheets.length === 2 && window.__T.hugi_sheets[1].plan_key === ''));
+    await p.click('#backBtn'); await p.waitForTimeout(200);
+    확인('목록에 «직접 쓴 후기» 칸이 생김', /직접 쓴 후기[\s\S]*한국외국어대학교/.test(await p.textContent('#hugi-list')));
+    await p.click('#hugi-list .hg-card:has-text("한국외국어대학교")'); await p.waitForTimeout(200);
+    await p.fill('#hugi-qa .hg-qa:nth-child(1) textarea >> nth=1', '가'.repeat(820));
+    확인('답변이 800자를 넘으면 안내가 주황색으로', await p.evaluate(() => document.getElementById('hugi-fit').classList.contains('over')));
+    await p.fill('#hugi-qa .hg-qa:nth-child(1) textarea >> nth=1', '');
     await p.click('#hugi-del'); await p.waitForTimeout(300);
     확인('지우기 → 한 장만 남고 목록으로', (await p.evaluate(() => window.__T.hugi_sheets.length)) === 1 && await p.evaluate(() => !document.getElementById('hugi-home').hidden));
     확인('360px 에서 옆으로 안 넘침', await (async () => {
       await p.setViewportSize({ width: 360, height: 800 });
-      await p.click('#hugi-list .hg-card'); await p.waitForTimeout(200);
+      await p.click('#hugi-list .hg-card >> nth=0'); await p.waitForTimeout(200);
       return p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
     })());
     확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));

@@ -20,7 +20,7 @@
 var HUGI_TRACKS = ['자연', '인문', '예체능'];
 var HUGI_TYPES = [['종합', '학생부종합'], ['교과', '학생부교과(면접형)'], ['기타', '그 밖의 전형']];
 var HUGI_RESULTS = [['', '아직 발표 전'], ['최초합격', '최초합격'], ['충원합격', '충원합격'], ['불합격', '불합격']];
-var HUGI_COLS = 'id, student_id, track, univ, major, adm_type, adm_name, result, wait_no, school_act, outside_act, ' +
+var HUGI_COLS = 'id, student_id, plan_key, track, univ, major, adm_type, adm_name, result, wait_no, school_act, outside_act, ' +
                 'qa, feeling, etc_note, consent, submitted_at, created_at, updated_at';
 // 기본 양식 자리 — 이 파일(assets/js/hugi.js)에서 ../hwpx/ 로 찾습니다. 학생·선생님·관리자 화면의 깊이가 달라서요.
 var HUGI_DEFAULT_URL = (function () {
@@ -351,9 +351,12 @@ function hugiSheetViewHTML(s) {
     row('소감', s.feeling) + row('기타', s.etc_note);
 }
 
-// ══════════════ 학생 — «📝 면접 후기 쓰기» ══════════════
+// ══════════════ 학생 — «🗒️ 면접 후기 쓰기» ══════════════
 //
-// 면접을 본 대학마다 한 장. 수시 지원 자료(susi_plans)에서 대학·학과·전형을 골라 미리 채웁니다.
+// 면접을 본 대학마다 한 장. 첫 화면에 **내 수시 지원(susi_plans) 카드가 그대로** 떠서, 누르면 그 대학 후기를 쓰고·고칩니다
+// (2026-10-07 선생님 말씀 — 처음엔 «새 후기 → 대학 고르기» 두 단계였는데, 지원 카드를 바로 누르는 게 편하다고).
+// 목록에 없는 대학은 맨 아래 «직접 쓰기». 후기는 plan_key(대학|학과|전형명)로 지원 카드에 붙어 있어서
+// 학생이 대학 이름을 고쳐 써도 카드에서 떨어지지 않습니다.
 // 두 번에 나눠 쓰는 일이 흔합니다 — 면접 직후 질문·답변(기억이 생생할 때), 발표 뒤 합격사항.
 // 그래서 «저장» 은 언제든, «다 썼어요» 는 계열·대학·질문·동의가 있어야 눌립니다(그 뒤에도 고칠 수 있습니다).
 // 저장 전에 화면을 벗어나도 글이 안 날아가게, 쓰는 동안 이 기기에 적어 둡니다(localStorage).
@@ -369,70 +372,87 @@ async function hugiStudentEnter() {
     if (r.error || !r.data) { box.innerHTML = '<p class="prac-empty">내 학번을 찾지 못했습니다. 다시 로그인해 보세요.</p>'; return; }
     HG.me = r.data;
   }
-  const { data, error } = await sb.from('hugi_sheets').select(HUGI_COLS)
-    .eq('student_id', HG.me.id).order('created_at', { ascending: true });
-  if (error) { box.innerHTML = '<p class="prac-empty">후기를 불러오지 못했습니다: ' + esc(error.message) + '</p>'; return; }
-  HG.list = data || [];
+  // 내 후기 · 내 수시 지원(처음 한 번만) — 둘을 같이 묻습니다
+  var jobs = [sb.from('hugi_sheets').select(HUGI_COLS).eq('student_id', HG.me.id).order('created_at', { ascending: true })];
+  if (!HG.plans) jobs.push(sb.from('susi_plans').select('slot, uni_name, dept_name, type_name, admission_name, interview_date')
+    .eq('student_no', HG.me.student_no).order('slot'));
+  var res = await Promise.all(jobs);
+  if (res[0].error) { box.innerHTML = '<p class="prac-empty">후기를 불러오지 못했습니다: ' + esc(res[0].error.message) + '</p>'; return; }
+  HG.list = res[0].data || [];
+  if (res[1]) HG.plans = res[1].error ? [] : (res[1].data || []);
   hugiPaintList();
 }
 
 function hugiShowList() {
   document.getElementById('hugi-home').hidden = false;
   document.getElementById('hugi-edit').hidden = true;
-  document.getElementById('hugi-pick').hidden = true;
+}
+
+function hugiPlanKey(p) { return [p.uni_name || '', p.dept_name || '', p.admission_name || ''].join('|'); }
+// 이 지원 카드에 붙은 후기 — plan_key 로, 없으면(옛 줄) 대학·학과 이름으로
+function hugiSheetOfPlan(p) {
+  var key = hugiPlanKey(p);
+  return HG.list.filter(function (s) { return s.plan_key === key; })[0] ||
+         HG.list.filter(function (s) { return !s.plan_key && s.univ === p.uni_name && s.major === (p.dept_name || ''); })[0] || null;
+}
+function hugiStateChip(s) {
+  if (!s) return '<span class="hg-state none">아직 안 씀</span>';
+  return s.submitted_at ? '<span class="hg-state done">다 씀 ✓</span>' : '<span class="hg-state">쓰는 중</span>';
+}
+function hugiSheetLine(s) {
+  return s ? '면접 질문 ' + hugiQa(s).length + '개 · ' + (s.result ? hugiResultText(s.result) : '발표 전') + ' · 눌러서 고치기' : '눌러서 후기 쓰기';
 }
 
 function hugiPaintList() {
   var box = document.getElementById('hugi-list');
-  if (!HG.list.length) {
-    box.innerHTML = '<p class="prac-empty">아직 쓴 후기가 없습니다.<br>면접을 본 대학마다 한 장씩 써 주세요.</p>';
-    return;
+  var used = {};
+  var html = '';
+  if (HG.plans.length) {
+    html += '<p class="prac-label" style="margin-top:0">내 수시 지원 <span class="hg-opt">면접 본 곳만 쓰면 됩니다</span></p>';
+    html += HG.plans.map(function (p, i) {
+      var s = hugiSheetOfPlan(p);
+      if (s) used[s.id] = true;
+      return '<button class="hg-card' + (s ? '' : ' empty') + '" onclick="hugiOpenPlan(' + i + ')">' +
+        '<span class="hg-card-top"><b>' + esc(p.uni_name || '대학 이름 없음') + '</b>' + hugiStateChip(s) + '</span>' +
+        '<span class="hg-card-sub">' + esc([p.dept_name, p.type_name, p.admission_name].filter(Boolean).join(' · ')) +
+          (p.interview_date ? ' · 면접 ' + esc(p.interview_date) : '') + '</span>' +
+        '<span class="hg-card-sub go">' + hugiSheetLine(s) + '</span></button>';
+    }).join('');
+  } else {
+    html += '<p class="prac-hint">수시 지원 자료가 아직 없습니다. 아래 «직접 쓰기» 로 써 주세요.</p>';
   }
-  box.innerHTML = HG.list.map(function (s) {
-    var done = !!s.submitted_at;
-    return '<button class="hg-card" onclick="hugiOpen(\'' + s.id + '\')">' +
-      '<span class="hg-card-top"><b>' + esc(s.univ || '대학을 안 적음') + '</b>' +
-        '<span class="hg-state' + (done ? ' done' : '') + '">' + (done ? '다 씀 ✓' : '쓰는 중') + '</span></span>' +
-      '<span class="hg-card-sub">' + esc([s.major, hugiTypeText(s.adm_type), s.result ? hugiResultText(s.result) : '발표 전']
-        .filter(Boolean).join(' · ')) + '</span>' +
-      '<span class="hg-card-sub">면접 질문 ' + hugiQa(s).length + '개</span>' +
-      '</button>';
-  }).join('');
-}
-
-// ── 새 후기 — 수시 지원에서 고르기 ──
-async function hugiNew() {
-  if (!HG.me) return;
-  var pick = document.getElementById('hugi-pick'), box = document.getElementById('hugi-pick-list');
-  document.getElementById('hugi-home').hidden = true;
-  pick.hidden = false;
-  window.scrollTo(0, 0);
-  if (!HG.plans) {
-    box.innerHTML = '<p class="prac-empty">내 수시 지원을 불러오는 중...</p>';
-    const { data, error } = await sb.from('susi_plans').select('slot, uni_name, dept_name, type_name, admission_name')
-      .eq('student_no', HG.me.student_no).order('slot');
-    HG.plans = error ? [] : (data || []);
+  // 수시 지원 카드에 안 붙은 후기(직접 쓴 것)
+  var own = HG.list.filter(function (s) { return !used[s.id]; });
+  if (own.length) {
+    html += '<p class="prac-label">직접 쓴 후기</p>' + own.map(function (s) {
+      return '<button class="hg-card" onclick="hugiOpen(\'' + s.id + '\')">' +
+        '<span class="hg-card-top"><b>' + esc(s.univ || '대학을 안 적음') + '</b>' + hugiStateChip(s) + '</span>' +
+        '<span class="hg-card-sub">' + esc([s.major, hugiTypeText(s.adm_type), s.adm_name].filter(Boolean).join(' · ')) + '</span>' +
+        '<span class="hg-card-sub go">' + hugiSheetLine(s) + '</span></button>';
+    }).join('');
   }
-  var html = HG.plans.length
-    ? '<p class="prac-hint">면접을 본 대학을 고르세요. 대학·학과·전형이 미리 채워집니다.</p>' + HG.plans.map(function (p, i) {
-        var had = HG.list.some(function (s) { return s.univ === p.uni_name && s.major === (p.dept_name || ''); });
-        return '<button class="hg-card" onclick="hugiStartFrom(' + i + ')">' +
-          '<span class="hg-card-top"><b>' + esc(p.uni_name || '') + '</b>' + (had ? '<span class="hg-state done">이미 씀</span>' : '') + '</span>' +
-          '<span class="hg-card-sub">' + esc([p.dept_name, p.type_name, p.admission_name].filter(Boolean).join(' · ')) + '</span></button>';
-      }).join('')
-    : '<p class="prac-hint">수시 지원 자료가 아직 없습니다. 직접 적어 주세요.</p>';
   box.innerHTML = html;
 }
+
 function hugiTypeFromSusi(t) { return t === '종합' ? '종합' : t === '교과' ? '교과' : t ? '기타' : ''; }
 function hugiBlank() {
-  return { id: null, student_id: HG.me.id, track: '', univ: '', major: '', adm_type: '', adm_name: '', result: '', wait_no: '',
+  return { id: null, student_id: HG.me.id, plan_key: '', track: '', univ: '', major: '', adm_type: '', adm_name: '', result: '', wait_no: '',
            school_act: '', outside_act: '', qa: [{ q: '', a: '' }, { q: '', a: '' }, { q: '', a: '' }],
            feeling: '', etc_note: '', consent: false, submitted_at: null, created_at: null };
+}
+// 지원 카드를 누르면 — 쓴 게 있으면 열고, 없으면 그 지원으로 미리 채워 새로
+function hugiOpenPlan(i) {
+  var p = HG.plans[i];
+  if (!p) return;
+  var s = hugiSheetOfPlan(p);
+  if (s) { hugiOpen(s.id); return; }
+  hugiStartFrom(i);
 }
 function hugiStartFrom(i) {
   var s = hugiBlank();
   if (i !== null && i !== undefined && HG.plans[i]) {
     var p = HG.plans[i];
+    s.plan_key = hugiPlanKey(p);
     s.univ = p.uni_name || ''; s.major = p.dept_name || ''; s.adm_name = p.admission_name || '';
     s.adm_type = hugiTypeFromSusi(p.type_name);
   }
@@ -447,7 +467,7 @@ function hugiOpen(id) {
 }
 
 // ── 쓰는 동안 이 기기에 적어 두기 ──
-function hugiDraftKey(s) { return 'hugiDraft:' + HG.me.id + ':' + (s.id || 'new'); }
+function hugiDraftKey(s) { return 'hugiDraft:' + HG.me.id + ':' + (s.id || 'new:' + (s.plan_key || '')); }
 function hugiDraftPut() {
   try { localStorage.setItem(hugiDraftKey(HG.cur), JSON.stringify({ at: Date.now(), sheet: HG.cur })); } catch (e) { /* 사생활 보호 모드 */ }
 }
@@ -464,7 +484,6 @@ function hugiEdit(s) {
   } else { if (d) hugiDraftDrop(s); HG.dirty = false; }
   HG.cur = s;
   document.getElementById('hugi-home').hidden = true;
-  document.getElementById('hugi-pick').hidden = true;
   document.getElementById('hugi-edit').hidden = false;
   hugiPaintEdit();
   window.scrollTo(0, 0);
@@ -501,6 +520,7 @@ function hugiPaintEdit() {
     '<p class="prac-hint">받은 질문마다 한 칸씩. 답변은 «어떻게 답했는지» 를 짧게 적어도 됩니다.</p>' +
     '<div id="hugi-qa">' + hugiQaHTML() + '</div>' +
     '<button type="button" class="hg-addq" onclick="hugiAddQ()">＋ 질문 더하기</button>' +
+    '<p class="hg-fit" id="hugi-fit"></p>' +
     hugiField('당락에 대한 개인적 소감', 'feeling', '후배에게 해 주고 싶은 말도 좋습니다', 3) +
     hugiField('기타 <span class="hg-opt">(다른 대학·학과 지원, 합불 등)</span>', 'etc_note', '예: 가천대 금융빅데이터학부, 경기대 산업경영공학과', 2) +
     '<label class="hg-consent"><input type="checkbox"' + (s.consent ? ' checked' : '') + ' onchange="hugiSet(\'consent\', this.checked)">' +
@@ -519,6 +539,21 @@ function hugiQaHTML() {
   }).join('');
 }
 function hugiTouch() { HG.dirty = true; hugiDraftPut(); hugiPaintState(); }
+
+// ── 한글 파일 한 쪽에 들어가는 양(어림) ──
+// 교육청 양식의 질문 칸은 8pt 글씨로 한 줄 약 47자 × 16줄, 답변 칸은 × 20줄쯤입니다(번호 사이 빈 줄 빼고).
+// 넘어도 표가 다음 쪽으로 이어질 뿐 잘리지는 않지만, 한 쪽에 맞추려면 이만큼이 좋다고 알려 줍니다.
+var HUGI_FIT = { q: 600, a: 800 };
+function hugiPaintFit() {
+  var el = document.getElementById('hugi-fit');
+  if (!el || !HG.cur) return;
+  var q = 0, a = 0;
+  HG.cur.qa.forEach(function (x) { q += String(x.q || '').trim().length; a += String(x.a || '').trim().length; });
+  var over = q > HUGI_FIT.q || a > HUGI_FIT.a;
+  el.className = 'hg-fit' + (over ? ' over' : '');
+  el.textContent = '한글 파일 한 쪽에 맞추려면 질문 합쳐 ' + HUGI_FIT.q + '자 · 답변 합쳐 ' + HUGI_FIT.a + '자쯤까지 — 지금 질문 ' + q + '자 · 답변 ' + a + '자' +
+    (over ? ' (넘으면 표가 다음 쪽으로 이어집니다. 줄여 쓸 수 있으면 줄여 주세요)' : '');
+}
 function hugiSet(key, v) { HG.cur[key] = v; hugiTouch(); }
 function hugiPick(key, v) { HG.cur[key] = HG.cur[key] === v && key !== 'result' ? '' : v; hugiTouch(); hugiPaintEdit(); }
 function hugiPick_track(v) { hugiPick('track', v); }
@@ -542,6 +577,7 @@ function hugiDelQ(i) {
 
 function hugiPaintState() {
   var s = HG.cur, miss = hugiMissing(s);
+  hugiPaintFit();
   var st = document.getElementById('hugi-state');
   st.textContent = HG.dirty ? '저장하지 않은 글이 있습니다' : s.submitted_at ? '다 썼어요 ✓ (고쳐도 됩니다)' : s.id ? '저장됨 · 쓰는 중' : '';
   st.className = 'hg-savestate' + (HG.dirty ? ' dirty' : '');
@@ -556,7 +592,7 @@ async function hugiSave(submit) {
   var s = HG.cur;
   if (submit && hugiMissing(s).length) return;
   var row = {
-    school_id: SCHOOL_ID, student_id: HG.me.id,
+    school_id: SCHOOL_ID, student_id: HG.me.id, plan_key: s.plan_key || '',
     track: s.track || '', univ: String(s.univ || '').trim(), major: String(s.major || '').trim(),
     adm_type: s.adm_type || '', adm_name: String(s.adm_name || '').trim(), result: s.result || '',
     wait_no: String(s.wait_no || '').trim(), school_act: s.school_act || '', outside_act: s.outside_act || '',
@@ -607,10 +643,9 @@ function hugiBack(force) {
   window.scrollTo(0, 0);
 }
 
-// 휴대폰 뒤로가기·머리줄 «뒤로» — 쓰는 중이면 목록으로, 고르는 중이면 목록으로. 목록이면 false(홈으로 갑니다)
+// 휴대폰 뒤로가기·머리줄 «뒤로» — 쓰는 중이면 목록으로. 목록이면 false(홈으로 갑니다)
 function hugiHandleBack() {
   if (!document.getElementById('hugi-edit').hidden) { hugiBack(); return true; }
-  if (!document.getElementById('hugi-pick').hidden) { hugiBack(true); return true; }
   return false;
 }
 
