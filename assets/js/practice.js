@@ -425,22 +425,31 @@ function practiceOfferGradeText(g) { return (g && g !== '공통') ? g + '학년'
 // ── 학년·영역으로 나눠 보기 (2026-10-07 선생님 말씀) ──
 // 선생님은 생기부를 묶음(학년 × 자율·동아리·진로·과목·행특)별로 보며 보냅니다. 받는 쪽도 그렇게 나뉘어 보이고,
 // 그것만 골라 볼 수 있게 합니다. 칩은 연습장 필터와 같은 방식 — 여러 개 고를 수 있고, 안 고르면 전부.
-// 영역 칩·학년 칩은 «받은 것에 실제로 있는 것» 만 보입니다. 예전에 영역 없이 보낸 것은 «영역 모름».
+// 영역 칩·학년 칩은 «받은 것에 실제로 있는 것» 만 보입니다.
+// 영역은 자율 · 동아리 · 봉사 · 진로 · 과세특 · 개세특 · 행발. 세특 과목은 묶지 않고 카드 안에만 적습니다
+// (과목마다 묶었더니 묶음이 과목 수만큼 생겼습니다 — 2026-10-07 선생님 말씀).
 var PO_GRADE_ORDER = ['1', '2', '3', '공통'];
-var PO_AREA_ORDER = ['자율활동', '동아리활동', '봉사활동', '진로활동', '창체', '세특', '행특', ''];
+var PO_AREA_ORDER = ['자율', '동아리', '봉사', '진로', '과세특', '개세특', '행발', '창체', ''];
+// 잠깐 썼던 옛 이름도 새 이름으로 읽습니다(서버 자료는 2026-10-07 에 옮겼습니다)
+var PO_AREA_OLD = { '자율활동': '자율', '동아리활동': '동아리', '봉사활동': '봉사', '진로활동': '진로', '행특': '행발' };
 var POF = { grades: [], areas: [] };   // 받은 질문 창의 칩 — 창을 닫았다 열어도 그대로
 
-function practiceOfferArea(o) { return o.area || ''; }
+function practiceOfferArea(o) {
+  var a = o.area || '';
+  if (PO_AREA_OLD[a]) return PO_AREA_OLD[a];
+  if (a === '세특') return /^개인별/.test(o.subject || '') ? '개세특' : '과세특';
+  return a;
+}
 function practiceOfferAreaText(a) { return a || '영역 모름'; }
-function practiceOfferGroupKey(o) { return (o.grade || '공통') + '|' + practiceOfferArea(o) + '|' + (o.subject || ''); }
+function practiceOfferGroupKey(o) { return (o.grade || '공통') + '|' + practiceOfferArea(o); }
 function practiceOfferGroupText(o) {
-  return practiceOfferGradeText(o.grade) + ' · ' + practiceOfferAreaText(practiceOfferArea(o)) + (o.subject ? ' · ' + o.subject : '');
+  return practiceOfferGradeText(o.grade) + ' · ' + practiceOfferAreaText(practiceOfferArea(o));
 }
 function practiceOfferSort(list) {
   return list.slice().sort(function (x, y) {
     return (PO_GRADE_ORDER.indexOf(x.grade) - PO_GRADE_ORDER.indexOf(y.grade)) ||
            (PO_AREA_ORDER.indexOf(practiceOfferArea(x)) - PO_AREA_ORDER.indexOf(practiceOfferArea(y))) ||
-           String(x.subject || '').localeCompare(String(y.subject || '')) ||
+           String(x.subject || '').localeCompare(String(y.subject || '')) ||   // 과세특 안에서는 과목끼리 붙여 둡니다
            String(x.created_at).localeCompare(String(y.created_at)) ||
            String(x.question).localeCompare(String(y.question));
   });
@@ -477,16 +486,16 @@ function practicePaintOffers() {
     var visible = practiceOfferSort(practiceOfferVisible());
     html = '<p class="prac-hint">쓰고 싶은 질문을 골라 「넣기」를 누르면 «쓴 것들» 맨 위에 들어갑니다. ' +
            '질문 글자는 거기서 고쳐 써도 됩니다. 다 쓸 필요는 없습니다.</p>';
-    // 학년·영역 칩 — 두 가지 이상 있을 때만(하나뿐이면 고를 게 없습니다)
-    if (gradesHere.length > 1 || areasHere.length > 1) {
+    // 학년·영역 칩 — 받은 것에 있는 것만. 하나뿐이어도 보여 줍니다(어느 영역 질문인지 한눈에 보이게)
+    if (gradesHere.length || areasHere.length) {
       html += '<div class="prac-offer-filter">' +
-        (gradesHere.length > 1 ? '<div class="prac-offer-frow"><span class="prac-offer-flabel">학년</span><div class="prac-chips">' +
+        (gradesHere.length ? '<div class="prac-offer-frow"><span class="prac-offer-flabel">학년</span><div class="prac-chips">' +
           gradesHere.map(function (g) {
             var on = POF.grades.indexOf(g) > -1;
             return '<button class="prac-chip" aria-pressed="' + on + '" onclick="practiceOfferToggleGrade(\'' + g + '\')">' +
                    esc(practiceOfferGradeText(g)) + '</button>';
           }).join('') + '</div></div>' : '') +
-        (areasHere.length > 1 ? '<div class="prac-offer-frow"><span class="prac-offer-flabel">영역</span><div class="prac-chips">' +
+        (areasHere.length ? '<div class="prac-offer-frow"><span class="prac-offer-flabel">영역</span><div class="prac-chips">' +
             practiceFilterChipsHTML(areasHere, POF.areas, 'practiceOfferToggleArea') + '</div></div>' : '') +
         '</div>';
     }
@@ -511,7 +520,7 @@ function practicePaintOffers() {
         '<label class="prac-offer-pick"><input type="checkbox"' + (on ? ' checked' : '') +
           ' onchange="practiceToggleOffer(\'' + o.id + '\')">' +
           '<span class="prac-offer-q">' + esc(o.question) + '</span></label>' +
-        '<div class="prac-offer-foot"><span>' + esc(o.teacher_name ? o.teacher_name + ' 선생님' : '') + '</span>' +
+        '<div class="prac-offer-foot"><span>' + esc([o.subject, o.teacher_name ? o.teacher_name + ' 선생님' : ''].filter(Boolean).join(' · ')) + '</span>' +
           '<span class="prac-offer-acts">' +
             '<button class="prac-offer-skip" onclick="practiceSkipOffer(\'' + o.id + '\')">안 쓸래요</button>' +
             '<button class="prac-offer-skip del" onclick="practiceDeleteOffers([\'' + o.id + '\'])">삭제</button>' +

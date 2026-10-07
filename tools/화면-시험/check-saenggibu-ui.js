@@ -149,7 +149,14 @@ async function 열기(viewport) {
     확인('예면 두 질문이 학생에게 가는가', 보낸.length === 2 && 보낸.every(r => r.student_id === 's1'), JSON.stringify(보낸.map(r => r.question.slice(0, 20))));
     확인('직접 쓴 질문도 같이 가는가', 보낸.some(r => r.question === '직접 쓴 질문'));
     확인('학년(1)·선생님 이름·학교가 붙는가', 보낸.every(r => r.grade === '1' && r.teacher_id === 'u1' && r.teacher_name === '이용휘' && r.school_id));
-    확인('영역(동아리활동)이 붙는가 — 학생이 나눠 보도록', 보낸.every(r => r.area === '동아리활동' && r.subject === ''), JSON.stringify(보낸.map(r => r.area)));
+    확인('영역(동아리)이 붙는가 — 학생이 나눠 보도록', 보낸.every(r => r.area === '동아리' && r.subject === ''), JSON.stringify(보낸.map(r => r.area)));
+    // 세특은 «과세특» + 과목 이름, 개인별 세특은 «개세특», 행특은 «행발»
+    const 어디 = await p.evaluate(() => [
+      sgOfferWhere({ area: 'sesa', subject: '화학Ⅰ' }), sgOfferWhere({ area: 'sesa', subject: SG_PERSONAL }),
+      sgOfferWhere({ area: 'haengteuk', subject: '' }), sgOfferWhere({ area: 'changche', subject: '진로활동' })]);
+    확인('영역 이름이 과세특(+과목)·개세특·행발·진로 인가',
+         JSON.stringify(어디) === JSON.stringify([{ area: '과세특', subject: '화학Ⅰ' }, { area: '개세특', subject: '' }, { area: '행발', subject: '' }, { area: '진로', subject: '' }]),
+         JSON.stringify(어디));
     확인('보내도 생기부 화면은 안 닫히는가', !(await p.$eval('#view-saenggibu', e => e.hidden)));
     확인('보낸 줄에 「학생에게 보냄」 꼬리표(sent)가 붙는가', (await p.$$('.sg-list .sg-item.sent')).length === 2);
     확인('보내면 체크가 풀리는가', await p.$eval('#sg-send', e => e.disabled));

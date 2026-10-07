@@ -2034,12 +2034,17 @@ function paintSgFoot() {
 }
 
 // 받은 질문을 학생이 학년·영역으로 나눠 보도록 어디서 나온 질문인지 같이 보냅니다(2026-10-07).
-//   창체 → 자율활동·동아리활동·봉사활동·진로활동 (갈래를 모르면 '창체')
-//   세특 → area '세특' + subject 과목 이름 / 행특 → '행특'
+// 영역 이름은 선생님들이 쓰시는 말로 — 자율 · 동아리 · 봉사 · 진로 · 과세특 · 개세특 · 행발.
+// ⚠️ 처음엔 세특을 과목마다 나눠 보였더니(«1학년 · 세특 · 과학탐구실험» «2학년 · 세특 · 물리학Ⅰ» …)
+//    과목 수만큼 묶음이 생겨 «이게 뭐냐» 는 말씀. 과목 이름은 subject 에 따로 두고 카드 안에만 적습니다.
+var SG_OFFER_AREA = { '자율활동': '자율', '동아리활동': '동아리', '봉사활동': '봉사', '진로활동': '진로' };
 function sgOfferWhere(q) {
-  if (q.area === 'sesa') return { area: '세특', subject: (q.subject && q.subject !== SG_NO_SUBJECT) ? q.subject : '' };
-  if (q.area === 'haengteuk') return { area: '행특', subject: '' };
-  return { area: SG_AREAS.indexOf(q.subject) > -1 ? q.subject : '창체', subject: '' };
+  if (q.area === 'sesa') {
+    if (q.subject === SG_PERSONAL) return { area: '개세특', subject: '' };
+    return { area: '과세특', subject: (q.subject && q.subject !== SG_NO_SUBJECT) ? q.subject : '' };
+  }
+  if (q.area === 'haengteuk') return { area: '행발', subject: '' };
+  return { area: SG_OFFER_AREA[q.subject] || '창체', subject: '' };
 }
 
 // ⚠️ 학생 앱(/)과 선생님 화면(/teacher/)은 주소가 같아서, 한 브라우저에서는 로그인을 «하나만» 기억합니다.
