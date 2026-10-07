@@ -23,11 +23,11 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
         reviews: [], questions: [], practice_categories: [], practice_answers: [], practice_comments: [],
         // 선생님이 생기부에서 뽑아 보낸 질문 (받은 질문)
         practice_offers: [
-          { id: 'o1', student_id: 's1', grade: '3', status: '새로', teacher_name: '이용휘', created_at: '2026-10-07T01:00:00Z',
+          { id: 'o1', student_id: 's1', grade: '3', area: '동아리활동', subject: '', status: '새로', teacher_name: '이용휘', created_at: '2026-10-07T01:00:00Z',
             question: '3학년 동아리활동에서 「이차전지의 환경오염」에 의문을 품었다고 적혀 있습니다. 무엇이 궁금했고, 어떻게 확인했나요?' },
-          { id: 'o2', student_id: 's1', grade: '1', status: '새로', teacher_name: '이용휘', created_at: '2026-10-07T00:59:00Z',
+          { id: 'o2', student_id: 's1', grade: '1', area: '자율활동', subject: '', status: '새로', teacher_name: '이용휘', created_at: '2026-10-07T00:59:00Z',
             question: '1학년 자율활동에서 「우리 반 생활 협약」을 사람들과 함께했다고 기록되어 있습니다.' },
-          { id: 'o3', student_id: 's1', grade: '2', status: '새로', teacher_name: '이용휘', created_at: '2026-10-07T00:58:00Z',
+          { id: 'o3', student_id: 's1', grade: '2', area: '세특', subject: '화학Ⅰ', status: '새로', teacher_name: '이용휘', created_at: '2026-10-07T00:58:00Z',
             question: '2학년 화학Ⅰ 시간에 「산-염기 중화 반응」 실험을 했다고 기록되어 있습니다.' }
         ]
       }
@@ -209,20 +209,40 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   확인('받은 질문 창이 뜨는가', await p.evaluate(() => document.getElementById('prac-offer-overlay').style.display === 'flex'));
   확인('받은 질문 3개가 체크칸과 함께 보이는가', (await p.$$('#prac-offer-list .prac-offer input[type="checkbox"]')).length === 3);
   확인('처음엔 «넣기» 단추가 쉬는가', await p.$eval('#prac-offer-add', e => e.disabled));
-  확인('어디 내용인지(학년)·보낸 선생님이 보이는가', (await p.textContent('#prac-offer-list .prac-offer >> nth=0')).indexOf('3학년 · 이용휘 선생님') > -1);
+  // 학년 · 영역(· 과목) 머리줄로 나뉘고, 1학년부터 차례로
+  const 머리 = await p.$$eval('#prac-offer-list .prac-offer-group', es => es.map(e => e.textContent));
+  확인('학년·영역 머리줄로 나뉘는가 (1학년 자율 → 2학년 세특 화학Ⅰ → 3학년 동아리)',
+       머리.length === 3 && /^1학년 · 자율활동/.test(머리[0]) && /^2학년 · 세특 · 화학Ⅰ/.test(머리[1]) && /^3학년 · 동아리활동/.test(머리[2]), 머리.join(' | '));
+  확인('보낸 선생님이 보이는가', (await p.textContent('#prac-offer-list .prac-offer >> nth=0')).indexOf('이용휘 선생님') > -1);
+  // 학년 칩 · 영역 칩으로 골라 보기
+  const 칩 = await p.$$eval('.prac-offer-filter .prac-chip', es => es.map(e => e.textContent.trim()));
+  확인('받은 것에 있는 학년·영역만 칩으로 뜨는가', 칩.join() === '1학년,2학년,3학년,자율활동,동아리활동,세특', 칩.join());
+  await p.click('.prac-offer-filter .prac-chip:has-text("세특")'); await p.waitForTimeout(100);
+  확인('영역 칩(세특)을 누르면 그것만 보이는가', (await p.$$('#prac-offer-list .prac-offer:not(.gone)')).length === 1 &&
+       (await p.textContent('.prac-offer-bar')).indexOf('골라 본 질문 1개 / 전체 3개') > -1);
+  await p.click('#prac-offer-all'); await p.waitForTimeout(100);
+  확인('골라 보는 중 «전체 선택» 은 보이는 것만 고르는가', (await p.textContent('#prac-offer-add')) === '고른 1개 넣기');
+  await p.click('#prac-offer-all'); await p.waitForTimeout(100);
+  await p.click('.prac-offer-filter .prac-chip:has-text("세특")'); await p.waitForTimeout(100);
+  await p.click('.prac-offer-filter .prac-chip:has-text("3학년")'); await p.waitForTimeout(100);
+  확인('학년 칩(3학년)을 누르면 3학년 것만 보이는가', (await p.$$('#prac-offer-list .prac-offer:not(.gone)')).length === 1 &&
+       (await p.textContent('#prac-offer-list .prac-offer-group')).indexOf('3학년') === 0);
+  await p.click('.prac-offer-filter .prac-chip:has-text("3학년")'); await p.waitForTimeout(100);
+  확인('칩을 다 풀면 다시 전부 보이는가', (await p.$$('#prac-offer-list .prac-offer:not(.gone)')).length === 3);
 
   // 전체 선택 ↔ 전체 해제
   await p.click('#prac-offer-all'); await p.waitForTimeout(100);
   확인('«전체 선택» 을 누르면 셋 다 체크되는가', (await p.$$('#prac-offer-list .prac-offer input:checked')).length === 3 &&
        (await p.textContent('#prac-offer-add')) === '고른 3개 넣기');
-  확인('단추가 «전체 해제» 로 바뀌는가', (await p.textContent('#prac-offer-all')) === '전체 해제');
+  확인('«전체 선택» 체크칸이 켜지는가', await p.$eval('#prac-offer-all', e => e.checked && !e.indeterminate));
   await p.click('#prac-offer-all'); await p.waitForTimeout(100);
-  확인('«전체 해제» 를 누르면 다 풀리는가', (await p.$$('#prac-offer-list .prac-offer input:checked')).length === 0 &&
-       await p.$eval('#prac-offer-add', e => e.disabled) && (await p.textContent('#prac-offer-all')) === '전체 선택');
+  확인('한 번 더 누르면 다 풀리는가', (await p.$$('#prac-offer-list .prac-offer input:checked')).length === 0 &&
+       await p.$eval('#prac-offer-add', e => e.disabled) && await p.$eval('#prac-offer-all', e => !e.checked));
 
-  await p.click('#prac-offer-list .prac-offer-pick >> nth=0');
-  await p.click('#prac-offer-list .prac-offer-pick >> nth=1'); await p.waitForTimeout(100);
+  await p.click('#prac-offer-list .prac-offer[data-id="o1"] .prac-offer-pick');
+  await p.click('#prac-offer-list .prac-offer[data-id="o2"] .prac-offer-pick'); await p.waitForTimeout(100);
   확인('여러 개 고를 수 있는가 (고른 2개 넣기)', (await p.textContent('#prac-offer-add')) === '고른 2개 넣기');
+  확인('몇 개만 고르면 전체 선택이 «일부» 표시(−)인가', await p.$eval('#prac-offer-all', e => !e.checked && e.indeterminate));
   await p.click('#prac-offer-list .prac-offer[data-id="o3"] .prac-offer-skip'); await p.waitForTimeout(300);
   확인('「안 쓸래요」 를 누르면 안씀 표시가 되는가', (await 받은()).find(r => r.id === 'o3').status === '안씀');
   확인('치운 것은 아래 «안 쓰기로 한 것» 으로 가는가', (await p.textContent('.prac-offer-old summary')).indexOf('안 쓰기로 한 것 1개') > -1);

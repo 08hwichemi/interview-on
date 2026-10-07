@@ -99,7 +99,27 @@ async function 열기(viewport) {
     const more = await p.$('.sg-more');
     확인('질문은 처음에 5개까지만 보이는가', shown.length === 5, shown.length + '개');
     확인('「더 보기」 단추가 있는가', !!more && (await more.textContent()).indexOf('더 보기') > -1);
-    await more.click(); await p.waitForTimeout(200);
+
+    // 이 묶음 전체 선택 — 「더 보기」 뒤에 숨은 것까지 고르고, 숨은 게 있으면 펼칩니다
+    const 뽑은수 = await p.evaluate(() => sgGroupList()[sgCur].items.length);
+    await p.$eval('.sg-main', e => { e.scrollTop = 150; });
+    await p.click('#sg-allbtn'); await p.waitForTimeout(200);
+    확인('«전체 선택» 을 누르면 이 묶음의 뽑은 질문이 다 체크되는가',
+         (await p.$$('.sg-list label.sg-item input:checked')).length === 뽑은수, 뽑은수 + '개');
+    확인('숨어 있던 것까지 펼쳐서 보이는가', (await p.$$('.sg-list label.sg-item')).length === 뽑은수);
+    확인('직접 적는 칸은 안 체크되는가', !(await p.$eval('.sg-item.blank input[type="checkbox"]', e => e.checked)));
+    확인('펼쳐도 읽던 자리가 그대로인가', (await p.$eval('.sg-main', e => e.scrollTop)) === 150);
+    확인('«이 묶음 전체 선택» 체크칸이 켜지는가', await p.$eval('#sg-allbtn', e => e.checked && !e.indeterminate));
+    확인('아래 단추 수도 따라가는가', (await p.textContent('#sg-send')).indexOf(뽑은수 + '개') === 0);
+    await p.click('#sg-allbtn'); await p.waitForTimeout(200);
+    확인('한 번 더 누르면 다 풀리는가', (await p.$$('.sg-list label.sg-item input:checked')).length === 0 &&
+         await p.$eval('#sg-allbtn', e => !e.checked) && await p.$eval('#sg-send', e => e.disabled));
+    await p.click('.sg-list label.sg-item >> nth=0'); await p.waitForTimeout(100);
+    확인('몇 개만 고르면 «일부» 표시(−)가 되는가', await p.$eval('#sg-allbtn', e => !e.checked && e.indeterminate));
+    await p.click('.sg-list label.sg-item >> nth=0'); await p.waitForTimeout(100);
+    // 아래 검사(5개만 → 더 보기)를 위해 다시 접습니다
+    await p.evaluate(() => { var g = sgGroupList()[sgCur]; delete sgMore[g.key]; renderSaenggibu(); }); await p.waitForTimeout(150);
+    await p.click('.sg-more'); await p.waitForTimeout(200);
     확인('더 보기를 누르면 다 나오는가', (await p.$$('.sg-list label.sg-item')).length > 5);
 
     // 체크하면 화면이 튀지 않고 왼쪽 숫자가 바뀜
@@ -129,6 +149,7 @@ async function 열기(viewport) {
     확인('예면 두 질문이 학생에게 가는가', 보낸.length === 2 && 보낸.every(r => r.student_id === 's1'), JSON.stringify(보낸.map(r => r.question.slice(0, 20))));
     확인('직접 쓴 질문도 같이 가는가', 보낸.some(r => r.question === '직접 쓴 질문'));
     확인('학년(1)·선생님 이름·학교가 붙는가', 보낸.every(r => r.grade === '1' && r.teacher_id === 'u1' && r.teacher_name === '이용휘' && r.school_id));
+    확인('영역(동아리활동)이 붙는가 — 학생이 나눠 보도록', 보낸.every(r => r.area === '동아리활동' && r.subject === ''), JSON.stringify(보낸.map(r => r.area)));
     확인('보내도 생기부 화면은 안 닫히는가', !(await p.$eval('#view-saenggibu', e => e.hidden)));
     확인('보낸 줄에 「학생에게 보냄」 꼬리표(sent)가 붙는가', (await p.$$('.sg-list .sg-item.sent')).length === 2);
     확인('보내면 체크가 풀리는가', await p.$eval('#sg-send', e => e.disabled));

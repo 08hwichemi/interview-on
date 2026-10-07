@@ -408,7 +408,7 @@ async function practiceOpenOffers() {
   box.innerHTML = '<p class="prac-empty">불러오는 중...</p>';
   overlay.style.display = 'flex';
   const { data, error } = await sb.from('practice_offers')
-    .select('id, grade, question, status, teacher_name, created_at')
+    .select('id, grade, area, subject, question, status, teacher_name, created_at')
     .order('created_at', { ascending: false });
   if (error) { box.innerHTML = '<p class="prac-empty">받은 질문을 불러오지 못했습니다.</p>'; return; }
   PO.list = data || [];
@@ -422,40 +422,106 @@ function practiceCloseOffers() {
 
 function practiceOfferGradeText(g) { return (g && g !== '공통') ? g + '학년' : '공통'; }
 
+// ── 학년·영역으로 나눠 보기 (2026-10-07 선생님 말씀) ──
+// 선생님은 생기부를 묶음(학년 × 자율·동아리·진로·과목·행특)별로 보며 보냅니다. 받는 쪽도 그렇게 나뉘어 보이고,
+// 그것만 골라 볼 수 있게 합니다. 칩은 연습장 필터와 같은 방식 — 여러 개 고를 수 있고, 안 고르면 전부.
+// 영역 칩·학년 칩은 «받은 것에 실제로 있는 것» 만 보입니다. 예전에 영역 없이 보낸 것은 «영역 모름».
+var PO_GRADE_ORDER = ['1', '2', '3', '공통'];
+var PO_AREA_ORDER = ['자율활동', '동아리활동', '봉사활동', '진로활동', '창체', '세특', '행특', ''];
+var POF = { grades: [], areas: [] };   // 받은 질문 창의 칩 — 창을 닫았다 열어도 그대로
+
+function practiceOfferArea(o) { return o.area || ''; }
+function practiceOfferAreaText(a) { return a || '영역 모름'; }
+function practiceOfferGroupKey(o) { return (o.grade || '공통') + '|' + practiceOfferArea(o) + '|' + (o.subject || ''); }
+function practiceOfferGroupText(o) {
+  return practiceOfferGradeText(o.grade) + ' · ' + practiceOfferAreaText(practiceOfferArea(o)) + (o.subject ? ' · ' + o.subject : '');
+}
+function practiceOfferSort(list) {
+  return list.slice().sort(function (x, y) {
+    return (PO_GRADE_ORDER.indexOf(x.grade) - PO_GRADE_ORDER.indexOf(y.grade)) ||
+           (PO_AREA_ORDER.indexOf(practiceOfferArea(x)) - PO_AREA_ORDER.indexOf(practiceOfferArea(y))) ||
+           String(x.subject || '').localeCompare(String(y.subject || '')) ||
+           String(x.created_at).localeCompare(String(y.created_at)) ||
+           String(x.question).localeCompare(String(y.question));
+  });
+}
+function practiceOfferFresh() { return PO.list.filter(function (o) { return o.status === '새로'; }); }
+// 칩에 걸리는(지금 보이는) 새 질문
+function practiceOfferVisible() {
+  return practiceOfferFresh().filter(function (o) {
+    return practiceMatchFilter(o.grade, POF.grades) &&
+           (!POF.areas.length || POF.areas.indexOf(practiceOfferAreaText(practiceOfferArea(o))) > -1);
+  });
+}
+function practiceOfferToggleGrade(g) { practiceToggleIn(POF.grades, g); practicePaintOffers(); }
+function practiceOfferToggleArea(a) { practiceToggleIn(POF.areas, a); practicePaintOffers(); }
+
 function practicePaintOffers() {
   var box = document.getElementById('prac-offer-list');
-  var fresh = PO.list.filter(function (o) { return o.status === '새로'; });
+  var fresh = practiceOfferFresh();
   var done = PO.list.filter(function (o) { return o.status === '넣음'; });
   var off = PO.list.filter(function (o) { return o.status === '안씀'; });
+  // 받은 것에 없는 학년·영역을 골라 둔 채면 칩을 풉니다(다 넣어서 사라졌을 때 등)
+  var gradesHere = PO_GRADE_ORDER.filter(function (g) { return fresh.some(function (o) { return (o.grade || '공통') === g; }); });
+  var areasHere = PO_AREA_ORDER.filter(function (a) { return fresh.some(function (o) { return practiceOfferArea(o) === a; }); })
+                               .map(practiceOfferAreaText);
+  POF.grades = POF.grades.filter(function (g) { return gradesHere.indexOf(g) > -1; });
+  POF.areas = POF.areas.filter(function (a) { return areasHere.indexOf(a) > -1; });
+
   var html = '';
   if (!PO.list.length) {
     html = '<p class="prac-empty">아직 선생님이 보낸 질문이 없습니다.</p>';
   } else if (!fresh.length) {
     html = '<p class="prac-empty">새로 받은 질문은 다 골랐습니다.</p>';
   } else {
+    var visible = practiceOfferSort(practiceOfferVisible());
     html = '<p class="prac-hint">쓰고 싶은 질문을 골라 「넣기」를 누르면 «쓴 것들» 맨 위에 들어갑니다. ' +
-           '질문 글자는 거기서 고쳐 써도 됩니다. 다 쓸 필요는 없습니다.</p>' +
-           // 전체 선택 — 받은 것을 다 쓰고 싶은 학생이 하나씩 누르지 않게(2026-10-07 선생님 말씀)
-           '<div class="prac-offer-bar"><span>새로 받은 질문 ' + fresh.length + '개</span>' +
-             '<button class="prac-offer-all" id="prac-offer-all" onclick="practiceToggleAllOffers()">전체 선택</button></div>' +
-           fresh.map(function (o) {
-             var on = !!PO.picked[o.id];
-             return '<div class="prac-offer' + (on ? ' on' : '') + '" data-id="' + o.id + '">' +
-               '<label class="prac-offer-pick"><input type="checkbox"' + (on ? ' checked' : '') +
-                 ' onchange="practiceToggleOffer(\'' + o.id + '\')">' +
-                 '<span class="prac-offer-q">' + esc(o.question) + '</span></label>' +
-               '<div class="prac-offer-foot"><span>' + esc(practiceOfferGradeText(o.grade)) +
-                 (o.teacher_name ? ' · ' + esc(o.teacher_name) + ' 선생님' : '') + '</span>' +
-                 '<button class="prac-offer-skip" onclick="practiceSkipOffer(\'' + o.id + '\')">안 쓸래요</button></div>' +
-               '</div>';
-           }).join('');
+           '질문 글자는 거기서 고쳐 써도 됩니다. 다 쓸 필요는 없습니다.</p>';
+    // 학년·영역 칩 — 두 가지 이상 있을 때만(하나뿐이면 고를 게 없습니다)
+    if (gradesHere.length > 1 || areasHere.length > 1) {
+      html += '<div class="prac-offer-filter">' +
+        (gradesHere.length > 1 ? '<div class="prac-offer-frow"><span class="prac-offer-flabel">학년</span><div class="prac-chips">' +
+          gradesHere.map(function (g) {
+            var on = POF.grades.indexOf(g) > -1;
+            return '<button class="prac-chip" aria-pressed="' + on + '" onclick="practiceOfferToggleGrade(\'' + g + '\')">' +
+                   esc(practiceOfferGradeText(g)) + '</button>';
+          }).join('') + '</div></div>' : '') +
+        (areasHere.length > 1 ? '<div class="prac-offer-frow"><span class="prac-offer-flabel">영역</span><div class="prac-chips">' +
+            practiceFilterChipsHTML(areasHere, POF.areas, 'practiceOfferToggleArea') + '</div></div>' : '') +
+        '</div>';
+    }
+    // 전체 선택 — 지금 보이는 것만 고릅니다
+    var narrowed = POF.grades.length || POF.areas.length;
+    // ⚠️ 처음엔 오른쪽 끝의 작은 단추였는데 «별로» 라는 말씀(2026-10-07). 질문 체크칸과 같은 줄에 맞춘
+    //    체크칸으로 바꿨습니다 — 몇 개만 고르면 «−» (일부) 표시가 됩니다.
+    html += '<label class="prac-offer-bar"><input type="checkbox" id="prac-offer-all" onchange="practiceToggleAllOffers()">' +
+              '<b>전체 선택</b><span>' + (narrowed ? '골라 본 질문 ' : '새로 받은 질문 ') + visible.length + '개' +
+              (narrowed ? ' / 전체 ' + fresh.length + '개' : '') + '</span></label>';
+    // 학년 · 영역 · 과목 묶음마다 머리줄
+    var lastKey = null;
+    visible.forEach(function (o) {
+      var key = practiceOfferGroupKey(o);
+      if (key !== lastKey) {
+        var n = visible.filter(function (x) { return practiceOfferGroupKey(x) === key; }).length;
+        html += '<p class="prac-offer-group">' + esc(practiceOfferGroupText(o)) + ' <span>' + n + '개</span></p>';
+        lastKey = key;
+      }
+      var on = !!PO.picked[o.id];
+      html += '<div class="prac-offer' + (on ? ' on' : '') + '" data-id="' + o.id + '">' +
+        '<label class="prac-offer-pick"><input type="checkbox"' + (on ? ' checked' : '') +
+          ' onchange="practiceToggleOffer(\'' + o.id + '\')">' +
+          '<span class="prac-offer-q">' + esc(o.question) + '</span></label>' +
+        '<div class="prac-offer-foot"><span>' + esc(o.teacher_name ? o.teacher_name + ' 선생님' : '') + '</span>' +
+          '<button class="prac-offer-skip" onclick="practiceSkipOffer(\'' + o.id + '\')">안 쓸래요</button></div>' +
+        '</div>';
+    });
   }
   if (done.length || off.length) {
     html += '<details class="prac-offer-old"><summary>넣은 것 ' + done.length + '개 · 안 쓰기로 한 것 ' + off.length + '개</summary>' +
-      done.concat(off).map(function (o) {
+      practiceOfferSort(done.concat(off)).map(function (o) {
         return '<div class="prac-offer gone">' +
           '<span class="prac-offer-q">' + esc(o.question) + '</span>' +
-          '<div class="prac-offer-foot"><span>' + (o.status === '넣음' ? '넣음 ✓' : '안 쓰기로 함') + '</span>' +
+          '<div class="prac-offer-foot"><span>' + esc(practiceOfferGroupText(o)) + ' · ' + (o.status === '넣음' ? '넣음 ✓' : '안 쓰기로 함') + '</span>' +
           (o.status === '안씀' ? '<button class="prac-offer-skip" onclick="practiceRestoreOffer(\'' + o.id + '\')">다시 보기</button>' : '') +
           '</div></div>';
       }).join('') + '</details>';
@@ -472,8 +538,9 @@ function practiceToggleOffer(id) {
   practicePaintOfferBtn();
 }
 // 전체 선택 ↔ 전체 해제. 새로 받은 것만 고릅니다(넣은 것·안 쓰기로 한 것은 빼고).
+// 지금 보이는(칩에 걸린) 새 질문만 고르고 풉니다.
 function practiceToggleAllOffers() {
-  var fresh = PO.list.filter(function (o) { return o.status === '새로'; });
+  var fresh = practiceOfferVisible();
   var all = fresh.length && fresh.every(function (o) { return PO.picked[o.id]; });
   fresh.forEach(function (o) {
     if (all) delete PO.picked[o.id]; else PO.picked[o.id] = true;
@@ -490,10 +557,10 @@ function practiceToggleAllOffers() {
 function practicePaintOfferBtn() {
   var allBtn = document.getElementById('prac-offer-all');
   if (allBtn) {
-    var fresh = PO.list.filter(function (o) { return o.status === '새로'; });
-    var all = fresh.length && fresh.every(function (o) { return PO.picked[o.id]; });
-    allBtn.textContent = all ? '전체 해제' : '전체 선택';
-    allBtn.setAttribute('aria-pressed', all ? 'true' : 'false');
+    var fresh = practiceOfferVisible();
+    var some = fresh.filter(function (o) { return PO.picked[o.id]; }).length;
+    allBtn.checked = fresh.length > 0 && some === fresh.length;
+    allBtn.indeterminate = some > 0 && some < fresh.length;
   }
   var btn = document.getElementById('prac-offer-add');
   if (!btn) return;

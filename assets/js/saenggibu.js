@@ -1697,6 +1697,7 @@ function sgTextOf(i) {
 function toggleSgPick(i) {
   if (sgPicked[i]) delete sgPicked[i]; else sgPicked[i] = true;
   sgPaintItem(i);
+  sgPaintAllBtn();
   paintSgRail();
   paintSgFoot();
 }
@@ -1902,7 +1903,11 @@ function sgMainHTML(g, groups) {
 
   // 질문
   html += '<p class="sg-rlabel">질문 <span class="sg-len">' +
-            (ranked.length ? ranked.length + '개 뽑음' : '못 뽑음') + '</span></p>' +
+            (ranked.length ? ranked.length + '개 뽑음' : '못 뽑음') + '</span>' +
+            // 이 묶음의 뽑은 질문을 한꺼번에 체크(2026-10-07). 직접 적는 칸은 빼고
+            (ranked.length ? '<label class="sg-allbtn"><input type="checkbox" id="sg-allbtn" onchange="sgToggleAllInGroup()"' +
+              (sgAllPicked(g) ? ' checked' : '') + '>이 묶음 전체 선택</label>' : '') +
+          '</p>' +
           '<div class="sg-list">' + shown.map(sgItemHTML).join('');
   if (hidden > 0) {
     html += '<button class="sg-more" onclick="toggleSgMore(\'' + g.key.replace(/'/g, "\\'") + '\')">' +
@@ -1913,6 +1918,43 @@ function sgMainHTML(g, groups) {
   if (g.blank) html += sgBlankHTML(g.blank);
   html += '</div>';
   return html;
+}
+
+// ── 이 묶음 전체 선택 ↔ 전체 해제 (2026-10-07 선생님 말씀) ──
+// 뽑은 질문만 고릅니다(직접 적는 칸은 빼고). 「더 보기」 뒤에 숨은 것까지 고르므로, 숨은 게 있으면
+// 펼쳐서 다 보이게 합니다 — 안 보이는 것이 몰래 체크되면 헷갈립니다. 펼칠 때는 읽던 자리를 지킵니다.
+function sgAllPicked(g) {
+  return !!(g && g.items.length) && g.items.every(function (x) { return sgPicked[x.i]; });
+}
+function sgToggleAllInGroup() {
+  var groups = sgGroupList();
+  var g = groups[sgCur];
+  if (!g || !g.items.length) return;
+  var all = sgAllPicked(g);
+  g.items.forEach(function (x) { if (all) delete sgPicked[x.i]; else sgPicked[x.i] = true; });
+  var needOpen = !all && !sgMore[g.key] && g.items.length > SG_MAX_SHOW;
+  if (needOpen) {
+    sgMore[g.key] = true;
+    var main = document.querySelector('.sg-main');
+    var top = main ? main.scrollTop : 0;
+    renderSaenggibu();
+    main = document.querySelector('.sg-main');
+    if (main) main.scrollTop = top;
+    sgPaintAllBtn();
+  } else {
+    g.items.forEach(function (x) { sgPaintItem(x.i); });
+    sgPaintAllBtn();
+    paintSgRail();
+    paintSgFoot();
+  }
+}
+function sgPaintAllBtn() {
+  var box = document.getElementById('sg-allbtn');
+  if (!box) return;
+  var g = sgGroupList()[sgCur];
+  var some = g ? g.items.filter(function (x) { return sgPicked[x.i]; }).length : 0;
+  box.checked = !!g && g.items.length > 0 && some === g.items.length;
+  box.indeterminate = some > 0 && g && some < g.items.length;   // 몇 개만 고르면 «−»
 }
 
 // 질문이 가리키는 구절(topic)에 <mark> 를 입힙니다. 긴 구절부터, 한 번씩만.
@@ -1991,6 +2033,15 @@ function paintSgFoot() {
   }
 }
 
+// 받은 질문을 학생이 학년·영역으로 나눠 보도록 어디서 나온 질문인지 같이 보냅니다(2026-10-07).
+//   창체 → 자율활동·동아리활동·봉사활동·진로활동 (갈래를 모르면 '창체')
+//   세특 → area '세특' + subject 과목 이름 / 행특 → '행특'
+function sgOfferWhere(q) {
+  if (q.area === 'sesa') return { area: '세특', subject: (q.subject && q.subject !== SG_NO_SUBJECT) ? q.subject : '' };
+  if (q.area === 'haengteuk') return { area: '행특', subject: '' };
+  return { area: SG_AREAS.indexOf(q.subject) > -1 ? q.subject : '창체', subject: '' };
+}
+
 // ⚠️ 학생 앱(/)과 선생님 화면(/teacher/)은 주소가 같아서, 한 브라우저에서는 로그인을 «하나만» 기억합니다.
 //    선생님 화면을 열어 둔 채 다른 탭에서 학생으로 로그인하면, 이 탭의 요청도 학생으로 나갑니다.
 //    2026-10-07 실제 시험에서 이렇게 «new row violates row-level security policy» 가 떴습니다
@@ -2029,9 +2080,11 @@ async function sendSaenggibuPicks() {
     var q = sgFound[i];
     var text = sgTextOf(i).trim();
     if (!text) return;
+    var where = sgOfferWhere(q);
     rows.push({ school_id: SCHOOL_ID, student_id: target.id,
                 teacher_id: me.id, teacher_name: (me && me.name) || '',
                 grade: (q.grade >= 1 && q.grade <= 3) ? String(q.grade) : '공통',
+                area: where.area, subject: where.subject,
                 question: text });
   });
   if (!rows.length) return;
