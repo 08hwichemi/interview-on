@@ -171,5 +171,10 @@
 .sg-foot-btns{display:flex;gap:8px;flex-wrap:wrap}
 .sg-foot-btns .btn{flex:1 1 180px}
 .sg-foot[hidden]{display:none!important}
-/* 담아 둔 질문 — 체크한 것과 구별되게 꼬리표를 붙입니다 */
-.sg-item.kept .sg-meta::after{content:' · 담아 둠';color:var(--ink);font-weight:800}
+/* 학생에게 보낸 질문 — 꼬리표를 붙여 두 번 보내지 않게 */
+.sg-item.sent .sg-meta::after{content:' · 학생에게 보냄';color:var(--ink);font-weight:800}
+/* 질문 머리줄 오른쪽 «전체 선택» — 이 묶음의 뽑은 질문을 한꺼번에 */
+.sg-allbtn{margin-left:auto;display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  font-size:12px;font-weight:800;letter-spacing:.02em;color:var(--ink)}
+.sg-allbtn input{width:15px;height:15px;margin:0;accent-color:var(--ink);cursor:pointer}
+.sg-rlabel:has(.sg-allbtn){align-items:center}

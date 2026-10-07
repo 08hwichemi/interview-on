@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-10-06.1">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-10-07.7">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-06.1">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-06.1">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-06.1">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-06.1">
-  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-06.1">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-06.1">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-07.7">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-07.7">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-07.7">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-07.7">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-07.7">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-07.7">
 </head>
 <body>
 
@@ -274,12 +274,12 @@
 
           <div class="sg-body" id="sg-body"></div>
 
-          <!-- 단추 둘 — «담아 두기» 는 화면에 남고, «올리기» 는 묻고 나서 닫습니다.
-               (단추 하나가 바로 닫혀서 하나만 고르고 눌러 버리는 분이 많았습니다 — 2026-10-05) -->
+          <!-- 단추 둘 — «학생에게 보내기» 는 답안 연습장 «받은 질문» 으로 보내고 화면에 남습니다.
+               «올리기» 는 오늘 면접 질문지로, 묻고 나서 닫습니다. (담아 두기는 안 쓰셔서 뺐습니다 — 2026-10-07) -->
           <div class="sg-foot" id="sg-foot" hidden>
-            <p class="sg-foot-note" id="sg-foot-note">질문을 체크하고 「담아 두기」를 누르세요. 화면은 그대로 남습니다.</p>
+            <p class="sg-foot-note" id="sg-foot-note">체크한 질문을 학생 답안 연습장으로 보내거나, 오늘 면접의 「낼 질문」으로 올립니다.</p>
             <div class="sg-foot-btns">
-              <button class="btn" id="sg-keep" onclick="keepSaenggibuPicks()" disabled>담아 두기</button>
+              <button class="btn" id="sg-send" onclick="sendSaenggibuPicks()" disabled>학생에게 보내기</button>
               <button class="btn solid" id="sg-add" onclick="addSaenggibuPicks()" disabled>「낼 질문」으로 올리기</button>
             </div>
           </div>
@@ -556,20 +556,20 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-10-06.1"></script>
-<script src="../assets/js/update-bar.js?v=2026-10-06.1"></script>
-<script src="../assets/js/utils.js?v=2026-10-06.1"></script>
-<script src="../assets/js/api.js?v=2026-10-06.1"></script>
-<script src="../assets/js/browse.js?v=2026-10-06.1"></script>
-<script src="../assets/js/reviews.js?v=2026-10-06.1"></script>
-<script src="../assets/js/questions.js?v=2026-10-06.1"></script>
-<script src="../assets/js/report.js?v=2026-10-06.1"></script>
-<script src="../assets/js/chat.js?v=2026-10-06.1"></script>
-<script src="../assets/js/practice.js?v=2026-10-06.1"></script>
-<script src="../assets/js/notice.js?v=2026-10-06.1"></script>
-<script src="../assets/js/admin-notice.js?v=2026-10-06.1"></script>
-<script src="../assets/js/teacher-app.js?v=2026-10-06.1"></script>
-<script src="../assets/js/saenggibu.js?v=2026-10-06.1"></script>
+<script src="../assets/js/config.js?v=2026-10-07.7"></script>
+<script src="../assets/js/update-bar.js?v=2026-10-07.7"></script>
+<script src="../assets/js/utils.js?v=2026-10-07.7"></script>
+<script src="../assets/js/api.js?v=2026-10-07.7"></script>
+<script src="../assets/js/browse.js?v=2026-10-07.7"></script>
+<script src="../assets/js/reviews.js?v=2026-10-07.7"></script>
+<script src="../assets/js/questions.js?v=2026-10-07.7"></script>
+<script src="../assets/js/report.js?v=2026-10-07.7"></script>
+<script src="../assets/js/chat.js?v=2026-10-07.7"></script>
+<script src="../assets/js/practice.js?v=2026-10-07.7"></script>
+<script src="../assets/js/notice.js?v=2026-10-07.7"></script>
+<script src="../assets/js/admin-notice.js?v=2026-10-07.7"></script>
+<script src="../assets/js/teacher-app.js?v=2026-10-07.7"></script>
+<script src="../assets/js/saenggibu.js?v=2026-10-07.7"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);

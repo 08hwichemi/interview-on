@@ -55,7 +55,7 @@ async function 열기(b, viewport, fake) {
       created_at: '2026-09-20T02:00:00Z', updated_at: '2026-09-20T02:00:00Z' }
   ];
 
-  console.log('\n── 학생 화면 — 엑셀로 저장 · 인쇄 ──');
+  console.log('\n── 학생 화면 — xlsx 저장 · 인쇄 (단추 이름은 2026-10-07 에 «xlsx 저장» 으로 줄임) ──');
   {
     const { ctx, p, errs } = await 열기(b, { width: 420, height: 900 }, {
       profile: { id: 'u1', role: 'student', name: '고다윤', login_id: '30101' },
@@ -73,7 +73,7 @@ async function 열기(b, viewport, fake) {
 
     const [dl] = await Promise.all([
       p.waitForEvent('download'),
-      p.click('.prac-export button:has-text("엑셀로 저장")')
+      p.click('.prac-export button:has-text("xlsx 저장")')
     ]);
     const 이름 = await p.evaluate(() => window.__dlName);
     확인('파일 이름에 학생 이름이 들어가는가', /고다윤.*\.xlsx$/.test(이름), 이름);

@@ -20,7 +20,16 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
         profiles: [{ id: 'u1', role: 'student', name: '고다윤', login_id: '30101',
                      school_id: '9bf9d65d-9cb0-428b-90a5-0c4b868dc40c', must_change_password: false }],
         students: [{ id: 's1', student_no: '30101', name: '고다윤', auth_user_id: 'u1', grade: 3 }],
-        reviews: [], questions: [], practice_categories: [], practice_answers: [], practice_comments: []
+        reviews: [], questions: [], practice_categories: [], practice_answers: [], practice_comments: [],
+        // 선생님이 생기부에서 뽑아 보낸 질문 (받은 질문)
+        practice_offers: [
+          { id: 'o1', student_id: 's1', grade: '3', area: '동아리', subject: '', status: '새로', teacher_name: '이용휘', created_at: '2026-10-07T01:00:00Z',
+            question: '3학년 동아리활동에서 「이차전지의 환경오염」에 의문을 품었다고 적혀 있습니다. 무엇이 궁금했고, 어떻게 확인했나요?' },
+          { id: 'o2', student_id: 's1', grade: '1', area: '자율', subject: '', status: '새로', teacher_name: '이용휘', created_at: '2026-10-07T00:59:00Z',
+            question: '1학년 자율활동에서 「우리 반 생활 협약」을 사람들과 함께했다고 기록되어 있습니다.' },
+          { id: 'o3', student_id: 's1', grade: '2', area: '과세특', subject: '화학Ⅰ', status: '새로', teacher_name: '이용휘', created_at: '2026-10-07T00:58:00Z',
+            question: '2학년 화학Ⅰ 시간에 「산-염기 중화 반응」 실험을 했다고 기록되어 있습니다.' }
+        ]
       }
     };
   });
@@ -180,6 +189,114 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   확인('그 카드로 필터가 좁혀졌는가(창체 한 장만)',
        await p.evaluate(() => document.querySelectorAll('#prac-write-list .prac-card').length === 1));
   확인('그 카드 안에 편집 칸이 있는가', await p.evaluate(() => !!document.querySelector('#prac-write-list textarea')));
+
+  console.log('\n── 받은 질문 — 선생님이 보낸 질문을 골라 넣기 ──');
+  const 받은 = () => 표(p, 'practice_offers');
+  const 단추들 = await p.$$eval('#screen-practice .prac-export button', es => es.map(e => e.textContent.trim()));
+  확인('단추가 «받은 질문 · xlsx 저장 · 인쇄» 차례인가',
+       단추들.length === 3 && 단추들[0].indexOf('받은 질문') > -1 && 단추들[1].indexOf('xlsx 저장') > -1 && 단추들[2].indexOf('인쇄') > -1, 단추들.join(' | '));
+  await p.setViewportSize({ width: 360, height: 800 }); await p.waitForTimeout(150);
+  확인('좁은 휴대폰(360px)에서도 세 단추가 한 줄에 들어가는가(옆으로 안 넘침)',
+       await p.$eval('#screen-practice .prac-export', e => e.scrollWidth <= e.clientWidth + 1 &&
+         [...e.children].every(c => c.scrollWidth <= c.clientWidth + 1)));
+  await p.setViewportSize({ width: 420, height: 900 }); await p.waitForTimeout(150);
+  확인('받은 질문 단추에 새로 받은 수(3)가 붙는가', (await p.textContent('#prac-offer-badge')) === '3' && !(await p.$eval('#prac-offer-badge', e => e.hidden)));
+  확인('홈의 답안 연습장 숫자에도 들어가는가', (await p.textContent('#practice-badge')) === '3');
+
+  await p.click('.prac-offer-btn'); await p.waitForTimeout(300);
+  확인('휴대폰에서 받은 질문 창이 화면 높이의 80% 넘게 쓰는가',
+       await p.$eval('.prac-offer-modal', e => e.getBoundingClientRect().height > window.innerHeight * 0.8));
+  확인('받은 질문 창이 뜨는가', await p.evaluate(() => document.getElementById('prac-offer-overlay').style.display === 'flex'));
+  확인('받은 질문 3개가 체크칸과 함께 보이는가', (await p.$$('#prac-offer-list .prac-offer input[type="checkbox"]')).length === 3);
+  확인('처음엔 «넣기» 단추가 쉬는가', await p.$eval('#prac-offer-add', e => e.disabled));
+  // 학년 · 영역(· 과목) 머리줄로 나뉘고, 1학년부터 차례로
+  const 머리 = await p.$$eval('#prac-offer-list .prac-offer-group', es => es.map(e => e.textContent));
+  확인('학년·영역 머리줄로 나뉘는가 (1학년 자율 → 2학년 과세특 → 3학년 동아리)',
+       머리.length === 3 && /^1학년 · 자율 /.test(머리[0]) && /^2학년 · 과세특 /.test(머리[1]) && /^3학년 · 동아리 /.test(머리[2]), 머리.join(' | '));
+  확인('과목 이름은 머리줄이 아니라 카드 안에 적히는가', (await p.textContent('.prac-offer[data-id="o3"] .prac-offer-foot')).indexOf('화학Ⅰ · 이용휘 선생님') === 0);
+  확인('보낸 선생님이 보이는가', (await p.textContent('#prac-offer-list .prac-offer >> nth=0')).indexOf('이용휘 선생님') > -1);
+  // 학년 칩 · 영역 칩으로 골라 보기
+  const 칩 = await p.$$eval('.prac-offer-filter .prac-chip', es => es.map(e => e.textContent.trim()));
+  확인('받은 것에 있는 학년·영역만 칩으로 뜨는가', 칩.join() === '1학년,2학년,3학년,자율,동아리,과세특', 칩.join());
+  await p.click('.prac-offer-filter .prac-chip:has-text("과세특")'); await p.waitForTimeout(100);
+  확인('영역 칩(과세특)을 누르면 그것만 보이는가', (await p.$$('#prac-offer-list .prac-offer:not(.gone)')).length === 1 &&
+       (await p.textContent('.prac-offer-bar')).indexOf('골라 본 질문 1개 / 전체 3개') > -1);
+  await p.click('#prac-offer-all'); await p.waitForTimeout(100);
+  확인('골라 보는 중 «전체 선택» 은 보이는 것만 고르는가', (await p.textContent('#prac-offer-add')) === '고른 1개 넣기');
+  await p.click('#prac-offer-all'); await p.waitForTimeout(100);
+  await p.click('.prac-offer-filter .prac-chip:has-text("과세특")'); await p.waitForTimeout(100);
+  await p.click('.prac-offer-filter .prac-chip:has-text("3학년")'); await p.waitForTimeout(100);
+  확인('학년 칩(3학년)을 누르면 3학년 것만 보이는가', (await p.$$('#prac-offer-list .prac-offer:not(.gone)')).length === 1 &&
+       (await p.textContent('#prac-offer-list .prac-offer-group')).indexOf('3학년') === 0);
+  await p.click('.prac-offer-filter .prac-chip:has-text("3학년")'); await p.waitForTimeout(100);
+  확인('칩을 다 풀면 다시 전부 보이는가', (await p.$$('#prac-offer-list .prac-offer:not(.gone)')).length === 3);
+
+  // 전체 선택 ↔ 전체 해제
+  await p.click('#prac-offer-all'); await p.waitForTimeout(100);
+  확인('«전체 선택» 을 누르면 셋 다 체크되는가', (await p.$$('#prac-offer-list .prac-offer input:checked')).length === 3 &&
+       (await p.textContent('#prac-offer-add')) === '고른 3개 넣기');
+  확인('«전체 선택» 체크칸이 켜지는가', await p.$eval('#prac-offer-all', e => e.checked && !e.indeterminate));
+  await p.click('#prac-offer-all'); await p.waitForTimeout(100);
+  확인('한 번 더 누르면 다 풀리는가', (await p.$$('#prac-offer-list .prac-offer input:checked')).length === 0 &&
+       await p.$eval('#prac-offer-add', e => e.disabled) && await p.$eval('#prac-offer-all', e => !e.checked));
+
+  await p.click('#prac-offer-list .prac-offer[data-id="o1"] .prac-offer-pick');
+  await p.click('#prac-offer-list .prac-offer[data-id="o2"] .prac-offer-pick'); await p.waitForTimeout(100);
+  확인('여러 개 고를 수 있는가 (고른 2개 넣기)', (await p.textContent('#prac-offer-add')) === '고른 2개 넣기');
+  확인('몇 개만 고르면 전체 선택이 «일부» 표시(−)인가', await p.$eval('#prac-offer-all', e => !e.checked && e.indeterminate));
+  await p.click('#prac-offer-list .prac-offer[data-id="o3"] .prac-offer-skip'); await p.waitForTimeout(300);
+  확인('「안 쓸래요」 를 누르면 안씀 표시가 되는가', (await 받은()).find(r => r.id === 'o3').status === '안씀');
+  확인('치운 것은 아래 «안 쓰기로 한 것» 으로 가는가', (await p.textContent('.prac-offer-old summary')).indexOf('안 쓰기로 한 것 1개') > -1);
+  확인('치워도 고른 두 개는 그대로인가', (await p.textContent('#prac-offer-add')) === '고른 2개 넣기');
+
+  var before = (await 표(p, 'practice_answers')).length;
+  await p.click('#prac-offer-add'); await p.waitForTimeout(500);
+  확인('넣으면 창이 닫히는가', await p.evaluate(() => document.getElementById('prac-offer-overlay').style.display === 'none'));
+  var 넣은 = (await 표(p, 'practice_answers')).filter(r => r.category === '선생님 질문');
+  확인('고른 두 개가 «선생님 질문» 카드로 들어가는가', 넣은.length === 2 && (await 표(p, 'practice_answers')).length === before + 2, JSON.stringify(넣은.map(r => r.grade)));
+  확인('학년은 질문이 나온 학년인가 (3 · 1)', 넣은.map(r => r.grade).sort().join() === '1,3');
+  확인('답은 비어 있는가', 넣은.every(r => r.answer === ''));
+  확인('받은 질문은 «넣음» 이 되는가', (await 받은()).filter(r => r.status === '넣음').length === 2);
+  확인('창체로 좁혀 둔 필터가 풀려서 새 카드가 보이는가',
+       await p.evaluate(() => [...document.querySelectorAll('#prac-write-list .prac-card')].filter(c => c.textContent.indexOf('선생님 질문') > -1).length === 2));
+  확인('빨간 숫자가 사라지는가', await p.$eval('#prac-offer-badge', e => e.hidden));
+
+  // 질문 글자는 «쓴 것들» 카드에서 고칩니다. 받은 원문은 그대로
+  const 카드 = p.locator('#prac-write-list .prac-card', { hasText: '이차전지' }).first();
+  await 카드.locator('.prac-q-input').fill('이차전지 폐기 문제를 왜 궁금해했나요?');
+  await 카드.locator('.prac-q-input').blur(); await p.waitForTimeout(400);
+  확인('카드에서 질문 글자를 고칠 수 있는가', (await 표(p, 'practice_answers')).some(r => r.question === '이차전지 폐기 문제를 왜 궁금해했나요?'));
+  확인('받은 질문의 원래 글은 그대로인가', (await 받은()).find(r => r.id === 'o1').question.indexOf('3학년 동아리활동에서') === 0);
+
+  await p.click('.prac-offer-btn'); await p.waitForTimeout(300);
+  확인('다 넣으면 «다 골랐습니다» 가 뜨는가', (await p.textContent('#prac-offer-list')).indexOf('다 골랐습니다') > -1);
+  확인('넣은 것 2개 · 안 쓰기로 한 것 1개', (await p.textContent('.prac-offer-old summary')).indexOf('넣은 것 2개 · 안 쓰기로 한 것 1개') > -1);
+  await p.click('.prac-offer-old summary');
+  await p.click('.prac-offer.gone .prac-offer-skip:has-text("다시 보기")'); await p.waitForTimeout(300);
+  확인('«다시 보기» 로 치운 것을 되살리는가', (await 받은()).find(r => r.id === 'o3').status === '새로' &&
+       (await p.$$('#prac-offer-list .prac-offer input[type="checkbox"]')).length === 1);
+  확인('되살리면 빨간 숫자가 1 이 되는가', (await p.textContent('#prac-offer-badge')) === '1');
+
+  // 삭제 — 체크한 것 한꺼번에 / 카드마다. 이미 넣은 연습장 카드는 그대로
+  확인('고른 게 없으면 삭제 단추가 숨는가', await p.$eval('#prac-offer-del', e => e.hidden));
+  await p.click('#prac-offer-list .prac-offer[data-id="o3"] .prac-offer-pick'); await p.waitForTimeout(100);
+  확인('체크하면 «1개 삭제» 단추가 뜨는가', (await p.textContent('#prac-offer-del')) === '1개 삭제' && !(await p.$eval('#prac-offer-del', e => e.hidden)));
+  await p.click('#prac-offer-del'); await p.waitForTimeout(300);
+  확인('체크한 질문이 받은 질문에서 지워지는가', !(await 받은()).some(r => r.id === 'o3'), (await 받은()).map(r => r.id).join());
+  확인('지우면 빨간 숫자도 사라지는가', await p.$eval('#prac-offer-badge', e => e.hidden));
+  const 카드수 = (await 표(p, 'practice_answers')).length;
+  확인('«다시 보기»·삭제로 목록을 다시 그려도 열어 둔 칸이 그대로 열려 있는가', await p.$eval('.prac-offer-old', e => e.open));
+  await p.click('.prac-offer.gone >> nth=0 >> .prac-offer-skip.del'); await p.waitForTimeout(300);
+  확인('넣은 질문도 카드마다 «삭제» 로 지워지는가', (await 받은()).length === 1, (await 받은()).map(r => r.id).join());
+  확인('지운 뒤에도 접이식 칸이 안 닫히는가', await p.$eval('.prac-offer-old', e => e.open));
+  확인('이미 넣은 연습장 카드는 그대로 남는가', (await 표(p, 'practice_answers')).length === 카드수);
+  await p.click('#prac-offer-overlay .close-btn');
+  await p.setViewportSize({ width: 1400, height: 900 }); await p.waitForTimeout(150);
+  await p.click('.prac-offer-btn'); await p.waitForTimeout(300);
+  const 크기 = await p.$eval('.prac-offer-modal', e => { const r = e.getBoundingClientRect(); return { w: r.width / innerWidth, h: r.height / innerHeight }; });
+  확인('넓은 화면에서는 창 너비의 약 72%·높이의 약 82% 로 커지는가', 크기.w > 0.68 && 크기.w < 0.76 && 크기.h > 0.78, JSON.stringify(크기));
+  await p.click('#prac-offer-overlay .close-btn');
+  await p.setViewportSize({ width: 420, height: 900 }); await p.waitForTimeout(150);
 
   확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
   await b.close();

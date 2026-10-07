@@ -14,7 +14,9 @@
 // 학생 앱(index.html)과 교사 화면(teacher/index.html)이 함께 씁니다.
 // esc() · SCHOOL_ID 는 report.js · config.js 가 먼저 실어 둡니다.
 
-var PRACTICE_FIXED_CATS = ['인성', '자율', '진로', '동아리', '세특', '행발'];
+// «선생님 질문» — 선생님이 생기부에서 뽑아 보낸 질문을 학생이 «받은 질문» 에서 골라 넣으면 이 분류가 됩니다.
+var PRACTICE_OFFER_CAT = '선생님 질문';
+var PRACTICE_FIXED_CATS = ['인성', '자율', '진로', '동아리', '세특', '행발', PRACTICE_OFFER_CAT];
 var PRACTICE_GRADES = ['공통', '1', '2', '3'];
 
 function practiceWhen(a) {
@@ -351,15 +353,21 @@ async function practiceRefreshBadge() {
   var comments = data || [];
   await practiceLoadCommentReads();
   practiceUnreadCount = comments.filter(function (c) { return !practiceCommentReads[c.id]; }).length;
+  await practiceCountNewOffers();   // 선생님이 보낸 질문 가운데 아직 안 고른 것 — 같은 때 한 번만 셉니다
   practicePaintBadge();
 }
 
 var practiceUnreadCount = 0;
+// 홈의 «답안 연습장» 숫자 = 안 읽은 코멘트 + 새로 받은 질문
 function practicePaintBadge() {
   var el = document.getElementById('practice-badge');
-  if (!el) return;
-  el.textContent = practiceUnreadCount;
-  el.hidden = practiceUnreadCount === 0;
+  if (el) {
+    var n = practiceUnreadCount + practiceNewOfferCount;
+    el.textContent = n;
+    el.hidden = n === 0;
+  }
+  var ob = document.getElementById('prac-offer-badge');
+  if (ob) { ob.textContent = practiceNewOfferCount; ob.hidden = practiceNewOfferCount === 0; }
 }
 
 var practiceWatchOn = false;
@@ -371,6 +379,277 @@ function practiceWatchComments() {
   var recheck = throttleRefresh(practiceRefreshBadge, 5 * 60 * 1000);
   document.addEventListener('visibilitychange', recheck);
   recheck();
+}
+
+// ══════════════ 받은 질문 — 선생님이 생기부에서 뽑아 보낸 질문 (2026-10-07) ══════════════
+//
+// 선생님 말씀: 선생님이 생기부로 뽑은 질문을 학생에게 보내되, 다 쓰게 할 필요는 없고 학생이 골라서
+// 답을 써 보게. 고른 뒤에는 고쳐 쓸 수도 있게.
+//   · 선생님은 생기부 화면의 「학생에게 보내기」로 practice_offers 에 넣습니다(같은 질문은 하나만)
+//   · 학생은 「📥 받은 질문」 창에서 여러 개 체크 → 「고른 N개 넣기」 → «쓴 것들» 맨 위에 «선생님 질문» 카드
+//   · 카드는 학생이 직접 만드는 practice_answers 줄이라, 질문 글자도 거기서 고칩니다(받은 원문은 그대로 남음)
+//   · 안 쓸 질문은 「안 쓸래요」로 치웁니다. 치운 것은 창 아래에서 다시 꺼낼 수 있습니다
+// 서버 요청: 앱을 열 때 숫자 세기 1번(코멘트와 같은 때) · 창을 열 때 1번 · 넣거나 치울 때 1~2번.
+// 주기 확인은 두지 않습니다(Supabase 무료 요금제 — docs/할-일.md «Supabase 로그 줄이기»).
+var practiceNewOfferCount = 0;
+var PO = { list: [], picked: {} };      // 창을 연 동안의 받은 질문 · 체크한 것
+
+async function practiceCountNewOffers() {
+  const { data, error } = await sb.from('practice_offers').select('id').eq('status', '새로');
+  if (error) return;     // 표가 없거나 막혀도 연습장은 그대로 씁니다
+  practiceNewOfferCount = (data || []).length;
+}
+
+async function practiceOpenOffers() {
+  var overlay = document.getElementById('prac-offer-overlay');
+  var box = document.getElementById('prac-offer-list');
+  if (!overlay || !box) return;
+  PO = { list: [], picked: {} };
+  box.innerHTML = '<p class="prac-empty">불러오는 중...</p>';
+  overlay.style.display = 'flex';
+  const { data, error } = await sb.from('practice_offers')
+    .select('id, grade, area, subject, question, status, teacher_name, created_at')
+    .order('created_at', { ascending: false });
+  if (error) { box.innerHTML = '<p class="prac-empty">받은 질문을 불러오지 못했습니다.</p>'; return; }
+  PO.list = data || [];
+  practiceNewOfferCount = PO.list.filter(function (o) { return o.status === '새로'; }).length;
+  practicePaintBadge();
+  practicePaintOffers();
+}
+function practiceCloseOffers() {
+  document.getElementById('prac-offer-overlay').style.display = 'none';
+}
+
+function practiceOfferGradeText(g) { return (g && g !== '공통') ? g + '학년' : '공통'; }
+
+// ── 학년·영역으로 나눠 보기 (2026-10-07 선생님 말씀) ──
+// 선생님은 생기부를 묶음(학년 × 자율·동아리·진로·과목·행특)별로 보며 보냅니다. 받는 쪽도 그렇게 나뉘어 보이고,
+// 그것만 골라 볼 수 있게 합니다. 칩은 연습장 필터와 같은 방식 — 여러 개 고를 수 있고, 안 고르면 전부.
+// 영역 칩·학년 칩은 «받은 것에 실제로 있는 것» 만 보입니다.
+// 영역은 자율 · 동아리 · 봉사 · 진로 · 과세특 · 개세특 · 행발. 세특 과목은 묶지 않고 카드 안에만 적습니다
+// (과목마다 묶었더니 묶음이 과목 수만큼 생겼습니다 — 2026-10-07 선생님 말씀).
+var PO_GRADE_ORDER = ['1', '2', '3', '공통'];
+var PO_AREA_ORDER = ['자율', '동아리', '봉사', '진로', '과세특', '개세특', '행발', '창체', ''];
+// 잠깐 썼던 옛 이름도 새 이름으로 읽습니다(서버 자료는 2026-10-07 에 옮겼습니다)
+var PO_AREA_OLD = { '자율활동': '자율', '동아리활동': '동아리', '봉사활동': '봉사', '진로활동': '진로', '행특': '행발' };
+var POF = { grades: [], areas: [] };   // 받은 질문 창의 칩 — 창을 닫았다 열어도 그대로
+
+function practiceOfferArea(o) {
+  var a = o.area || '';
+  if (PO_AREA_OLD[a]) return PO_AREA_OLD[a];
+  if (a === '세특') return /^개인별/.test(o.subject || '') ? '개세특' : '과세특';
+  return a;
+}
+function practiceOfferAreaText(a) { return a || '영역 모름'; }
+function practiceOfferGroupKey(o) { return (o.grade || '공통') + '|' + practiceOfferArea(o); }
+function practiceOfferGroupText(o) {
+  return practiceOfferGradeText(o.grade) + ' · ' + practiceOfferAreaText(practiceOfferArea(o));
+}
+function practiceOfferSort(list) {
+  return list.slice().sort(function (x, y) {
+    return (PO_GRADE_ORDER.indexOf(x.grade) - PO_GRADE_ORDER.indexOf(y.grade)) ||
+           (PO_AREA_ORDER.indexOf(practiceOfferArea(x)) - PO_AREA_ORDER.indexOf(practiceOfferArea(y))) ||
+           String(x.subject || '').localeCompare(String(y.subject || '')) ||   // 과세특 안에서는 과목끼리 붙여 둡니다
+           String(x.created_at).localeCompare(String(y.created_at)) ||
+           String(x.question).localeCompare(String(y.question));
+  });
+}
+function practiceOfferFresh() { return PO.list.filter(function (o) { return o.status === '새로'; }); }
+// 칩에 걸리는(지금 보이는) 새 질문
+function practiceOfferVisible() {
+  return practiceOfferFresh().filter(function (o) {
+    return practiceMatchFilter(o.grade, POF.grades) &&
+           (!POF.areas.length || POF.areas.indexOf(practiceOfferAreaText(practiceOfferArea(o))) > -1);
+  });
+}
+function practiceOfferToggleGrade(g) { practiceToggleIn(POF.grades, g); practicePaintOffers(); }
+function practiceOfferToggleArea(a) { practiceToggleIn(POF.areas, a); practicePaintOffers(); }
+
+function practicePaintOffers() {
+  var box = document.getElementById('prac-offer-list');
+  var fresh = practiceOfferFresh();
+  var done = PO.list.filter(function (o) { return o.status === '넣음'; });
+  var off = PO.list.filter(function (o) { return o.status === '안씀'; });
+  // 받은 것에 없는 학년·영역을 골라 둔 채면 칩을 풉니다(다 넣어서 사라졌을 때 등)
+  var gradesHere = PO_GRADE_ORDER.filter(function (g) { return fresh.some(function (o) { return (o.grade || '공통') === g; }); });
+  var areasHere = PO_AREA_ORDER.filter(function (a) { return fresh.some(function (o) { return practiceOfferArea(o) === a; }); })
+                               .map(practiceOfferAreaText);
+  POF.grades = POF.grades.filter(function (g) { return gradesHere.indexOf(g) > -1; });
+  POF.areas = POF.areas.filter(function (a) { return areasHere.indexOf(a) > -1; });
+
+  var html = '';
+  if (!PO.list.length) {
+    html = '<p class="prac-empty">아직 선생님이 보낸 질문이 없습니다.</p>';
+  } else if (!fresh.length) {
+    html = '<p class="prac-empty">새로 받은 질문은 다 골랐습니다.</p>';
+  } else {
+    var visible = practiceOfferSort(practiceOfferVisible());
+    html = '<p class="prac-hint">쓰고 싶은 질문을 골라 「넣기」를 누르면 «쓴 것들» 맨 위에 들어갑니다. ' +
+           '질문 글자는 거기서 고쳐 써도 됩니다. 다 쓸 필요는 없습니다.</p>';
+    // 학년·영역 칩 — 받은 것에 있는 것만. 하나뿐이어도 보여 줍니다(어느 영역 질문인지 한눈에 보이게)
+    if (gradesHere.length || areasHere.length) {
+      html += '<div class="prac-offer-filter">' +
+        (gradesHere.length ? '<div class="prac-offer-frow"><span class="prac-offer-flabel">학년</span><div class="prac-chips">' +
+          gradesHere.map(function (g) {
+            var on = POF.grades.indexOf(g) > -1;
+            return '<button class="prac-chip" aria-pressed="' + on + '" onclick="practiceOfferToggleGrade(\'' + g + '\')">' +
+                   esc(practiceOfferGradeText(g)) + '</button>';
+          }).join('') + '</div></div>' : '') +
+        (areasHere.length ? '<div class="prac-offer-frow"><span class="prac-offer-flabel">영역</span><div class="prac-chips">' +
+            practiceFilterChipsHTML(areasHere, POF.areas, 'practiceOfferToggleArea') + '</div></div>' : '') +
+        '</div>';
+    }
+    // 전체 선택 — 지금 보이는 것만 고릅니다
+    var narrowed = POF.grades.length || POF.areas.length;
+    // ⚠️ 처음엔 오른쪽 끝의 작은 단추였는데 «별로» 라는 말씀(2026-10-07). 질문 체크칸과 같은 줄에 맞춘
+    //    체크칸으로 바꿨습니다 — 몇 개만 고르면 «−» (일부) 표시가 됩니다.
+    html += '<label class="prac-offer-bar"><input type="checkbox" id="prac-offer-all" onchange="practiceToggleAllOffers()">' +
+              '<b>전체 선택</b><span>' + (narrowed ? '골라 본 질문 ' : '새로 받은 질문 ') + visible.length + '개' +
+              (narrowed ? ' / 전체 ' + fresh.length + '개' : '') + '</span></label>';
+    // 학년 · 영역 · 과목 묶음마다 머리줄
+    var lastKey = null;
+    visible.forEach(function (o) {
+      var key = practiceOfferGroupKey(o);
+      if (key !== lastKey) {
+        var n = visible.filter(function (x) { return practiceOfferGroupKey(x) === key; }).length;
+        html += '<p class="prac-offer-group">' + esc(practiceOfferGroupText(o)) + ' <span>' + n + '개</span></p>';
+        lastKey = key;
+      }
+      var on = !!PO.picked[o.id];
+      html += '<div class="prac-offer' + (on ? ' on' : '') + '" data-id="' + o.id + '">' +
+        '<label class="prac-offer-pick"><input type="checkbox"' + (on ? ' checked' : '') +
+          ' onchange="practiceToggleOffer(\'' + o.id + '\')">' +
+          '<span class="prac-offer-q">' + esc(o.question) + '</span></label>' +
+        '<div class="prac-offer-foot"><span>' + esc([o.subject, o.teacher_name ? o.teacher_name + ' 선생님' : ''].filter(Boolean).join(' · ')) + '</span>' +
+          '<span class="prac-offer-acts">' +
+            '<button class="prac-offer-skip" onclick="practiceSkipOffer(\'' + o.id + '\')">안 쓸래요</button>' +
+            '<button class="prac-offer-skip del" onclick="practiceDeleteOffers([\'' + o.id + '\'])">삭제</button>' +
+          '</span></div>' +
+        '</div>';
+    });
+  }
+  if (done.length || off.length) {
+    // ⚠️ 목록을 다시 그릴 때마다 이 접이식 칸이 닫혀서, 안 쓰기로 한 것을 하나씩 지울 때마다 다시 열어야 했습니다
+    //    (2026-10-07 선생님 말씀). 열림 상태를 PO.oldOpen 에 기억해 두고 그대로 그립니다.
+    html += '<details class="prac-offer-old" ontoggle="PO.oldOpen = this.open"' + (PO.oldOpen ? ' open' : '') + '>' +
+      '<summary>넣은 것 ' + done.length + '개 · 안 쓰기로 한 것 ' + off.length + '개</summary>' +
+      practiceOfferSort(done.concat(off)).map(function (o) {
+        return '<div class="prac-offer gone">' +
+          '<span class="prac-offer-q">' + esc(o.question) + '</span>' +
+          '<div class="prac-offer-foot"><span>' + esc(practiceOfferGroupText(o)) + ' · ' + (o.status === '넣음' ? '넣음 ✓' : '안 쓰기로 함') + '</span>' +
+          '<span class="prac-offer-acts">' +
+            (o.status === '안씀' ? '<button class="prac-offer-skip" onclick="practiceRestoreOffer(\'' + o.id + '\')">다시 보기</button>' : '') +
+            '<button class="prac-offer-skip del" onclick="practiceDeleteOffers([\'' + o.id + '\'])">삭제</button>' +
+          '</span></div></div>';
+      }).join('') + '</details>';
+  }
+  // 다시 그려도 읽던 자리가 맨 위로 튀지 않게 창 안의 스크롤을 지킵니다
+  var keepTop = box.scrollTop;
+  box.innerHTML = html;
+  box.scrollTop = keepTop;
+  practicePaintOfferBtn();
+}
+
+// 체크할 때마다 목록을 다시 그리면 창 안의 스크롤이 맨 위로 튑니다. 그 줄과 단추만 고칩니다.
+function practiceToggleOffer(id) {
+  if (PO.picked[id]) delete PO.picked[id]; else PO.picked[id] = true;
+  var row = document.querySelector('.prac-offer[data-id="' + id + '"]');
+  if (row) row.classList.toggle('on', !!PO.picked[id]);
+  practicePaintOfferBtn();
+}
+// 전체 선택 ↔ 전체 해제. 새로 받은 것만 고릅니다(넣은 것·안 쓰기로 한 것은 빼고).
+// 지금 보이는(칩에 걸린) 새 질문만 고르고 풉니다.
+function practiceToggleAllOffers() {
+  var fresh = practiceOfferVisible();
+  var all = fresh.length && fresh.every(function (o) { return PO.picked[o.id]; });
+  fresh.forEach(function (o) {
+    if (all) delete PO.picked[o.id]; else PO.picked[o.id] = true;
+    var row = document.querySelector('.prac-offer[data-id="' + o.id + '"]');
+    if (row) {
+      row.classList.toggle('on', !all);
+      var box = row.querySelector('input[type="checkbox"]');
+      if (box) box.checked = !all;
+    }
+  });
+  practicePaintOfferBtn();
+}
+
+function practicePaintOfferBtn() {
+  var allBtn = document.getElementById('prac-offer-all');
+  if (allBtn) {
+    var fresh = practiceOfferVisible();
+    var some = fresh.filter(function (o) { return PO.picked[o.id]; }).length;
+    allBtn.checked = fresh.length > 0 && some === fresh.length;
+    allBtn.indeterminate = some > 0 && some < fresh.length;
+  }
+  var btn = document.getElementById('prac-offer-add');
+  if (!btn) return;
+  var n = Object.keys(PO.picked).length;
+  btn.disabled = n === 0;
+  btn.textContent = n ? '고른 ' + n + '개 넣기' : '넣을 질문을 고르세요';
+  btn.hidden = !PO.list.some(function (o) { return o.status === '새로'; });
+  // 체크한 것을 한꺼번에 지우는 단추 — 고른 게 있을 때만
+  var del = document.getElementById('prac-offer-del');
+  if (del) { del.hidden = n === 0 || btn.hidden; del.textContent = n + '개 삭제'; }
+}
+
+// ── 삭제 (2026-10-07 선생님 말씀: «안 쓸래요» 말고 지우는 것도) ──
+// «안 쓸래요» 는 창 아래로 치워 두고 «다시 보기» 로 되살릴 수 있고, «삭제» 는 받은 질문에서 아주 지웁니다.
+// 이미 «쓴 것들» 에 넣은 연습장 카드는 따로라 지워지지 않습니다. 한 번 묻습니다. 서버 요청 1번.
+async function practiceDeleteOffers(ids) {
+  ids = (ids || []).filter(function (id) { return PO.list.some(function (o) { return o.id === id; }); });
+  if (!ids.length) return;
+  var putIn = PO.list.filter(function (o) { return ids.indexOf(o.id) > -1 && o.status === '넣음'; }).length;
+  if (!confirm((ids.length === 1 ? '이 질문을' : ids.length + '개를') + ' 받은 질문에서 지울까요?\n지우면 되살릴 수 없습니다.' +
+               (putIn ? '\n\n(«쓴 것들» 에 이미 넣은 카드는 그대로 남습니다)' : ''))) return;
+  const { error } = await sb.from('practice_offers').delete().in('id', ids);
+  if (error) { toast_or_alert('지우지 못했습니다: ' + error.message); return; }
+  PO.list = PO.list.filter(function (o) { return ids.indexOf(o.id) === -1; });
+  ids.forEach(function (id) { delete PO.picked[id]; });
+  practiceNewOfferCount = PO.list.filter(function (o) { return o.status === '새로'; }).length;
+  practicePaintBadge();
+  practicePaintOffers();
+}
+function practiceDeletePickedOffers() { practiceDeleteOffers(Object.keys(PO.picked)); }
+
+async function practiceSetOfferStatus(ids, status) {
+  const { error } = await sb.from('practice_offers').update({ status: status }).in('id', ids);
+  if (error) { toast_or_alert('바꾸지 못했습니다: ' + error.message); return false; }
+  PO.list.forEach(function (o) { if (ids.indexOf(o.id) > -1) o.status = status; });
+  ids.forEach(function (id) { delete PO.picked[id]; });
+  practiceNewOfferCount = PO.list.filter(function (o) { return o.status === '새로'; }).length;
+  practicePaintBadge();
+  return true;
+}
+async function practiceSkipOffer(id) { if (await practiceSetOfferStatus([id], '안씀')) practicePaintOffers(); }
+async function practiceRestoreOffer(id) { if (await practiceSetOfferStatus([id], '새로')) practicePaintOffers(); }
+
+// 고른 질문을 «선생님 질문» 카드로 한꺼번에 넣고(요청 1번), 받은 질문에 «넣음» 표시(요청 1번).
+async function practiceAddOffers() {
+  var ids = Object.keys(PO.picked);
+  var picks = PO.list.filter(function (o) { return ids.indexOf(o.id) > -1 && o.status === '새로'; });
+  if (!picks.length || !PW) return;
+  var btn = document.getElementById('prac-offer-add');
+  if (btn) btn.disabled = true;
+
+  const { data, error } = await sb.from('practice_answers').insert(picks.map(function (o) {
+    return { school_id: SCHOOL_ID, student_id: PW.studentId,
+             grade: PRACTICE_GRADES.indexOf(o.grade) > -1 ? o.grade : '공통',
+             category: PRACTICE_OFFER_CAT, question: o.question, answer: '' };
+  })).select('id, grade, category, question, answer, created_at, updated_at');
+  if (error) { toast_or_alert('넣지 못했습니다: ' + error.message); practicePaintOfferBtn(); return; }
+  await practiceSetOfferStatus(picks.map(function (o) { return o.id; }), '넣음');
+
+  practiceCloseOffers();
+  if (practiceActiveTab !== 'write') { practiceGoTab('write'); return; }   // 작성 탭이 새로 불러옵니다
+  // 지금 필터에 «선생님 질문» 이 안 걸리면 새 카드가 안 보이므로 필터를 풉니다
+  if (PW.cats.length && PW.cats.indexOf(PRACTICE_OFFER_CAT) === -1) PW.cats = [];
+  if (PW.grades.length && (data || []).some(function (a) { return PW.grades.indexOf(a.grade) === -1; })) PW.grades = [];
+  PW.all = PW.all.concat(data || []);
+  practiceWriteRenderChips();
+  practiceWriteRenderCards();
+  toast_or_alert(picks.length + '개를 «쓴 것들» 에 넣었습니다. 질문 글자도 고쳐 쓸 수 있습니다.');
+  if (data && data[0]) practiceScrollToCard(data[0].id);
 }
 
 // ══════════════ 작성 — 학생만 씁니다 ══════════════

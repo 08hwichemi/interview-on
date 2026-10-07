@@ -40,12 +40,18 @@ window.supabase = {
           st.op = 'upsert';
           window.__calls.push({ table: table, op: 'upsert', v: v });
           const keys = ((opt && opt.onConflict) || 'id').split(',');
+          // ignoreDuplicates — 진짜 서버의 «on conflict do nothing». 이미 있는 줄은 건드리지 않고,
+          // .select() 로 받는 것은 «새로 들어간 줄» 뿐입니다
+          st.made = [];
           (Array.isArray(v) ? v : [v]).forEach(function (r) {
             const at = rowsOf(table).findIndex(function (x) {
               return keys.every(function (k) { return String(x[k]) === String(r[k]); });
             });
-            if (at > -1) Object.assign(rowsOf(table)[at], r);
-            else rowsOf(table).push(Object.assign({ id: __id(table) }, r));
+            if (at > -1) { if (!(opt && opt.ignoreDuplicates)) { Object.assign(rowsOf(table)[at], r); st.made.push(rowsOf(table)[at]); } }
+            else {
+              const row = Object.assign({ id: __id(table), created_at: new Date().toISOString() }, r);
+              rowsOf(table).push(row); st.made.push(row);
+            }
           });
           return b;
         },
@@ -91,7 +97,7 @@ window.supabase = {
 
       function run() {
         if (st.op === 'insert') return Promise.resolve({ data: st.made, error: null });
-        if (st.op === 'upsert') return Promise.resolve({ data: null, error: null });
+        if (st.op === 'upsert') return Promise.resolve({ data: st.made, error: null });
         if (st.op === 'update') {
           const hit = 거르기(rowsOf(table));
           hit.forEach(function (r) { Object.assign(r, st.payload); });
