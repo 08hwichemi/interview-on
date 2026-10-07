@@ -512,7 +512,10 @@ function practicePaintOffers() {
           ' onchange="practiceToggleOffer(\'' + o.id + '\')">' +
           '<span class="prac-offer-q">' + esc(o.question) + '</span></label>' +
         '<div class="prac-offer-foot"><span>' + esc(o.teacher_name ? o.teacher_name + ' 선생님' : '') + '</span>' +
-          '<button class="prac-offer-skip" onclick="practiceSkipOffer(\'' + o.id + '\')">안 쓸래요</button></div>' +
+          '<span class="prac-offer-acts">' +
+            '<button class="prac-offer-skip" onclick="practiceSkipOffer(\'' + o.id + '\')">안 쓸래요</button>' +
+            '<button class="prac-offer-skip del" onclick="practiceDeleteOffers([\'' + o.id + '\'])">삭제</button>' +
+          '</span></div>' +
         '</div>';
     });
   }
@@ -522,8 +525,10 @@ function practicePaintOffers() {
         return '<div class="prac-offer gone">' +
           '<span class="prac-offer-q">' + esc(o.question) + '</span>' +
           '<div class="prac-offer-foot"><span>' + esc(practiceOfferGroupText(o)) + ' · ' + (o.status === '넣음' ? '넣음 ✓' : '안 쓰기로 함') + '</span>' +
-          (o.status === '안씀' ? '<button class="prac-offer-skip" onclick="practiceRestoreOffer(\'' + o.id + '\')">다시 보기</button>' : '') +
-          '</div></div>';
+          '<span class="prac-offer-acts">' +
+            (o.status === '안씀' ? '<button class="prac-offer-skip" onclick="practiceRestoreOffer(\'' + o.id + '\')">다시 보기</button>' : '') +
+            '<button class="prac-offer-skip del" onclick="practiceDeleteOffers([\'' + o.id + '\'])">삭제</button>' +
+          '</span></div></div>';
       }).join('') + '</details>';
   }
   box.innerHTML = html;
@@ -568,7 +573,29 @@ function practicePaintOfferBtn() {
   btn.disabled = n === 0;
   btn.textContent = n ? '고른 ' + n + '개 넣기' : '넣을 질문을 고르세요';
   btn.hidden = !PO.list.some(function (o) { return o.status === '새로'; });
+  // 체크한 것을 한꺼번에 지우는 단추 — 고른 게 있을 때만
+  var del = document.getElementById('prac-offer-del');
+  if (del) { del.hidden = n === 0 || btn.hidden; del.textContent = n + '개 삭제'; }
 }
+
+// ── 삭제 (2026-10-07 선생님 말씀: «안 쓸래요» 말고 지우는 것도) ──
+// «안 쓸래요» 는 창 아래로 치워 두고 «다시 보기» 로 되살릴 수 있고, «삭제» 는 받은 질문에서 아주 지웁니다.
+// 이미 «쓴 것들» 에 넣은 연습장 카드는 따로라 지워지지 않습니다. 한 번 묻습니다. 서버 요청 1번.
+async function practiceDeleteOffers(ids) {
+  ids = (ids || []).filter(function (id) { return PO.list.some(function (o) { return o.id === id; }); });
+  if (!ids.length) return;
+  var putIn = PO.list.filter(function (o) { return ids.indexOf(o.id) > -1 && o.status === '넣음'; }).length;
+  if (!confirm((ids.length === 1 ? '이 질문을' : ids.length + '개를') + ' 받은 질문에서 지울까요?\n지우면 되살릴 수 없습니다.' +
+               (putIn ? '\n\n(«쓴 것들» 에 이미 넣은 카드는 그대로 남습니다)' : ''))) return;
+  const { error } = await sb.from('practice_offers').delete().in('id', ids);
+  if (error) { toast_or_alert('지우지 못했습니다: ' + error.message); return; }
+  PO.list = PO.list.filter(function (o) { return ids.indexOf(o.id) === -1; });
+  ids.forEach(function (id) { delete PO.picked[id]; });
+  practiceNewOfferCount = PO.list.filter(function (o) { return o.status === '새로'; }).length;
+  practicePaintBadge();
+  practicePaintOffers();
+}
+function practiceDeletePickedOffers() { practiceDeleteOffers(Object.keys(PO.picked)); }
 
 async function practiceSetOfferStatus(ids, status) {
   const { error } = await sb.from('practice_offers').update({ status: status }).in('id', ids);

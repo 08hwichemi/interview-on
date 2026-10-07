@@ -275,6 +275,19 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   확인('«다시 보기» 로 치운 것을 되살리는가', (await 받은()).find(r => r.id === 'o3').status === '새로' &&
        (await p.$$('#prac-offer-list .prac-offer input[type="checkbox"]')).length === 1);
   확인('되살리면 빨간 숫자가 1 이 되는가', (await p.textContent('#prac-offer-badge')) === '1');
+
+  // 삭제 — 체크한 것 한꺼번에 / 카드마다. 이미 넣은 연습장 카드는 그대로
+  확인('고른 게 없으면 삭제 단추가 숨는가', await p.$eval('#prac-offer-del', e => e.hidden));
+  await p.click('#prac-offer-list .prac-offer[data-id="o3"] .prac-offer-pick'); await p.waitForTimeout(100);
+  확인('체크하면 «1개 삭제» 단추가 뜨는가', (await p.textContent('#prac-offer-del')) === '1개 삭제' && !(await p.$eval('#prac-offer-del', e => e.hidden)));
+  await p.click('#prac-offer-del'); await p.waitForTimeout(300);
+  확인('체크한 질문이 받은 질문에서 지워지는가', !(await 받은()).some(r => r.id === 'o3'), (await 받은()).map(r => r.id).join());
+  확인('지우면 빨간 숫자도 사라지는가', await p.$eval('#prac-offer-badge', e => e.hidden));
+  const 카드수 = (await 표(p, 'practice_answers')).length;
+  await p.click('.prac-offer-old summary');
+  await p.click('.prac-offer.gone >> nth=0 >> .prac-offer-skip.del'); await p.waitForTimeout(300);
+  확인('넣은 질문도 카드마다 «삭제» 로 지워지는가', (await 받은()).length === 1, (await 받은()).map(r => r.id).join());
+  확인('이미 넣은 연습장 카드는 그대로 남는가', (await 표(p, 'practice_answers')).length === 카드수);
   await p.click('#prac-offer-overlay .close-btn');
   await p.setViewportSize({ width: 1400, height: 900 }); await p.waitForTimeout(150);
   await p.click('.prac-offer-btn'); await p.waitForTimeout(300);
