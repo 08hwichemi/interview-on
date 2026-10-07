@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-10-07.7">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-10-07.8">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-07.7">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-07.7">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-07.7">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-07.7">
-  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-07.7">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-07.7">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-07.8">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-07.8">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-07.8">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-07.8">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-07.8">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-07.8">
 </head>
 <body>
 
@@ -207,6 +207,7 @@
                   <button class="ghost" onclick="loadCommon('changche', '공동체역량')">창체 질문 3개</button>
                   <button class="ghost" onclick="loadCommon('major', '진로역량')">전공 질문 3개</button>
                   <button class="ghost" onclick="openSaenggibu()">📄 생기부에서 뽑기</button>
+                  <button class="ghost" onclick="openStudentQs()">✍️ 학생 질문</button>
                 </div>
 
                 <p class="sec" style="margin-top:22px">끝인사 <span class="opt">(면접을 닫는 질문)</span></p>
@@ -460,6 +461,21 @@
   </main>
 </div>
 
+<!-- 학생 질문 — 학생이 답안 연습장에 쓴 질문을 골라 «낼 질문» 에 넣는 창 (teacher-app.js 의 openStudentQs).
+     학생 앱의 «받은 질문» 창과 같은 모양(practice.css 의 prac-offer-*)을 빌려 씁니다. -->
+<div id="sq-overlay" class="modal-overlay">
+  <div class="modal-content prac-modal prac-offer-modal">
+    <div class="modal-header">
+      <h3 id="sq-title">✍️ 학생 질문</h3>
+      <button class="close-btn" onclick="closeStudentQs()">&times;</button>
+    </div>
+    <div class="prac-modal-body" id="sq-list"></div>
+    <div class="prac-offer-actions">
+      <button class="btn solid sq-add" id="sq-add" onclick="addStudentQs()" disabled>넣을 질문을 고르세요</button>
+    </div>
+  </div>
+</div>
+
 <!-- 대학 고르기 팝업 — 학생 앱과 같은 것입니다 (browse.js) -->
 <div id="univ-modal" class="modal-overlay">
   <div class="modal-content">
@@ -556,20 +572,20 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-10-07.7"></script>
-<script src="../assets/js/update-bar.js?v=2026-10-07.7"></script>
-<script src="../assets/js/utils.js?v=2026-10-07.7"></script>
-<script src="../assets/js/api.js?v=2026-10-07.7"></script>
-<script src="../assets/js/browse.js?v=2026-10-07.7"></script>
-<script src="../assets/js/reviews.js?v=2026-10-07.7"></script>
-<script src="../assets/js/questions.js?v=2026-10-07.7"></script>
-<script src="../assets/js/report.js?v=2026-10-07.7"></script>
-<script src="../assets/js/chat.js?v=2026-10-07.7"></script>
-<script src="../assets/js/practice.js?v=2026-10-07.7"></script>
-<script src="../assets/js/notice.js?v=2026-10-07.7"></script>
-<script src="../assets/js/admin-notice.js?v=2026-10-07.7"></script>
-<script src="../assets/js/teacher-app.js?v=2026-10-07.7"></script>
-<script src="../assets/js/saenggibu.js?v=2026-10-07.7"></script>
+<script src="../assets/js/config.js?v=2026-10-07.8"></script>
+<script src="../assets/js/update-bar.js?v=2026-10-07.8"></script>
+<script src="../assets/js/utils.js?v=2026-10-07.8"></script>
+<script src="../assets/js/api.js?v=2026-10-07.8"></script>
+<script src="../assets/js/browse.js?v=2026-10-07.8"></script>
+<script src="../assets/js/reviews.js?v=2026-10-07.8"></script>
+<script src="../assets/js/questions.js?v=2026-10-07.8"></script>
+<script src="../assets/js/report.js?v=2026-10-07.8"></script>
+<script src="../assets/js/chat.js?v=2026-10-07.8"></script>
+<script src="../assets/js/practice.js?v=2026-10-07.8"></script>
+<script src="../assets/js/notice.js?v=2026-10-07.8"></script>
+<script src="../assets/js/admin-notice.js?v=2026-10-07.8"></script>
+<script src="../assets/js/teacher-app.js?v=2026-10-07.8"></script>
+<script src="../assets/js/saenggibu.js?v=2026-10-07.8"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
