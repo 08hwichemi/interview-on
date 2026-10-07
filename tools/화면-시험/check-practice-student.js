@@ -211,6 +211,15 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   확인('처음엔 «넣기» 단추가 쉬는가', await p.$eval('#prac-offer-add', e => e.disabled));
   확인('어디 내용인지(학년)·보낸 선생님이 보이는가', (await p.textContent('#prac-offer-list .prac-offer >> nth=0')).indexOf('3학년 · 이용휘 선생님') > -1);
 
+  // 전체 선택 ↔ 전체 해제
+  await p.click('#prac-offer-all'); await p.waitForTimeout(100);
+  확인('«전체 선택» 을 누르면 셋 다 체크되는가', (await p.$$('#prac-offer-list .prac-offer input:checked')).length === 3 &&
+       (await p.textContent('#prac-offer-add')) === '고른 3개 넣기');
+  확인('단추가 «전체 해제» 로 바뀌는가', (await p.textContent('#prac-offer-all')) === '전체 해제');
+  await p.click('#prac-offer-all'); await p.waitForTimeout(100);
+  확인('«전체 해제» 를 누르면 다 풀리는가', (await p.$$('#prac-offer-list .prac-offer input:checked')).length === 0 &&
+       await p.$eval('#prac-offer-add', e => e.disabled) && (await p.textContent('#prac-offer-all')) === '전체 선택');
+
   await p.click('#prac-offer-list .prac-offer-pick >> nth=0');
   await p.click('#prac-offer-list .prac-offer-pick >> nth=1'); await p.waitForTimeout(100);
   확인('여러 개 고를 수 있는가 (고른 2개 넣기)', (await p.textContent('#prac-offer-add')) === '고른 2개 넣기');

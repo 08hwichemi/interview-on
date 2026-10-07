@@ -435,6 +435,9 @@ function practicePaintOffers() {
   } else {
     html = '<p class="prac-hint">쓰고 싶은 질문을 골라 「넣기」를 누르면 «쓴 것들» 맨 위에 들어갑니다. ' +
            '질문 글자는 거기서 고쳐 써도 됩니다. 다 쓸 필요는 없습니다.</p>' +
+           // 전체 선택 — 받은 것을 다 쓰고 싶은 학생이 하나씩 누르지 않게(2026-10-07 선생님 말씀)
+           '<div class="prac-offer-bar"><span>새로 받은 질문 ' + fresh.length + '개</span>' +
+             '<button class="prac-offer-all" id="prac-offer-all" onclick="practiceToggleAllOffers()">전체 선택</button></div>' +
            fresh.map(function (o) {
              var on = !!PO.picked[o.id];
              return '<div class="prac-offer' + (on ? ' on' : '') + '" data-id="' + o.id + '">' +
@@ -468,7 +471,30 @@ function practiceToggleOffer(id) {
   if (row) row.classList.toggle('on', !!PO.picked[id]);
   practicePaintOfferBtn();
 }
+// 전체 선택 ↔ 전체 해제. 새로 받은 것만 고릅니다(넣은 것·안 쓰기로 한 것은 빼고).
+function practiceToggleAllOffers() {
+  var fresh = PO.list.filter(function (o) { return o.status === '새로'; });
+  var all = fresh.length && fresh.every(function (o) { return PO.picked[o.id]; });
+  fresh.forEach(function (o) {
+    if (all) delete PO.picked[o.id]; else PO.picked[o.id] = true;
+    var row = document.querySelector('.prac-offer[data-id="' + o.id + '"]');
+    if (row) {
+      row.classList.toggle('on', !all);
+      var box = row.querySelector('input[type="checkbox"]');
+      if (box) box.checked = !all;
+    }
+  });
+  practicePaintOfferBtn();
+}
+
 function practicePaintOfferBtn() {
+  var allBtn = document.getElementById('prac-offer-all');
+  if (allBtn) {
+    var fresh = PO.list.filter(function (o) { return o.status === '새로'; });
+    var all = fresh.length && fresh.every(function (o) { return PO.picked[o.id]; });
+    allBtn.textContent = all ? '전체 해제' : '전체 선택';
+    allBtn.setAttribute('aria-pressed', all ? 'true' : 'false');
+  }
   var btn = document.getElementById('prac-offer-add');
   if (!btn) return;
   var n = Object.keys(PO.picked).length;
