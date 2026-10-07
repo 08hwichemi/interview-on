@@ -48,7 +48,23 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
       const sg = [...document.querySelectorAll('#setup-prep .btnrow button')].find(x => /생기부에서 뽑기/.test(x.textContent));
       return !!sg && /학생 질문/.test(sg.nextElementSibling && sg.nextElementSibling.textContent);
     }));
-    await p.evaluate(() => { midQuestions = [{ text: '갈등을 푼 경험이 있나요?', competency: '공동체역량' }]; renderQuestions(); });
+    확인('단추 줄이 «첫인사» 보다 위에 있는가', await p.evaluate(() => {
+      const row = document.querySelector('#qsect-body .btnrow');
+      const 첫 = [...document.querySelectorAll('#qsect-body .sec')].find(x => /^첫인사/.test(x.textContent));
+      return !!(row.compareDocumentPosition(첫) & Node.DOCUMENT_POSITION_FOLLOWING);
+    }));
+    const 전 = await p.evaluate(() => document.querySelector('#qsect-body .btnrow').getBoundingClientRect().top + scrollY);
+    await p.evaluate(() => { for (let i = 0; i < 10; i++) midQuestions.push({ text: '질문 ' + i, competency: '기타' }); renderQuestions(); });
+    확인('질문이 10개 늘어도 단추 자리가 그대로인가',
+         Math.abs(await p.evaluate(() => document.querySelector('#qsect-body .btnrow').getBoundingClientRect().top + scrollY) - 전) < 1);
+    await p.evaluate(() => scrollTo(0, 0));
+    await p.click('#qsect-body .btnrow button:has-text("직접 적기")');
+    await p.waitForTimeout(200);
+    확인('«직접 적기» 를 누르면 맨 아래 새 칸에 커서가 가고 화면에 보이는가', await p.evaluate(() => {
+      const ins = document.querySelectorAll('#q-list .qrow input'), last = ins[ins.length - 1], r = last.getBoundingClientRect();
+      return document.activeElement === last && last.value === '' && r.top >= 0 && r.bottom <= innerHeight;
+    }));
+    await p.evaluate(() => { midQuestions = [{ text: '갈등을 푼 경험이 있나요?', competency: '공동체역량' }]; renderQuestions(); scrollTo(0, 0); });
 
     console.log('\n── 창 열기 ──');
     await p.click('#setup-prep button:has-text("학생 질문")');

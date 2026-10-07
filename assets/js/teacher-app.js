@@ -917,6 +917,12 @@ function toggleQsect() {
 function addQuestion(text, competency) {
   midQuestions.push({ text: text || '', competency: competency || '기타' });
   renderQuestions();
+  // 단추가 맨 위로 올라가서 새 빈 칸은 멀리 아래에 생깁니다. 그 칸으로 옮겨 가 바로 글자를 치게 합니다.
+  if (!text) {
+    var inputs = document.querySelectorAll('#q-list .qrow input');
+    var last = inputs[inputs.length - 1];
+    if (last) { last.scrollIntoView({ block: 'center' }); last.focus({ preventScroll: true }); }
+  }
 }
 function removeQuestion(i) { midQuestions.splice(i, 1); renderQuestions(); }
 function setQText(i, v) { midQuestions[i].text = v; renderGreetings(); }
@@ -927,7 +933,7 @@ function renderQuestions() {
   // 첫인사가 1번이면 가운데 질문은 2번부터입니다. 화면 번호와 실제 순서를 맞춥니다.
   var base = hasOpening() ? 1 : 0;
   if (!midQuestions.length) {
-    box.innerHTML = '<p class="empty">아직 질문이 없습니다. 아래에서 더하세요.</p>';
+    box.innerHTML = '<p class="empty">아직 질문이 없습니다. 위 «질문 더하기» 에서 더하세요.</p>';
   } else {
     box.innerHTML = midQuestions.map(function (q, i) {
       return '<div class="qrow">' +

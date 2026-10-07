@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-10-07.8">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-10-07.9">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-07.8">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-07.8">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-07.8">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-07.8">
-  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-07.8">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-07.8">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-07.9">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-07.9">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-07.9">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-07.9">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-07.9">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-07.9">
 </head>
 <body>
 
@@ -192,7 +192,19 @@
                 <span class="more" id="qsect-more-label">접기</span>
               </button>
               <div class="qsectbody" id="qsect-body">
-                <p class="sec">첫인사 <span class="opt">(면접을 여는 질문)</span></p>
+                <!-- 질문 더하는 단추는 맨 위에 둡니다. 예전엔 «낼 질문» 목록 아래에 있어서 질문이 늘수록
+                     화면 밖으로 밀려났습니다(질문 10개면 스크롤해야 보임 — 2026-10-07 선생님 말씀).
+                     어느 단추로 더해도 질문은 «낼 질문» 맨 아래에 붙습니다. -->
+                <p class="sec">질문 더하기 <span class="opt">(«낼 질문» 맨 아래에 붙습니다)</span></p>
+                <div class="btnrow">
+                  <button class="btn" onclick="addQuestion('', '기타')">＋ 직접 적기</button>
+                  <button class="ghost" onclick="loadCommon('changche', '공동체역량')">창체 질문 3개</button>
+                  <button class="ghost" onclick="loadCommon('major', '진로역량')">전공 질문 3개</button>
+                  <button class="ghost" onclick="openSaenggibu()">📄 생기부에서 뽑기</button>
+                  <button class="ghost" onclick="openStudentQs()">✍️ 학생 질문</button>
+                </div>
+
+                <p class="sec" style="margin-top:22px">첫인사 <span class="opt">(면접을 여는 질문)</span></p>
                 <p class="hint">고른 것을 다시 누르면 첫인사를 뺍니다. 문장은 그대로 고쳐 쓰셔도 됩니다.</p>
                 <div id="opening-box"></div>
 
@@ -202,13 +214,6 @@
                 </p>
                 <div id="q-list"></div>
 
-                <div class="btnrow" style="margin-top:12px">
-                  <button class="btn" onclick="addQuestion('', '기타')">＋ 직접 적기</button>
-                  <button class="ghost" onclick="loadCommon('changche', '공동체역량')">창체 질문 3개</button>
-                  <button class="ghost" onclick="loadCommon('major', '진로역량')">전공 질문 3개</button>
-                  <button class="ghost" onclick="openSaenggibu()">📄 생기부에서 뽑기</button>
-                  <button class="ghost" onclick="openStudentQs()">✍️ 학생 질문</button>
-                </div>
 
                 <p class="sec" style="margin-top:22px">끝인사 <span class="opt">(면접을 닫는 질문)</span></p>
                 <div id="closing-box"></div>
@@ -572,20 +577,20 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-10-07.8"></script>
-<script src="../assets/js/update-bar.js?v=2026-10-07.8"></script>
-<script src="../assets/js/utils.js?v=2026-10-07.8"></script>
-<script src="../assets/js/api.js?v=2026-10-07.8"></script>
-<script src="../assets/js/browse.js?v=2026-10-07.8"></script>
-<script src="../assets/js/reviews.js?v=2026-10-07.8"></script>
-<script src="../assets/js/questions.js?v=2026-10-07.8"></script>
-<script src="../assets/js/report.js?v=2026-10-07.8"></script>
-<script src="../assets/js/chat.js?v=2026-10-07.8"></script>
-<script src="../assets/js/practice.js?v=2026-10-07.8"></script>
-<script src="../assets/js/notice.js?v=2026-10-07.8"></script>
-<script src="../assets/js/admin-notice.js?v=2026-10-07.8"></script>
-<script src="../assets/js/teacher-app.js?v=2026-10-07.8"></script>
-<script src="../assets/js/saenggibu.js?v=2026-10-07.8"></script>
+<script src="../assets/js/config.js?v=2026-10-07.9"></script>
+<script src="../assets/js/update-bar.js?v=2026-10-07.9"></script>
+<script src="../assets/js/utils.js?v=2026-10-07.9"></script>
+<script src="../assets/js/api.js?v=2026-10-07.9"></script>
+<script src="../assets/js/browse.js?v=2026-10-07.9"></script>
+<script src="../assets/js/reviews.js?v=2026-10-07.9"></script>
+<script src="../assets/js/questions.js?v=2026-10-07.9"></script>
+<script src="../assets/js/report.js?v=2026-10-07.9"></script>
+<script src="../assets/js/chat.js?v=2026-10-07.9"></script>
+<script src="../assets/js/practice.js?v=2026-10-07.9"></script>
+<script src="../assets/js/notice.js?v=2026-10-07.9"></script>
+<script src="../assets/js/admin-notice.js?v=2026-10-07.9"></script>
+<script src="../assets/js/teacher-app.js?v=2026-10-07.9"></script>
+<script src="../assets/js/saenggibu.js?v=2026-10-07.9"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
