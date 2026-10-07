@@ -4,9 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 관리자</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-10-07.9">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-10-07.10">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-07.9">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-07.10">
+  <link rel="stylesheet" href="../assets/css/hugi.css?v=2026-10-07.10">
 </head>
 <body>
 
@@ -82,6 +83,28 @@
               수시 앱에서 지원을 고치셨으면 여기서 다시 받으세요. 지우는 일이 아닙니다.</p>
           </div>
           <button class="btn" id="btn-sync-susi" onclick="syncSusi()">수시 지원 자료 새로 받기</button>
+        </div>
+      </div>
+
+      <!-- 면접 후기 양식 — 학생이 쓴 후기를 선생님이 받을 때 채우는 한글 양식 (hugi.js) -->
+      <p class="sec" style="margin-top:26px">면접 후기 양식</p>
+      <div class="dataacts">
+        <div class="dataact">
+          <div>
+            <b>교육청 «합격사례» 한글 양식</b>
+            <p class="hint" id="hugi-admin-state">-</p>
+            <p class="hint">교육청 양식이 바뀌면: <b>새 양식을 한글에서 열어 칸마다 아래 자리표를 적고</b>
+              «다른 이름으로 저장 → HWPX» 로 저장한 뒤 올리세요. 코드는 고치지 않아도 됩니다.
+              지금 양식을 받아 고쳐 써도 됩니다. 올린 뒤에는 «견본 받기» 로 한 장 열어 확인하세요.</p>
+            <details class="hg-fields"><summary>자리표 목록 보기</summary><div id="hugi-admin-fields"></div></details>
+          </div>
+          <div class="hg-admin-btns">
+            <button class="btn" onclick="hugiAdminDownloadBase()">지금 양식 받기</button>
+            <button class="btn" onclick="document.getElementById('hugi-admin-file').click()">새 양식 올리기</button>
+            <input type="file" id="hugi-admin-file" accept=".hwpx" hidden onchange="hugiAdminUpload(this)">
+            <button class="btn" onclick="hugiAdminSample()">견본 받기</button>
+            <button class="btn" id="btn-hugi-reset" onclick="hugiAdminReset()" hidden>기본 양식으로 되돌리기</button>
+          </div>
         </div>
       </div>
 
@@ -200,10 +223,11 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-10-07.9"></script>
-<script src="../assets/js/update-bar.js?v=2026-10-07.9"></script>
-<script src="../assets/js/admin-roster.js?v=2026-10-07.9"></script>
-<script src="../assets/js/admin-notice.js?v=2026-10-07.9"></script>
+<script src="../assets/js/config.js?v=2026-10-07.10"></script>
+<script src="../assets/js/update-bar.js?v=2026-10-07.10"></script>
+<script src="../assets/js/admin-roster.js?v=2026-10-07.10"></script>
+<script src="../assets/js/admin-notice.js?v=2026-10-07.10"></script>
+<script src="../assets/js/hugi.js?v=2026-10-07.10"></script>
 <script>
   // 확인이 끝나지 않으면 "확인 중..." 이 영영 돌기만 합니다.
   // 왜 멈췄는지 화면에 보여줍니다.

@@ -30,6 +30,8 @@ document.getElementById('confirm-ok-btn').addEventListener('click', function() {
 function handleBack() {
   var currentScreen = document.querySelector('.screen.active').id;
   // 훈련 중일 때는 한 번 물어보기
+  // 면접 후기를 쓰다가 누르면 홈이 아니라 후기 목록으로 (hugi.js)
+  if (currentScreen === 'screen-hugi' && typeof hugiHandleBack === 'function' && hugiHandleBack()) return;
   if (currentScreen === 'screen-interview-run') {
     showConfirm('현재 진행 중인 훈련을 중단하고<br>홈으로 돌아가시겠습니까?', function() { navigateTo('home'); });
   } else {
@@ -93,6 +95,7 @@ function navigateTo(screenId) {
       else if (screenId === 'reviews') appTitle.innerText = '실전 면접 후기';
       else if (screenId === 'questions') appTitle.innerText = '대학별 기출 질문';
       else if (screenId === 'practice') appTitle.innerText = '답안 연습장';
+      else if (screenId === 'hugi') appTitle.innerText = '면접 후기 쓰기';
       else if (screenId === 'interview-setup' || screenId === 'interview-run' || screenId === 'interview-result') {
         appTitle.innerText = '모의 면접 연습';
       }
@@ -106,6 +109,7 @@ function navigateTo(screenId) {
   // 목록은 들어올 때마다 새로 받습니다. 선생님이 방금 보냈을 수 있습니다.
   if (screenId === 'my-reports') loadMyReports();
   if (screenId === 'practice') practiceStudentEnter();
+  if (screenId === 'hugi') hugiStudentEnter();
   window.scrollTo(0, 0);
 
   // ⚠️ 여기서 걸음을 쌓지 않습니다 — 이동수업 앱 원본에도 없습니다.

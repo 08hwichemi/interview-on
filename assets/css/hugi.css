@@ -1,0 +1,58 @@
+/* 면접 후기 — 학생 쓰기 · 선생님 읽기 · 관리자 양식 (hugi.js) */
+
+/* ── 학생: 목록 ── */
+#screen-hugi > div{width:100%}
+.hg-intro{margin:0 0 14px;font-size:13px;line-height:1.65;color:var(--ink-2);word-break:keep-all}
+.hg-card{display:flex;flex-direction:column;gap:4px;width:100%;box-sizing:border-box;text-align:left;
+  border:1px solid var(--line-2);border-radius:12px;background:var(--surface);padding:14px 16px;margin-bottom:10px;
+  cursor:pointer;font-family:inherit;color:var(--ink)}
+.hg-card:active{background:var(--surface-2)}
+.hg-card-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:15px}
+.hg-card-sub{font-size:12.5px;color:var(--ink-3);font-weight:600;word-break:keep-all}
+.hg-state{flex:0 0 auto;font-size:11.5px;font-weight:800;color:#B54708;background:#FFF6E5;border-radius:999px;padding:3px 9px}
+.hg-state.done{color:#067647;background:#ECFDF3}
+
+/* ── 학생: 쓰기 ── */
+.hg-in{width:100%;box-sizing:border-box;border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;
+  font-size:14px;font-family:inherit;line-height:1.55;background:var(--surface);color:var(--ink);resize:vertical}
+.hg-in:focus{outline:none;border-color:var(--ink-3)}
+.hg-opt{font-weight:600;color:var(--ink-3);margin-left:4px}
+.hg-qa{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--surface-2)}
+.hg-qa-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12.5px;color:var(--ink-2)}
+.hg-qa .hg-in + .hg-in{margin-top:6px}
+.hg-addq{width:100%;padding:10px;border:1px dashed var(--line-2);border-radius:8px;background:var(--surface);
+  color:var(--ink-2);font-weight:700;font-size:13.5px;cursor:pointer;font-family:inherit}
+.hg-consent{display:flex;gap:10px;align-items:flex-start;margin:20px 0 4px;padding:12px 14px;border:1px solid var(--line-2);
+  border-radius:10px;font-size:13.5px;line-height:1.55;color:var(--ink);cursor:pointer;word-break:keep-all}
+.hg-consent input{flex:0 0 auto;width:18px;height:18px;margin:1px 0 0;accent-color:var(--ink)}
+.hg-miss{min-height:1em;margin:10px 0 6px;font-size:12.5px;color:#B54708;font-weight:600;word-break:keep-all}
+.hg-actions{display:flex;gap:8px}
+.hg-actions .action-btn{flex:1 1 0;margin:0}
+.hg-actions .action-btn:disabled{opacity:.4;cursor:default}
+.hg-savestate{min-height:1em;margin:8px 0 0;font-size:12px;color:var(--ink-3);text-align:center}
+.hg-savestate.dirty{color:#B54708;font-weight:700}
+.hg-link{display:block;border:0;background:none;padding:6px 0;margin:14px auto 0;color:var(--ink-3);font-size:13px;
+  font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit}
+.hg-link.danger{color:#B42318}
+.hg-link[hidden]{display:none}
+
+/* ── 선생님: 학생 한 명 탭 ── */
+.hg-tcard{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:var(--surface)}
+.hg-tcard-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;font-size:14.5px}
+.hg-tcard-head .hg-state{margin-left:6px}
+.hg-vrow{display:flex;gap:12px;padding:5px 0;border-top:1px solid var(--line);font-size:13.5px;line-height:1.6}
+.hg-vrow b{flex:0 0 76px;color:var(--ink-3);font-weight:700}
+.hg-vrow span{white-space:pre-wrap;word-break:keep-all;color:var(--ink)}
+.hg-vqa{border-top:1px solid var(--line);padding:8px 0 4px}
+.hg-vqa .q{margin:6px 0 2px;font-weight:700;font-size:13.5px;color:var(--ink)}
+.hg-vqa .a{margin:0 0 6px;font-size:13.5px;line-height:1.6;color:var(--ink-2);white-space:pre-wrap;padding-left:14px}
+.hg-classbtn{width:100%;margin-top:8px;font-size:12.5px}
+.hg-classbtn[hidden]{display:none}
+
+/* ── 관리자: 양식 ── */
+.hg-admin-btns{display:flex;flex-direction:column;gap:6px;flex:0 0 190px;align-self:flex-start}
+.hg-fields{margin-top:8px}
+.hg-fields summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ink-2)}
+.hg-ftable{border-collapse:collapse;margin-top:8px;font-size:12.5px}
+.hg-ftable td{border-top:1px solid var(--line);padding:4px 10px 4px 0;vertical-align:top}
+.hg-ftable code{font-size:12.5px;white-space:nowrap}

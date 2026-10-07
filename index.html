@@ -6,9 +6,9 @@
 
   <title>면접ON</title>
 
-  <link rel="manifest" href="manifest.json?v=2026-10-07.9">
-  <link rel="icon" href="assets/icon-192.png?v=2026-10-07.9">
-  <link rel="apple-touch-icon" href="assets/icon-192.png?v=2026-10-07.9">
+  <link rel="manifest" href="manifest.json?v=2026-10-07.10">
+  <link rel="icon" href="assets/icon-192.png?v=2026-10-07.10">
+  <link rel="apple-touch-icon" href="assets/icon-192.png?v=2026-10-07.10">
   <meta name="theme-color" content="#18181B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <!-- 홈 화면에 담아 열면 상태표시줄이 머리말과 같은 먹빛이 됩니다.
@@ -20,12 +20,13 @@
 
   <!-- 스타일: base = 레이아웃·헤더·로그인·모달 / app = 카드·훈련화면·푸터 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="assets/css/base.css?v=2026-10-07.9">
-  <link rel="stylesheet" href="assets/css/report.css?v=2026-10-07.9">
-  <link rel="stylesheet" href="assets/css/browse.css?v=2026-10-07.9">
-  <link rel="stylesheet" href="assets/css/chat.css?v=2026-10-07.9">
-  <link rel="stylesheet" href="assets/css/practice.css?v=2026-10-07.9">
-  <link rel="stylesheet" href="assets/css/app.css?v=2026-10-07.9">
+  <link rel="stylesheet" href="assets/css/base.css?v=2026-10-07.10">
+  <link rel="stylesheet" href="assets/css/report.css?v=2026-10-07.10">
+  <link rel="stylesheet" href="assets/css/browse.css?v=2026-10-07.10">
+  <link rel="stylesheet" href="assets/css/chat.css?v=2026-10-07.10">
+  <link rel="stylesheet" href="assets/css/practice.css?v=2026-10-07.10">
+  <link rel="stylesheet" href="assets/css/hugi.css?v=2026-10-07.10">
+  <link rel="stylesheet" href="assets/css/app.css?v=2026-10-07.10">
 </head>
 <body>
 
@@ -155,6 +156,41 @@
           <div class="menu-desc">예상 질문에 내 답을 미리 써 두기<br>선생님도 볼 수 있습니다</div>
         </div>
       </button>
+      <button class="menu-btn" onclick="navigateTo('hugi')">
+        <span class="menu-icon">🗒️</span>
+        <div class="menu-text-box">
+          <div class="menu-title">면접 후기 쓰기</div>
+          <div class="menu-desc">면접 본 대학마다 한 장씩<br>합격·불합격 모두 씁니다</div>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- 면접 후기 — 교육청 «합격사례» 양식에 들어갈 내용을 씁니다. 선생님이 한글 파일로 받습니다 (hugi.js) -->
+  <div id="screen-hugi" class="screen">
+    <div id="hugi-home">
+      <p class="hg-intro">면접을 본 대학마다 <b>한 장씩</b> 써 주세요. 합격·불합격 모두 씁니다.<br>
+        면접 직후에 질문·답변을 먼저 쓰고, 발표 뒤에 합격사항을 고르면 됩니다.
+        다 쓴 것은 선생님이 교육청 양식(한글 파일)으로 받습니다.</p>
+      <div id="hugi-list"></div>
+      <button class="action-btn" style="margin-top:12px" onclick="hugiNew()">＋ 새 후기 쓰기</button>
+    </div>
+    <div id="hugi-pick" hidden>
+      <p class="prac-label" style="margin-top:0">어느 대학 후기인가요?</p>
+      <div id="hugi-pick-list"></div>
+      <button class="action-btn secondary" style="margin-top:12px" onclick="hugiStartFrom(null)">목록에 없어요 — 직접 쓰기</button>
+      <button class="hg-link" onclick="hugiBack(true)">← 목록으로</button>
+    </div>
+    <div id="hugi-edit" hidden>
+      <button class="hg-link" style="margin:0 0 10px" onclick="hugiBack()">← 목록으로</button>
+      <div id="hugi-form"></div>
+      <p class="hg-miss" id="hugi-miss"></p>
+      <div class="hg-actions">
+        <button class="action-btn secondary" onclick="hugiSave(false)">저장</button>
+        <button class="action-btn" id="hugi-done" onclick="hugiSave(true)">다 썼어요</button>
+      </div>
+      <p class="hg-savestate" id="hugi-state"></p>
+      <button class="hg-link danger" id="hugi-del" onclick="hugiDelete()" hidden>이 후기 지우기</button>
     </div>
   </div>
 
@@ -518,21 +554,22 @@
      config.js 가 이걸 써서 클라이언트를 만들므로 반드시 먼저 와야 합니다. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="assets/js/config.js?v=2026-10-07.9"></script>
-<script src="assets/js/update-bar.js?v=2026-10-07.9"></script>
-<script src="assets/js/utils.js?v=2026-10-07.9"></script>
-<script src="assets/js/api.js?v=2026-10-07.9"></script>
-<script src="assets/js/ui.js?v=2026-10-07.9"></script>
-<script src="assets/js/auth.js?v=2026-10-07.9"></script>
-<script src="assets/js/browse.js?v=2026-10-07.9"></script>
-<script src="assets/js/reviews.js?v=2026-10-07.9"></script>
-<script src="assets/js/questions.js?v=2026-10-07.9"></script>
-<script src="assets/js/interview.js?v=2026-10-07.9"></script>
-<script src="assets/js/report.js?v=2026-10-07.9"></script>
-<script src="assets/js/chat.js?v=2026-10-07.9"></script>
-<script src="assets/js/student-report.js?v=2026-10-07.9"></script>
-<script src="assets/js/practice.js?v=2026-10-07.9"></script>
-<script src="assets/js/notice.js?v=2026-10-07.9"></script>
-<script src="assets/js/main.js?v=2026-10-07.9"></script>
+<script src="assets/js/config.js?v=2026-10-07.10"></script>
+<script src="assets/js/update-bar.js?v=2026-10-07.10"></script>
+<script src="assets/js/utils.js?v=2026-10-07.10"></script>
+<script src="assets/js/api.js?v=2026-10-07.10"></script>
+<script src="assets/js/ui.js?v=2026-10-07.10"></script>
+<script src="assets/js/auth.js?v=2026-10-07.10"></script>
+<script src="assets/js/browse.js?v=2026-10-07.10"></script>
+<script src="assets/js/reviews.js?v=2026-10-07.10"></script>
+<script src="assets/js/questions.js?v=2026-10-07.10"></script>
+<script src="assets/js/interview.js?v=2026-10-07.10"></script>
+<script src="assets/js/report.js?v=2026-10-07.10"></script>
+<script src="assets/js/chat.js?v=2026-10-07.10"></script>
+<script src="assets/js/student-report.js?v=2026-10-07.10"></script>
+<script src="assets/js/practice.js?v=2026-10-07.10"></script>
+<script src="assets/js/hugi.js?v=2026-10-07.10"></script>
+<script src="assets/js/notice.js?v=2026-10-07.10"></script>
+<script src="assets/js/main.js?v=2026-10-07.10"></script>
 </body>
 </html>

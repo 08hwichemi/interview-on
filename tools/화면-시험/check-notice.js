@@ -257,8 +257,8 @@ function 열기(b, viewport, fake) {
     });
     await p.goto('http://127.0.0.1:8777/'); await p.waitForSelector('#screen-home.active');
     await p.waitForTimeout(300);
-    확인('홈 메뉴 버튼 5개가 그대로 온전한가(공지 상자가 안 끼어듦)',
-         (await p.locator('.home-grid .menu-btn').count()) === 5);
+    확인('홈 메뉴 버튼 6개(2026-10-07 «면접 후기 쓰기» 더함)가 그대로 온전한가(공지 상자가 안 끼어듦)',
+         (await p.locator('.home-grid .menu-btn').count()) === 6);
     확인('🔔 단추에 안읽음 점이 켜져 있는가', await p.evaluate(() => !document.getElementById('notice-dot').hidden));
     확인('학생 화면도 토스트로 알려주는가',
          (await p.evaluate(() => document.getElementById('toast-message').textContent)).indexOf('새 공지') > -1);
