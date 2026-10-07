@@ -7,9 +7,12 @@
 .prac-tab[aria-current="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
 
 /* 엑셀로 저장 · 인쇄 — 학생 앱은 .ghost 를 안 쓰므로(teacher.css 전용) 여기서 자체로 그립니다 */
-.prac-export{display:flex;gap:8px;margin:-8px 0 16px}
-.prac-export button{flex:1;padding:8px;border:1px solid var(--line-2);border-radius:8px;
-  background:var(--surface);color:var(--ink-2);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.prac-export{display:flex;gap:6px;margin:-8px 0 16px}
+.prac-export button{flex:1;padding:7px 6px;border:1px solid var(--line-2);border-radius:8px;white-space:nowrap;
+  background:var(--surface);color:var(--ink-2);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+/* 받은 질문 — 셋 가운데 맨 앞, 조금 진하게. 빨간 숫자는 글자 옆에 작게 */
+.prac-export .prac-offer-btn{color:var(--ink);font-weight:800;border-color:var(--ink-3)}
+.prac-export .newbadge{min-width:18px;height:18px;padding:0 5px;margin-left:5px;font-size:11px}
 .prac-export button:hover{background:var(--surface-2)}
 
 .prac-label{margin:14px 0 8px;font-size:12px;font-weight:700;color:var(--ink-3);
@@ -107,3 +110,23 @@
      내용에 맞게 높이를 자동으로 줄입니다(원래는 대학 목록용이라 화면의 75% 를 차지합니다) ── */
 .prac-modal{height:auto;max-height:min(80vh,520px)}
 .prac-modal-body{padding:18px 20px 24px;overflow-y:auto}
+
+/* ── «받은 질문» 창 — 체크해서 고르고 «넣기» (practice.js) ── */
+.prac-offer-modal{display:flex;flex-direction:column}
+.prac-offer-modal .prac-modal-body{flex:1 1 auto;min-height:0}
+.prac-offer{border:1px solid var(--line-2);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--surface)}
+.prac-offer.on{border-color:var(--ink);background:var(--surface-2)}
+.prac-offer-pick{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.prac-offer-pick input{flex:0 0 auto;margin-top:3px;width:17px;height:17px;accent-color:var(--ink)}
+.prac-offer-q{font-size:14px;line-height:1.6;color:var(--ink);word-break:keep-all}
+.prac-offer-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px;
+  font-size:11.5px;font-weight:700;color:var(--ink-3)}
+.prac-offer-skip{border:0;background:none;color:var(--ink-3);font-size:12px;font-weight:600;
+  text-decoration:underline;cursor:pointer;padding:2px 0;font-family:inherit}
+.prac-offer.gone{background:var(--surface-2);opacity:.75}
+.prac-offer.gone .prac-offer-q{color:var(--ink-2);font-size:13px}
+.prac-offer-old{margin-top:14px}
+.prac-offer-old summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ink-3);margin-bottom:8px}
+.prac-offer-actions{flex:0 0 auto;padding:10px 20px 18px;border-top:1px solid var(--line)}
+.prac-offer-actions[hidden],.prac-offer-actions .action-btn[hidden]{display:none}
+.prac-offer-actions .action-btn{margin:0;width:100%}

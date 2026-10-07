@@ -171,5 +171,5 @@
 .sg-foot-btns{display:flex;gap:8px;flex-wrap:wrap}
 .sg-foot-btns .btn{flex:1 1 180px}
 .sg-foot[hidden]{display:none!important}
-/* 담아 둔 질문 — 체크한 것과 구별되게 꼬리표를 붙입니다 */
-.sg-item.kept .sg-meta::after{content:' · 담아 둠';color:var(--ink);font-weight:800}
+/* 학생에게 보낸 질문 — 꼬리표를 붙여 두 번 보내지 않게 */
+.sg-item.sent .sg-meta::after{content:' · 학생에게 보냄';color:var(--ink);font-weight:800}

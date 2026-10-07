@@ -108,34 +108,46 @@ async function 열기(viewport) {
     확인('체크해도 읽던 자리가 안 튀는가', (await p.$eval('.sg-main', e => e.scrollTop)) === 200);
     확인('왼쪽 목록에 담은 수가 붙는가', (await p.$eval('#sg-rail .sg-rentry[aria-current="true"] .n b', e => e.textContent)) === '1');
     확인('학년 단추에도 담은 수가 붙는가', (await p.$eval('#sg-rail .sg-gbtn[aria-pressed="true"] b', e => e.textContent)) === '1');
-    확인('「담아 두기」 단추에 고른 수가 뜨는가', (await p.textContent('#sg-keep')).indexOf('고른 1개') === 0);
+    확인('「학생에게 보내기」 단추에 고른 수가 뜨는가', (await p.textContent('#sg-send')).indexOf('1개') === 0);
     확인('「올리기」 단추에도 수가 뜨는가', (await p.textContent('#sg-add')).indexOf('1개') === 0);
 
     // 직접 적는 칸은 맨 아래
     const lastItem = await p.$eval('.sg-list > :last-child', e => e.classList.contains('blank'));
     확인('직접 적는 칸이 질문 맨 아래에 있는가', lastItem);
     await p.fill('.sg-item.blank .sg-write', '직접 쓴 질문'); await p.waitForTimeout(100);
-    확인('직접 적으면 저절로 고른 것에 들어가는가', (await p.textContent('#sg-keep')).indexOf('고른 2개') === 0);
+    확인('직접 적으면 저절로 고른 것에 들어가는가', (await p.textContent('#sg-send')).indexOf('2개') === 0);
 
-    // 담아 두기 — 화면은 그대로
-    await p.click('#sg-keep'); await p.waitForTimeout(200);
-    확인('담아 두기를 눌러도 생기부 화면이 안 닫히는가', !(await p.$eval('#view-saenggibu', e => e.hidden)));
-    확인('아래 글에 담아 둔 수가 뜨는가', (await p.textContent('#sg-foot-note')).indexOf('담아 둔 질문 2개') === 0);
-    확인('담아 둔 줄에 「담아 둠」 꼬리표(kept)가 붙는가', (await p.$$('.sg-list .sg-item.kept')).length === 2);
-    확인('담아 두면 「담아 두기」 단추는 쉬는가', await p.$eval('#sg-keep', e => e.disabled));
-    확인('담아 둔 것을 체크 해제하면 꼬리표도 빠지는가', await (async () => {
-      await p.click('.sg-list label.sg-item >> nth=0'); await p.waitForTimeout(100);
-      const gone = (await p.$$('.sg-list .sg-item.kept')).length === 1;
-      await p.click('.sg-list label.sg-item >> nth=0'); await p.waitForTimeout(100);   // 다시 체크
-      return gone && (await p.textContent('#sg-foot-note')).indexOf('고른 1개는 아직 안 담음') > -1;
-    })());
-    await p.click('#sg-keep'); await p.waitForTimeout(100);
+    확인('«담아 두기» 단추는 없어졌는가', (await p.$$('#sg-keep')).length === 0);
 
-    // 「← 준비 화면으로」 — 담아 둔 게 있으면 묻고, 아니오면 남습니다
+    // 학생에게 보내기 — 묻고, 아니오면 안 보냄. 예면 practice_offers 로, 화면은 그대로
+    const 받은 = () => p.evaluate(() => window.__T.practice_offers || []);
+    p.대답(false); await p.click('#sg-send'); await p.waitForTimeout(200);
+    확인('보내기를 누르면 학생 이름을 넣어 묻는가', 물음.length === 1 && /고다윤 학생의 답안 연습장으로 보냅니다/.test(물음[0]), 물음[0]);
+    확인('아니오면 안 보내는가', (await 받은()).length === 0);
+    p.대답(true); await p.click('#sg-send'); await p.waitForTimeout(300);
+    let 보낸 = await 받은();
+    확인('예면 두 질문이 학생에게 가는가', 보낸.length === 2 && 보낸.every(r => r.student_id === 's1'), JSON.stringify(보낸.map(r => r.question.slice(0, 20))));
+    확인('직접 쓴 질문도 같이 가는가', 보낸.some(r => r.question === '직접 쓴 질문'));
+    확인('학년(1)·선생님 이름·학교가 붙는가', 보낸.every(r => r.grade === '1' && r.teacher_id === 'u1' && r.teacher_name === '이용휘' && r.school_id));
+    확인('보내도 생기부 화면은 안 닫히는가', !(await p.$eval('#view-saenggibu', e => e.hidden)));
+    확인('보낸 줄에 「학생에게 보냄」 꼬리표(sent)가 붙는가', (await p.$$('.sg-list .sg-item.sent')).length === 2);
+    확인('보내면 체크가 풀리는가', await p.$eval('#sg-send', e => e.disabled));
+    확인('아래 글에 보낸 수가 뜨는가', (await p.textContent('#sg-foot-note')).indexOf('보낸 질문 2개') > -1);
+
+    // 같은 질문을 또 보내면 하나만 남습니다
+    await p.click('.sg-list label.sg-item >> nth=0'); await p.waitForTimeout(100);
+    await p.click('#sg-send'); await p.waitForTimeout(300);
+    확인('같은 질문을 또 보내도 두 번 안 들어가는가', (await 받은()).length === 2, (await 받은()).length + '줄');
+    확인('「이미 보낸 것은 건너뜀」 이라고 알려 주는가', (await p.textContent('#toast')).indexOf('건너뜀') > -1, await p.textContent('#toast'));
+
+    // 다시 둘을 체크 — 아래 «올리기» 검사에 씁니다
+    await p.click('.sg-list label.sg-item >> nth=0'); await p.waitForTimeout(100);
+    await p.click('.sg-item.blank input[type="checkbox"]'); await p.waitForTimeout(100);
+
+    // 「← 준비 화면으로」 — 체크해 둔 게 있으면 묻고, 아니오면 남습니다
     p.대답(false); await p.click('button:has-text("준비 화면으로")'); await p.waitForTimeout(200);
-    확인('담아 둔 채 나가려 하면 묻는가', 물음.length === 1 && /올리지 않았습니다/.test(물음[0]), 물음[0]);
+    확인('체크해 둔 채 나가려 하면 묻는가', /아직 보내거나 올리지 않았습니다/.test(물음[물음.length - 1]), 물음[물음.length - 1]);
     확인('아니오를 누르면 생기부 화면에 남는가', !(await p.$eval('#view-saenggibu', e => e.hidden)));
-    확인('담아 둔 것이 그대로인가', (await p.textContent('#sg-foot-note')).indexOf('담아 둔 질문 2개') === 0);
     p.대답(true);
 
     // 앞·다음 묶음
@@ -152,7 +164,7 @@ async function 열기(viewport) {
 
     // 올리기 — 묻고 나서 닫습니다. 아니오면 남고, 예면 «낼 질문» 으로
     p.대답(false); await p.click('#sg-add'); await p.waitForTimeout(200);
-    확인('올리기를 누르면 묻는가', 물음.length === 2 && /올리고 생기부 화면을 닫습니다/.test(물음[1]), 물음[1]);
+    확인('올리기를 누르면 묻는가', /올리고 생기부 화면을 닫습니다/.test(물음[물음.length - 1]), 물음[물음.length - 1]);
     확인('취소하면 생기부 화면에 남는가', !(await p.$eval('#view-saenggibu', e => e.hidden)));
     p.대답(true); await p.click('#sg-add'); await p.waitForTimeout(200);
     확인('예를 누르면 준비 화면으로 돌아오는가', !(await p.$eval('#view-setup', e => e.hidden)));
