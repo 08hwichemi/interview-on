@@ -529,7 +529,10 @@ function practicePaintOffers() {
     });
   }
   if (done.length || off.length) {
-    html += '<details class="prac-offer-old"><summary>넣은 것 ' + done.length + '개 · 안 쓰기로 한 것 ' + off.length + '개</summary>' +
+    // ⚠️ 목록을 다시 그릴 때마다 이 접이식 칸이 닫혀서, 안 쓰기로 한 것을 하나씩 지울 때마다 다시 열어야 했습니다
+    //    (2026-10-07 선생님 말씀). 열림 상태를 PO.oldOpen 에 기억해 두고 그대로 그립니다.
+    html += '<details class="prac-offer-old" ontoggle="PO.oldOpen = this.open"' + (PO.oldOpen ? ' open' : '') + '>' +
+      '<summary>넣은 것 ' + done.length + '개 · 안 쓰기로 한 것 ' + off.length + '개</summary>' +
       practiceOfferSort(done.concat(off)).map(function (o) {
         return '<div class="prac-offer gone">' +
           '<span class="prac-offer-q">' + esc(o.question) + '</span>' +
@@ -540,7 +543,10 @@ function practicePaintOffers() {
           '</span></div></div>';
       }).join('') + '</details>';
   }
+  // 다시 그려도 읽던 자리가 맨 위로 튀지 않게 창 안의 스크롤을 지킵니다
+  var keepTop = box.scrollTop;
   box.innerHTML = html;
+  box.scrollTop = keepTop;
   practicePaintOfferBtn();
 }
 
