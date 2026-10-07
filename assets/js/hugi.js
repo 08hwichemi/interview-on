@@ -32,7 +32,7 @@ var HUGI_DEFAULT_URL = (function () {
 var HUGI_FIELDS = [
   ['학년도', '입시 학년도 숫자(예: 2027) — 후기를 처음 쓴 날로 셉니다'],
   ['계열', '자연 · 인문 · 예체능'],
-  ['동의', '개인 정보 동의 — 했으면 ■, 안 했으면 □'],
+  ['동의', '개인 정보 동의 — 했으면 ☑(네모 안에 V), 안 했으면 □'],
   ['학번', ''], ['이름', ''],
   ['지원대학', ''], ['지원학과', ''], ['전형명', ''],
   ['전형유형', '학생부종합 · 학생부교과(면접형) · 그 밖의 전형 (글자로)'],
@@ -79,7 +79,8 @@ function hugiValues(sheet, student) {
   return {
     '학년도': hugiYear(sheet),
     '계열': sheet.track || '',
-    '동의': sheet.consent ? '■' : '□',
+    // 처음엔 ■(까만 네모)였는데 «네모 안에 V 표시가 아니네?» 라는 말씀(2026-10-07) — ☑ 로
+    '동의': sheet.consent ? '☑' : '□',
     '학번': (student && student.student_no) || '',
     '이름': (student && student.name) || '',
     '지원대학': sheet.univ || '', '지원학과': sheet.major || '', '전형명': sheet.adm_name || '',
