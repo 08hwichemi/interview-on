@@ -340,7 +340,8 @@ function studentRow(s) {
     '</div>';
 }
 
-function renderStudents() {
+// 지금 명단에 보이는 학생들 — 고른 반 · 찾는 말로 걸러진 것
+function visibleStudents() {
   var list = students;
   if (pickedClass) list = list.filter(function (s) { return classKey(s) === pickedClass; });
   if (searchWord) {
@@ -348,6 +349,21 @@ function renderStudents() {
       return String(s.student_no).indexOf(searchWord) > -1 || String(s.name).indexOf(searchWord) > -1;
     });
   }
+  return list;
+}
+// «3학년 2반» · «전체» — 면접 후기 한꺼번에 받기 단추와 파일 이름에 씁니다
+function visibleLabel() {
+  var label = pickedClass ? pickedClass.charAt(0) + '학년 ' + Number(pickedClass.slice(1)) + '반' : '전체';
+  return searchWord ? label + ' «' + searchWord + '»' : label;
+}
+
+// 면접 후기 한꺼번에 — 지금 명단에 보이는 학생들 것을 압축 파일 하나로 (hugi.js)
+function downloadClassHugi() { hugiDownloadClass(visibleStudents(), visibleLabel()); }
+
+function renderStudents() {
+  var list = visibleStudents();
+  var hb = document.getElementById('btn-hugi-class');
+  if (hb) { hb.hidden = !list.length; hb.textContent = '🗒️ ' + visibleLabel() + ' 면접 후기 받기'; }
 
   var box = document.getElementById('student-list');
   document.getElementById('found-count').textContent = list.length;
@@ -489,6 +505,9 @@ function setupGoTab(which) {
   document.getElementById('setup-tab-practice').setAttribute('aria-current', which === 'practice');
   document.getElementById('setup-prep').hidden = which !== 'prep';
   document.getElementById('setup-practice').hidden = which !== 'practice';
+  document.getElementById('setup-tab-hugi').setAttribute('aria-current', which === 'hugi');
+  document.getElementById('setup-hugi').hidden = which !== 'hugi';
+  if (which === 'hugi' && target) hugiTeacherTab(target);
   if (which === 'practice' && target) {
     practiceBrowseInit(target.id, {
       gradeBox: document.getElementById('t-prac-grade'),

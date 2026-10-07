@@ -36,7 +36,15 @@ function setRosterMode(mode) {
   document.getElementById('add-panel').hidden    = (mode === 'data');
   document.getElementById('roster-panel').hidden = (mode === 'data');
   document.getElementById('data-panel').hidden   = (mode !== 'data');
-  if (mode === 'data') { loadDataCounts(); return; }
+  if (mode === 'data') {
+    loadDataCounts();
+    // 면접 후기 양식 — 지금 어떤 양식을 쓰는지 (hugi.js)
+    if (typeof hugiAdminPaint === 'function') {
+      document.getElementById('hugi-admin-fields').innerHTML = hugiAdminFieldsHTML();
+      hugiAdminPaint();
+    }
+    return;
+  }
 
   var student = mode === 'student';
   document.getElementById('add-title').textContent = student ? '학생 추가 등록' : '교사 추가 등록';
