@@ -1991,6 +1991,26 @@ function paintSgFoot() {
   }
 }
 
+// ⚠️ 학생 앱(/)과 선생님 화면(/teacher/)은 주소가 같아서, 한 브라우저에서는 로그인을 «하나만» 기억합니다.
+//    선생님 화면을 열어 둔 채 다른 탭에서 학생으로 로그인하면, 이 탭의 요청도 학생으로 나갑니다.
+//    2026-10-07 실제 시험에서 이렇게 «new row violates row-level security policy» 가 떴습니다
+//    (서버에서는 선생님·관리자 계정 12개 모두 넣기가 됐습니다). 보내기 전에 로그인이 그대로인지 봅니다.
+//    getSession 은 이 기기에 저장된 것을 읽을 뿐이라 서버 요청이 안 늡니다.
+var SG_OTHER_LOGIN_MSG =
+  '이 브라우저가 지금 다른 계정(학생 등)으로 로그인돼 있어서 보낼 수 없습니다.\n\n' +
+  '학생 앱과 선생님 화면은 한 브라우저에서 로그인을 하나만 기억합니다. ' +
+  '학생 화면을 확인할 때는 시크릿 창이나 다른 브라우저를 써 주세요.\n\n' +
+  '이 화면을 새로고침해서 선생님으로 다시 로그인하면 보낼 수 있습니다.';
+async function sgSameLogin() {
+  try {
+    var r = await sb.auth.getSession();
+    var uid = r && r.data && r.data.session && r.data.session.user && r.data.session.user.id;
+    if (uid && me && uid === me.id) return true;
+  } catch (e) { /* 아래 안내로 */ }
+  alert(SG_OTHER_LOGIN_MSG);
+  return false;
+}
+
 // 체크한 질문을 지금 고른 학생의 답안 연습장 «받은 질문» 으로 보냅니다(practice_offers).
 // 학생이 골라서 «선생님 질문» 카드로 넣고 답을 써 봅니다. 화면은 닫지 않습니다.
 // 같은 학생에게 같은 질문을 또 보내면 서버가 하나만 남깁니다(onConflict + ignoreDuplicates).
@@ -2002,6 +2022,7 @@ async function sendSaenggibuPicks() {
   var who = target.name || target.student_no || '학생';
   if (!confirm(picked.length + '개를 ' + who + ' 학생의 답안 연습장으로 보냅니다.\n' +
                '학생이 «받은 질문» 에서 골라 답을 써 봅니다.')) return;
+  if (!(await sgSameLogin())) return;
 
   var rows = [];
   picked.forEach(function (i) {
@@ -2019,7 +2040,11 @@ async function sendSaenggibuPicks() {
   const { data, error } = await sb.from('practice_offers')
     .upsert(rows, { onConflict: 'student_id,question', ignoreDuplicates: true })
     .select('id');
-  if (error) { toast('보내지 못했습니다: ' + error.message, 'bad'); paintSgFoot(); return; }
+  if (error) {
+    if (/row-level security/.test(error.message || '')) alert(SG_OTHER_LOGIN_MSG);
+    else toast('보내지 못했습니다: ' + error.message, 'bad');
+    paintSgFoot(); return;
+  }
 
   var made = (data || []).length;
   picked.forEach(function (i) { sgSent[i] = true; delete sgPicked[i]; sgPaintItem(i); });

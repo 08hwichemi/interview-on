@@ -112,7 +112,15 @@
 .prac-modal-body{padding:18px 20px 24px;overflow-y:auto}
 
 /* ── «받은 질문» 창 — 체크해서 고르고 «넣기» (practice.js) ── */
-.prac-offer-modal{display:flex;flex-direction:column}
+/* 받은 질문은 길게 읽어야 해서 «새 질문 쓰기» 창보다 크게 — 화면 크기에 비례합니다(2026-10-07 선생님 말씀).
+   휴대폰: 아래에서 올라오는 시트로 화면 높이의 거의 다 / 넓은 화면: 가운데 창, 화면 너비의 72%(최대 1100px) */
+.modal-content.prac-offer-modal{display:flex;flex-direction:column;width:100%;max-width:none;
+  height:88dvh;max-height:92%}
+@media (min-width: 900px){
+  .modal-content.prac-offer-modal{width:min(72vw,1100px);max-width:none;height:82vh;max-height:90%}
+  .prac-offer-q{font-size:15px}
+  .prac-offer{padding:12px 16px}
+}
 .prac-offer-modal .prac-modal-body{flex:1 1 auto;min-height:0}
 .prac-offer{border:1px solid var(--line-2);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--surface)}
 .prac-offer.on{border-color:var(--ink);background:var(--surface-2)}

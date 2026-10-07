@@ -134,6 +134,17 @@ async function 열기(viewport) {
     확인('보내면 체크가 풀리는가', await p.$eval('#sg-send', e => e.disabled));
     확인('아래 글에 보낸 수가 뜨는가', (await p.textContent('#sg-foot-note')).indexOf('보낸 질문 2개') > -1);
 
+    // 같은 브라우저에서 다른 계정(학생)으로 로그인돼 있으면 안 보내고 까닭을 알려 줍니다
+    await p.click('.sg-list label.sg-item >> nth=2'); await p.waitForTimeout(100);
+    await p.evaluate(() => { window.__realGS = sb.auth.getSession;
+      sb.auth.getSession = () => Promise.resolve({ data: { session: { user: { id: 'student-uid' } } } }); });
+    const 줄수 = (await 받은()).length;
+    await p.click('#sg-send'); await p.waitForTimeout(300);
+    확인('다른 계정으로 로그인돼 있으면 안 보내는가', (await 받은()).length === 줄수);
+    확인('시크릿 창을 쓰라고 알려 주는가', /다른 계정.*로그인돼 있어서 보낼 수 없습니다[\s\S]*시크릿 창/.test(물음[물음.length - 1]), 물음[물음.length - 1].slice(0, 40));
+    await p.evaluate(() => { sb.auth.getSession = window.__realGS; });
+    await p.click('.sg-list label.sg-item >> nth=2'); await p.waitForTimeout(100);   // 체크 풀기
+
     // 같은 질문을 또 보내면 하나만 남습니다
     await p.click('.sg-list label.sg-item >> nth=0'); await p.waitForTimeout(100);
     await p.click('#sg-send'); await p.waitForTimeout(300);

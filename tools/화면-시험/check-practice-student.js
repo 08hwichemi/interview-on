@@ -204,6 +204,8 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   확인('홈의 답안 연습장 숫자에도 들어가는가', (await p.textContent('#practice-badge')) === '3');
 
   await p.click('.prac-offer-btn'); await p.waitForTimeout(300);
+  확인('휴대폰에서 받은 질문 창이 화면 높이의 80% 넘게 쓰는가',
+       await p.$eval('.prac-offer-modal', e => e.getBoundingClientRect().height > window.innerHeight * 0.8));
   확인('받은 질문 창이 뜨는가', await p.evaluate(() => document.getElementById('prac-offer-overlay').style.display === 'flex'));
   확인('받은 질문 3개가 체크칸과 함께 보이는가', (await p.$$('#prac-offer-list .prac-offer input[type="checkbox"]')).length === 3);
   확인('처음엔 «넣기» 단추가 쉬는가', await p.$eval('#prac-offer-add', e => e.disabled));
@@ -245,6 +247,12 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
        (await p.$$('#prac-offer-list .prac-offer input[type="checkbox"]')).length === 1);
   확인('되살리면 빨간 숫자가 1 이 되는가', (await p.textContent('#prac-offer-badge')) === '1');
   await p.click('#prac-offer-overlay .close-btn');
+  await p.setViewportSize({ width: 1400, height: 900 }); await p.waitForTimeout(150);
+  await p.click('.prac-offer-btn'); await p.waitForTimeout(300);
+  const 크기 = await p.$eval('.prac-offer-modal', e => { const r = e.getBoundingClientRect(); return { w: r.width / innerWidth, h: r.height / innerHeight }; });
+  확인('넓은 화면에서는 창 너비의 약 72%·높이의 약 82% 로 커지는가', 크기.w > 0.68 && 크기.w < 0.76 && 크기.h > 0.78, JSON.stringify(크기));
+  await p.click('#prac-offer-overlay .close-btn');
+  await p.setViewportSize({ width: 420, height: 900 }); await p.waitForTimeout(150);
 
   확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
   await b.close();
