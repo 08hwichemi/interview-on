@@ -161,6 +161,34 @@ window.supabase = {
           window.__T.chats = [];
           return 결과(n);
         }
+        // 빨간 숫자 한꺼번에(badges.js · 2026-10-08) — 진짜 서버 함수 public.app_badges 를 흉내 냅니다.
+        // 로그인은 늘 u1 입니다. 학생 몫은 u1 이 학생일 때만, 진짜 RLS 처럼 «내 것» 만 셉니다.
+        if (name === 'app_badges') {
+          if (window.__noBadgesRpc) return 결과(null, { message: 'function app_badges does not exist' });
+          const T = window.__T, uid = 'u1';
+          const meS = (T.students || []).find(function (s) { return s.auth_user_id === uid; });
+          const mine = (T.chats || []).filter(function (c) { return c.sender_id === uid || c.receiver_id === uid; });
+          const ann = (T.announcements || []).find(function (a) { return a.active; });
+          const out = {
+            notice: ann ? { content: ann.content, link: ann.link, updated_at: ann.updated_at } : null,
+            chat_unread: mine.filter(function (c) { return c.receiver_id === uid && !c.is_read; }).length,
+            chat_last: mine.reduce(function (m, c) { return !m || c.created_at > m ? c.created_at : m; }, null),
+            is_student: !!meS
+          };
+          if (meS) {
+            // 예전 가짜 서버는 RLS 없이 표를 통째로 줬습니다 — 검사 자료가 그걸 믿고 있어서, 학생·상태가 적혀 있을 때만 거릅니다
+            out.reports = (T.interviews || []).filter(function (i) {
+                return (!i.student_id || i.student_id === meS.id) && (!i.status || i.status === '전달됨'); })
+              .sort(function (a, z) { return String(z.started_at).localeCompare(String(a.started_at)); })
+              .map(function (i) { return { id: i.id, started_at: i.started_at, delivered_at: i.delivered_at, edited_at: i.edited_at }; });
+            out.report_reads = (T.report_reads || []).filter(function (r) { return r.user_id === uid; })
+              .map(function (r) { return { interview_id: r.interview_id, read_at: r.read_at }; });
+            const read = (T.practice_comment_reads || []).filter(function (r) { return r.user_id === uid; }).map(function (r) { return r.comment_id; });
+            out.comments_unread = (T.practice_comments || []).filter(function (c) { return read.indexOf(c.id) === -1; }).length;
+            out.offers_new = (T.practice_offers || []).filter(function (o) { return o.status === '새로' && (!o.student_id || o.student_id === meS.id); }).length;
+          }
+          return 결과(out);
+        }
         // 학생 접속 표시(presence.js) — 로그인한 학생 본인 줄의 last_seen_at 만 찍습니다
         if (name === 'student_heartbeat') {
           const me = (window.__T.students || []).find(function (s) { return s.auth_user_id === 'u1'; });

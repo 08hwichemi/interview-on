@@ -61,15 +61,15 @@ var reportReadsLoaded = false;
 
 // 리포트는 바로 떠야 할 만큼 급하지 않아서 실시간·주기 확인은 두지 않습니다.
 // (서버 요청 1건 = Supabase 로그 1줄이라, 학생 수만큼 곱해지는 확인은 줄입니다.)
-// 앱을 열 때 한 번, 그리고 앱으로 돌아왔을 때 마지막 확인에서 5분이 지났으면 한 번.
-var reportWatchOn = false;
-
-function watchReports() {
-  if (reportWatchOn || !currentUser || currentUser.role !== 'student') return;
-  reportWatchOn = true;
-  var recheck = throttleRefresh(refreshReportBadge, 5 * 60 * 1000);
-  document.addEventListener('visibilitychange', recheck);
-  recheck();
+// 앱을 열 때 한 번, 그리고 앱으로 돌아왔을 때 마지막 확인에서 5분이 지났으면 한 번 —
+// 2026-10-08 부터 그 확인은 badges.js 가 공지·톡·연습장과 한 번에 묻고 여기로 넘겨줍니다.
+// (refreshReportBadge 는 묶음 확인이 실패했을 때 쓰는 예전 길입니다)
+function reportApply(reports, reads) {
+  myReports = reports || [];
+  reportReads = {};
+  (reads || []).forEach(function (r) { reportReads[r.interview_id] = r.read_at; });
+  reportReadsLoaded = true;
+  paintBadge();
 }
 
 // ══════════════ 목록 ══════════════

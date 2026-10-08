@@ -28,10 +28,11 @@ function roomIdOf(a, b) {
 //
 // 로그인이 끝난 뒤 한 번 부릅니다.
 // who = { id, role:'student'|'teacher', name }
+// ⚠️ 예전엔 여기서 대화방 목록(내가 주고받은 톡 전부)을 바로 받았습니다. 처음 화면에 필요한 건 💬 의 «안 읽은 수» 뿐이라,
+//    그건 badges.js 의 묶음 확인이 주고, 목록은 톡 창을 열 때(openChatList) 받습니다(2026-10-08 — 서버 요청 줄이기).
 async function startChat(who) {
   chatMe = who;
   await loadPartners();
-  await loadChatRooms();
   watchChatList();
 }
 
@@ -89,6 +90,8 @@ async function loadChatRooms() {
     .or('sender_id.eq.' + chatMe.id + ',receiver_id.eq.' + chatMe.id)
     .order('created_at', { ascending: false });
   if (error) { console.warn('대화방을 못 읽었습니다:', error.message); return; }
+  chatRoomsLoaded = true;
+  chatSeenLast = (data && data[0]) ? data[0].created_at : null;   // 가장 새 톡(맨 앞) — 묶음 확인이 «바뀌었나» 를 견줍니다
 
   var byRoom = {};
   (data || []).forEach(function (m) {
@@ -126,12 +129,28 @@ function chatUnreadTotal() {
   return chatRooms.reduce(function (n, r) { return n + r.unread; }, 0);
 }
 
+// 대화방 목록을 한 번이라도 받았는가 · 그때 가장 새 톡의 시각 · 묶음 확인이 알려 준 안 읽은 수
+var chatRoomsLoaded = false;
+var chatSeenLast = null;
+var chatServerUnread = 0;
+
 function paintChatBadge() {
   var el = document.getElementById('chat-badge');
   if (!el) return;
-  var n = chatUnreadTotal();
+  var n = chatRoomsLoaded ? chatUnreadTotal() : chatServerUnread;
   el.textContent = n;
   el.hidden = (n === 0);
+}
+
+// badges.js 의 묶음 확인이 «안 읽은 수 · 가장 새 톡 시각» 을 줍니다.
+// 목록을 받아 둔 적이 있고 그 사이 바뀐 게 있으면(새 톡 · 다른 기기에서 읽음) 그때만 목록을 다시 받습니다.
+function chatApplyBadge(unread, last) {
+  chatServerUnread = unread;
+  if (chatRoomsLoaded) {
+    var t = function (x) { return x ? new Date(x).getTime() : 0; };
+    if (t(last) !== t(chatSeenLast) || unread !== chatUnreadTotal()) { loadChatRoomsSoon(); return; }
+  }
+  paintChatBadge();
 }
 
 // 실시간 알림이 한꺼번에 여러 개 올 때(말 하나에 «새 말» + «읽음» 두 번) 목록을
@@ -146,12 +165,14 @@ function loadChatRoomsSoon() {
 //
 // 실시간이 주 경로입니다. 끊겼을 때를 대비해 두 번만 더 확인합니다.
 //   · 실시간이 끊겼다가 다시 붙었을 때 — 끊긴 사이에 온 말을 놓치지 않게
-//   · 화면을 다시 볼 때(폰을 다시 켰을 때) — 1분 안에 또 들락날락하면 건너뜀
+//   · 화면을 다시 볼 때(폰을 다시 켰을 때) — badges.js 의 묶음 확인(5분 간격)이 안 읽은 수를 받고,
+//     바뀐 게 있을 때만 목록을 다시 받습니다
 // ⚠️ 예전엔 여기에 «5분마다 다시 확인» 도 있었습니다. 화면을 켜 둔 사람마다 한 시간에
 // 12번씩 서버에 물었는데, 톡이 실제로 오가는 일은 그보다 훨씬 적었습니다(2026-10-03 에 뺌).
+// ⚠️ 그 뒤에도 «화면을 다시 볼 때 1분 간격» 으로 목록 전체를 다시 받았습니다. 수업 시간 1시간에 톡 목록 요청이
+// 212번 — 서버 기록 2위였습니다(2026-10-08 로그). 묶음 확인으로 옮겼습니다.
 function watchChatList() {
   if (chatListChannel) return;
-  var recheck = throttleRefresh(loadChatRooms, 60000);
   var firstJoin = true;
   try {
     chatListChannel = sb.channel('chat-list')
@@ -163,14 +184,13 @@ function watchChatList() {
           })
       .subscribe(function (status) {
         if (status !== 'SUBSCRIBED') return;
-        // 처음 붙을 때는 startChat 이 이미 목록을 받았습니다. 다시 붙을 때만 확인합니다.
+        // 처음 붙을 때는 badges.js 가 막 확인했습니다. 다시 붙을 때만 확인합니다.
         if (firstJoin) { firstJoin = false; return; }
         loadChatRoomsSoon();
       });
   } catch (e) {
     chatListChannel = null;
   }
-  document.addEventListener('visibilitychange', recheck);
 }
 
 // ══════════════ 톡 목록 창 ══════════════
