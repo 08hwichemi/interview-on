@@ -370,15 +370,14 @@ function practicePaintBadge() {
   if (ob) { ob.textContent = practiceNewOfferCount; ob.hidden = practiceNewOfferCount === 0; }
 }
 
-var practiceWatchOn = false;
-function practiceWatchComments() {
-  if (practiceWatchOn || typeof currentUser === 'undefined' || !currentUser || currentUser.role !== 'student') return;
-  practiceWatchOn = true;
-  // 코멘트는 급하지 않아서 실시간·주기 확인은 두지 않습니다(student-report.js 와 같은 방식).
-  // 앱을 열 때 한 번, 앱으로 돌아왔을 때 마지막 확인에서 5분이 지났으면 한 번.
-  var recheck = throttleRefresh(practiceRefreshBadge, 5 * 60 * 1000);
-  document.addEventListener('visibilitychange', recheck);
-  recheck();
+// 코멘트는 급하지 않아서 실시간·주기 확인은 두지 않습니다(student-report.js 와 같은 방식).
+// 앱을 열 때 한 번, 앱으로 돌아왔을 때 마지막 확인에서 5분이 지났으면 한 번 —
+// 2026-10-08 부터 그 확인은 badges.js 가 공지·톡·리포트와 한 번에 묻고 «안 읽은 코멘트 수 · 새로 받은 질문 수» 를 넘겨줍니다.
+// (practiceRefreshBadge 는 묶음 확인이 실패했을 때 쓰는 예전 길입니다)
+function practiceApplyBadge(unreadComments, newOffers) {
+  practiceUnreadCount = unreadComments;
+  practiceNewOfferCount = newOffers;
+  practicePaintBadge();
 }
 
 // ══════════════ 받은 질문 — 선생님이 생기부에서 뽑아 보낸 질문 (2026-10-07) ══════════════

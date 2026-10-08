@@ -16,13 +16,18 @@
 
 var noticeCurrent = null;   // 지금 뜨는 공지 { content, link, updated_at } — 없으면 null
 
+// 공지만 따로 묻기 — 실시간 알림이 왔을 때 · 관리자가 공지를 바꿨을 때 · 묶음 확인(badges.js)이 실패했을 때
 async function noticeCheckBadge() {
-  var btn = document.getElementById('notice-open');
-  if (!btn) return;
-
+  if (!document.getElementById('notice-open')) return;
   const { data, error } = await sb.from('announcements')
     .select('content, link, updated_at').eq('school_id', SCHOOL_ID).eq('active', true).maybeSingle();
   if (error) return;
+  noticeApply(data);
+}
+
+// 받은 «지금 공지» 로 🔔 점을 켜고 끕니다(badges.js 의 묶음 확인도 이걸 부릅니다)
+function noticeApply(data) {
+  if (!document.getElementById('notice-open')) return;
   noticeCurrent = (data && data.content) ? data : null;
 
   var seenAt = null;
@@ -115,15 +120,14 @@ function noticeClosePanel() {
   document.getElementById('notice-panel-overlay').style.display = 'none';
 }
 
+// 공지 실시간 알림만 켭니다. 처음 확인 · 앱으로 돌아왔을 때 확인은 badges.js 가 다른 빨간 숫자와 한 번에 합니다.
 var noticeWatchOn = false;
 function noticeWatch() {
   if (noticeWatchOn) return;
   noticeWatchOn = true;
-  noticeCheckBadge();
   try {
     sb.channel('school-announcements')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, function () { noticeCheckBadge(); })
       .subscribe();
   } catch (e) { console.warn('공지 실시간 알림을 켜지 못했습니다:', e); }
-  document.addEventListener('visibilitychange', throttleRefresh(noticeCheckBadge, 5 * 60 * 1000));
 }

@@ -184,14 +184,15 @@ async function enterApp() {
 
   setBusy(false);
   navigateTo('home');
-  watchReports();   // 선생님이 리포트를 보내면 홈에 빨간 숫자가 붙습니다
-  practiceWatchComments();   // 선생님이 답안 연습장에 코멘트를 달면 홈에 빨간 숫자가 붙습니다
-  noticeWatch();    // 머리말 🔔 단추에 안읽음 점을 켜 둡니다
+  noticeWatch();    // 공지 실시간 알림(🔔 점)
 
   // 톡은 어느 화면에서나 쓸 수 있게 머리말에 있습니다
   document.getElementById('chat-open').hidden = false;
   startChat({ id: currentUser.id, role: 'student',
               name: (currentUser.login_id || '') + ' ' + (currentUser.name || '') });
+
+  // 빨간 숫자 한꺼번에 — 리포트 · 연습장 코멘트·받은 질문 · 🔔 공지 · 💬 안 읽은 톡 (badges.js, 요청 한 번)
+  badgesWatch();
 }
 
 // --- 앱 시작 시 이미 로그인돼 있는지 확인 ---

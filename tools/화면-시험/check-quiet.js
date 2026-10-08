@@ -5,6 +5,8 @@
 //   · 실시간이 끊겼다가 다시 붙으면 → 그때 한 번만 확인합니다
 //   · 실시간 알림이 한꺼번에 두 개 와도(새 말 + 읽음) → 한 번만 받습니다
 //   · 접속 표시(초록 점 · 하트비트)는 없앴습니다(2026-10-03) → 0번
+//   · 빨간 숫자(리포트 · 연습장 · 공지 · 톡)는 앱을 열 때·돌아왔을 때 서버 함수 하나(app_badges)로 한 번에(2026-10-08).
+//     톡 목록은 열 때 받지 않고, 돌아왔을 때도 «바뀐 게 있을 때만» 받습니다. 함수가 없으면 예전처럼 따로 묻습니다
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 // 가짜 서버에 «실시간 연결이 붙었다» 를 흉내 낼 수 있게 subscribe 의 콜백을 잡아 둡니다
@@ -53,7 +55,10 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
   await p.clock.runFor(2000);
 
   const 처음 = await p.evaluate(() => Object.assign({}, window.__reads));
-  확인('앱을 열 때 톡 목록을 한 번 받는가', 처음.chats === 1, JSON.stringify(처음));
+  확인('앱을 열 때 빨간 숫자는 묶음 확인 한 번(app_badges)', 처음['rpc:app_badges'] === 1, JSON.stringify(처음));
+  확인('앱을 열 때 톡 목록 · 공지 · 리포트 · 연습장 코멘트 · 받은 질문을 따로 묻지 않는가',
+       ['chats', 'announcements', 'interviews', 'report_reads', 'practice_comments', 'practice_comment_reads', 'practice_offers']
+         .every(k => !처음[k]), JSON.stringify(처음));
 
   console.log('\n── 화면을 켜 둔 채 30분 ──');
   await p.clock.runFor('30:00');
@@ -67,11 +72,11 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
   console.log('\n── 실시간이 끊겼다가 다시 붙으면 ──');
   await p.evaluate(() => { window.__subs['chat-list']('SUBSCRIBED'); });   // 처음 붙음
   await p.clock.runFor(2000);
-  확인('처음 붙을 때는 다시 받지 않는가', (await p.evaluate(() => window.__reads.chats)) === 뒤.chats);
+  확인('처음 붙을 때는 다시 받지 않는가', (await p.evaluate(() => window.__reads.chats || 0)) === (뒤.chats || 0));
   await p.evaluate(() => { window.__subs['chat-list']('CLOSED'); window.__subs['chat-list']('SUBSCRIBED'); });  // 끊겼다 다시
   await p.clock.runFor(2000);
-  const 다시 = await p.evaluate(() => window.__reads.chats);
-  확인('다시 붙을 때 톡 목록을 한 번 확인하는가', 다시 - 뒤.chats === 1, (다시 - 뒤.chats) + '번');
+  const 다시 = await p.evaluate(() => window.__reads.chats || 0);
+  확인('다시 붙을 때 톡 목록을 한 번 확인하는가', 다시 - (뒤.chats || 0) === 1, (다시 - (뒤.chats || 0)) + '번');
 
   console.log('\n── 실시간 알림이 한꺼번에 둘 오면 ──');
   await p.evaluate(() => {
@@ -89,6 +94,35 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
     window.__onChange['chat-list']({ eventType: 'INSERT', new: { sender_id: 'x', receiver_id: 'y' } });
     return before;
   }).then(async before => { await p.clock.runFor(2000); return (await p.evaluate(() => window.__reads.chats)) === before; }));
+
+  console.log('\n── 앱으로 돌아왔을 때(묶음 확인) ──');
+  const 돌아옴 = async () => { await p.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await p.clock.runFor(2000); };
+  const 읽음 = () => p.evaluate(() => Object.assign({}, window.__reads));
+  await 돌아옴();   // 30분이 지났으니 이번엔 묻고, 곧바로 또 돌아오면 안 묻습니다
+  let r0 = await 읽음();
+  await 돌아옴();
+  let r1 = await 읽음();
+  확인('마지막 확인에서 5분이 안 지났으면 묻지 않는가', (r1['rpc:app_badges'] || 0) === (r0['rpc:app_badges'] || 0));
+  await p.clock.runFor('05:01');
+  r0 = await 읽음(); await 돌아옴(); r1 = await 읽음();
+  확인('5분이 지나 돌아오면 묶음 확인 한 번', r1['rpc:app_badges'] - r0['rpc:app_badges'] === 1);
+  확인('바뀐 게 없으면 톡 목록은 안 받는가', (r1.chats || 0) === (r0.chats || 0), ((r1.chats || 0) - (r0.chats || 0)) + '번');
+  // 실시간이 놓친 새 톡이 서버에 있으면 — 묶음 확인이 알아채고 목록을 한 번 받습니다
+  await p.evaluate(() => { window.__T.chats.push({ id: 'c2', room_id: 'r', sender_id: 't1', receiver_id: 'u1', content: '또', is_read: false,
+                                                    created_at: new Date(Date.now() + 1000).toISOString() }); });
+  await p.clock.runFor('05:01');
+  r0 = await 읽음(); await 돌아옴(); r1 = await 읽음();
+  확인('새 톡이 있으면 그때만 목록을 한 번 받는가', (r1.chats || 0) - (r0.chats || 0) === 1, ((r1.chats || 0) - (r0.chats || 0)) + '번');
+  const 안읽음 = await p.evaluate(() => window.__T.chats.filter(c => c.receiver_id === 'u1' && !c.is_read).length);
+  확인('💬 빨간 숫자가 서버의 안 읽은 수와 같은가', (await p.evaluate(() => document.getElementById('chat-badge').textContent)) === String(안읽음), '안 읽음 ' + 안읽음);
+
+  console.log('\n── 서버 함수가 없으면 예전처럼 따로 ──');
+  await p.evaluate(() => { window.__noBadgesRpc = true; });
+  await p.clock.runFor('05:01');
+  r0 = await 읽음(); await 돌아옴(); r1 = await 읽음();
+  확인('함수가 없으면 공지 · 톡 · 리포트 · 연습장을 따로 묻는가(빨간 숫자가 멈추지 않게)',
+       ['announcements', 'chats', 'interviews', 'practice_comments'].every(k => (r1[k] || 0) - (r0[k] || 0) >= 1), JSON.stringify(r1));
+  await p.evaluate(() => { window.__noBadgesRpc = false; });
 
   확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
 
@@ -114,6 +148,7 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
     await t.waitForSelector('#app:not([hidden])', { timeout: 15000 });
     await t.clock.runFor(2000);
     const 앞 = await t.evaluate(() => Object.assign({}, window.__reads));
+    확인('교사 화면도 열 때 묶음 확인 한 번 · 톡 목록 · 공지는 따로 안 물음', 앞['rpc:app_badges'] === 1 && !앞.chats && !앞.announcements, JSON.stringify(앞));
     await t.clock.runFor('30:00');
     const 끝 = await t.evaluate(() => Object.assign({}, window.__reads));
     const 늘 = Object.keys(끝).reduce(function (n, k) { return n + (끝[k] - (앞[k] || 0)); }, 0);
