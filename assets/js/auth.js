@@ -115,9 +115,12 @@ async function submitPasswordChange() {
 }
 
 // --- 로그아웃 ---
+// 🚨 signOut() 을 그냥 부르면 «이 계정을 모든 기기에서» 로그아웃합니다(supabase-js 기본값 scope: 'global').
+//    2026-10-08 선생님 말씀: 컴퓨터와 폰을 같이 쓰는데 로그인이 풀린다 — 한쪽에서 로그아웃하면 다른 쪽도
+//    1시간 안에(로그인이 다시 이어질 때) 끊겼습니다. 앱의 로그아웃은 모두 «이 기기에서만»(scope: 'local')으로 합니다.
 async function logout() {
   showConfirm('로그아웃 하시겠습니까?', async function() {
-    await sb.auth.signOut();
+    await sb.auth.signOut({ scope: 'local' });
     currentUser = null;
     appMeta = { rev: [], q: [] };
     // 일부러 나가는 길입니다 — 뒤로가기 막음이 «나가시겠습니까?» 를 묻지 않게 합니다
@@ -141,7 +144,7 @@ async function afterLogin() {
 
   if (error || !profile) {
     setBusy(false);
-    await sb.auth.signOut();
+    await sb.auth.signOut({ scope: 'local' });   // 이 기기에서만 (위 «로그아웃» 설명 참고)
     showLoginError('계정 정보를 찾을 수 없습니다.<br>선생님께 문의해 주세요.');
     return;
   }
