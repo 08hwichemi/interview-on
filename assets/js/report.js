@@ -53,6 +53,16 @@ async function fetchReport(interviewId) {
   return { interview: iv, answers: rows || [] };
 }
 
+// 영역별 판정 — 「내용 좋음 · 근거 보통 · 태도 아쉬움」 (면접 중 누른 것, 안 누른 영역은 빠짐)
+function areasLine(areas) {
+  var keys = Object.keys(areas || {});
+  if (!keys.length) return '';
+  var cls = { '좋음': 'good', '보통': 'mid', '아쉬움': 'bad' };
+  return '<div class="ansareas">' + keys.map(function (k) {
+    return '<span class="minitag ' + (cls[areas[k]] || '') + '">' + esc(k) + ' ' + esc(areas[k]) + '</span>';
+  }).join('') + '</div>';
+}
+
 // ── 리포트 한 장 그리기 ──
 // who   : '30101 고다윤' 처럼 머리에 적을 이름 (학생 앱에서는 비워도 됩니다)
 // round : 몇 회차인지 (모르면 비웁니다)
@@ -108,6 +118,7 @@ function reportHTML(iv, answers, who, round) {
         '</div>' +
         (a.competency && a.competency !== '기타'
           ? '<div class="anscomp">' + esc(a.competency) + ' 질문</div>' : '') +
+        areasLine(a.areas) +
         (good.length || bad.length
           ? '<div class="anstags">' +
               good.map(function (t) { return '<span class="minitag good">' + esc(t) + '</span>'; }).join('') +

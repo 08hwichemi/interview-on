@@ -8,7 +8,7 @@
 //   · 크롬(과 엣지)의 SpeechRecognition — 공짜, 설치할 것 없음. 소리는 **구글 서버**를 거쳐 글자만 돌아옵니다
 //     (선생님이 2026-10-10 «서버 거쳐도 된다» 고 하심). 우리 서버에는 글만 남습니다(interview_answers.transcript)
 //   · 파이어폭스·삼성 브라우저에는 없습니다 → 단추를 숨기고 «크롬에서 열면 됩니다» 안내만
-//   · **시계가 흐르는 동안만** 받아 적습니다(toggleTimer). 멈추면 같이 멈춥니다 — 쉬는 동안 선생님 말이 섞이지 않게
+//   · **«답변 시작» 을 누른 동안만** 받아 적습니다(toggleAnswer). 선생님이 질문을 읽는 소리는 안 적힙니다
 //   · 크롬은 조용하면 몇 초 만에 스스로 멈춥니다(onend). 켜 둔 상태면 바로 다시 켭니다
 //   · 질문을 넘기면 그때까지 받아 적은 글은 그 질문에, 그 뒤는 새 질문에 붙습니다
 //   · 마이크를 막았거나 인터넷이 끊기면 받아 적기를 끄고 까닭을 적습니다. 면접은 그대로 이어집니다
@@ -39,11 +39,11 @@ function toggleListen() {
   listenSync();
 }
 
-// «원하는 상태 · 시계 · 화면» 을 보고 켜거나 끕니다. 시계를 누를 때마다, 질문을 넘길 때마다 부릅니다.
+// «원하는 상태 · 답변 시계 · 화면» 을 보고 켜거나 끕니다. 시계 단추를 누를 때마다, 질문을 넘길 때마다 부릅니다.
 function listenSync() {
   var run = document.getElementById('view-run');
   var should = listenWanted() && !!listenCtor() &&
-               typeof ticking !== 'undefined' && ticking &&
+               typeof answering !== 'undefined' && answering &&
                typeof liveInterview !== 'undefined' && liveInterview &&
                run && !run.hidden;
   if (should && !LISTEN.on) listenStart();
@@ -169,7 +169,7 @@ function listenPaint() {
     st.textContent = !has ? '(이 브라우저에는 음성 인식이 없습니다)'
       : !wanted ? '받아 적기 꺼짐'
       : LISTEN.on ? '● 받아 적는 중'
-      : '시계가 흐르면 받아 적습니다';
+      : '«답변 시작» 을 누르면 받아 적습니다';
   }
   if (hint) {
     hint.textContent = !has

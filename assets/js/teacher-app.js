@@ -74,6 +74,19 @@ var TAGS = {
 // 태그를 다 누르지 못해도 이것 하나면 흐름이 읽힙니다.
 var RATINGS = ['우수', '보통', '미흡'];
 
+// 면접 중 영역별 한 줄 판정 (2026-10-10 선생님 말씀: 👍👎 만으로는 모자라다 —
+// 영역을 대여섯으로 나눠 거기서 좋음·보통·아쉬움을 누르는 게 낫겠다).
+// 위 TAGS 의 네 축에 «전공 연결» 을 더한 다섯 줄. 줄마다 하나만, 다시 누르면 지움.
+// 마무리 화면에서도 같은 표를 고칠 수 있고, 리포트에 한 줄로 들어갑니다(report.js areasLine).
+var AREAS = [
+  { key: '내용',     desc: '질문의 핵심을 짚었나' },
+  { key: '근거',     desc: '사례·기록으로 뒷받침했나' },
+  { key: '말하기',   desc: '결론부터 · 알맞은 길이와 속도' },
+  { key: '태도',     desc: '시선 · 자세 · 침착함' },
+  { key: '전공 연결', desc: '지원 학과와 이어지나' }
+];
+var LEVELS = ['좋음', '보통', '아쉬움'];
+
 // 채점표(SCORESHEET)와 등급(GRADES), esc()·mmss() 는 report.js 에 있습니다.
 // 선생님이 보는 리포트와 학생이 받는 리포트가 같은 종이여야 해서 한 곳에 모았습니다.
 
@@ -195,7 +208,7 @@ var midQuestions = [];    // 준비 화면에서 손으로 채우는 가운데 �
 var questions = [];       // 면접에 실제로 내는 질문 (첫인사 + 가운데 + 끝인사)
 var interviewId = null;
 var qIndex = 0;
-var answers = [];         // [{ seconds, good, bad, rating, memo, transcript, marks }]
+var answers = [];         // [{ seconds, good, bad, rating, memo, transcript, marks, areas }]
 var grades = {};          // { 평가항목: 'A'~'E' }
 
 // 시간을 두 개 보여주지만, 시계는 하나입니다.
@@ -428,9 +441,9 @@ function renderRailProgress() {
   // 시간을 «건드린 질문만» 보여주니 1번에만 00:00 이 뜨고 나머지는 빈 줄이라
   // 고장난 것처럼 보였습니다. 이제 모든 줄에 똑같이 보여줍니다.
   document.getElementById('progress-list').innerHTML = questions.map(function (q, i) {
-    var a = answers[i] || { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [] };
+    var a = answers[i] || { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {} };
     var done = a.seconds > 0 || a.good.length || a.bad.length || a.rating || a.memo ||
-               a.transcript || (a.marks && a.marks.length);
+               a.transcript || (a.marks && a.marks.length) || Object.keys(a.areas || {}).length;
     return '<button class="railrow q" aria-current="' + (i === qIndex) + '" onclick="goToQuestion(' + i + ')">' +
       '<span class="qn">' + (i + 1) + '</span>' +
       '<span class="qt">' + esc(q.text) + '</span>' +
@@ -610,7 +623,7 @@ async function resumeInterview(id) {
   answers = (r.answers || []).map(function (a) {
     return { seconds: a.seconds || 0, good: a.good_tags || [], bad: a.bad_tags || [],
              rating: a.rating || null, memo: a.memo || '',
-             transcript: a.transcript || '', marks: a.marks || [] };
+             transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {} };
   });
   grades = iv.grades || {};
 
@@ -629,7 +642,7 @@ async function resumeInterview(id) {
     qIndex = i;
     var a = answers[i];
     if (!(a.seconds > 0 || a.good.length || a.bad.length || a.rating || a.memo ||
-          a.transcript || (a.marks && a.marks.length))) break;
+          a.transcript || (a.marks && a.marks.length) || Object.keys(a.areas || {}).length)) break;
   }
 
   paintHistoryAcc();
@@ -1232,7 +1245,7 @@ async function startInterview() {
   interviewId = sheetId;     // 이 줄에 답을 적어 갑니다 (아직 '준비중' 입니다)
   qIndex = 0;
   answers = questions.map(function () {
-    return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [] };
+    return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {} };
   });
   grades = {};
   liveInterview = true;
@@ -1280,7 +1293,7 @@ async function resumeWithQuestions(list) {
       used[i] = true;
       return oldA[i];
     }
-    return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [] };
+    return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {} };
   });
   questions = list;
   if (qIndex >= questions.length) qIndex = questions.length - 1;
@@ -1310,7 +1323,7 @@ async function rewriteAnswers() {
       competency: q.competency, question: q.text,
       seconds: a.seconds, good_tags: a.good, bad_tags: a.bad,
       rating: a.rating, memo: a.memo || '',
-      transcript: a.transcript || '', marks: a.marks || []
+      transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {}
     };
   });
   if (!rows.length) return true;
@@ -1319,15 +1332,22 @@ async function rewriteAnswers() {
   return true;
 }
 
-// ── 시계 하나로 둘을 같이 ──
+// ── 시계 둘 ──
+//   «면접 전체»(ticking)  — «면접 시작» 한 번 누르면 끝까지 흐릅니다(선생님이 질문 읽는 시간도 면접입니다)
+//   «이 질문 답변»(answering) — 질문마다 선생님이 읽고 나서 «답변 시작» 을 누르면 그때부터. 받아 적기도 이것에 붙어 있습니다
+// 2026-10-10 선생님 말씀: 교사가 질문을 말하고 학생 답변 시간을 재 준다 — 시계 하나가 계속 흐르면
+// 질문 읽는 소리까지 받아 적히고 그 시간도 답변에 들어간다.
+var answering = false;
+
 function startTicking() {
   if (tickId) return;
   ticking = true;
   tickId = setInterval(function () {
     totalSeconds++;
+    paintTotal();
+    if (!answering) return;
     seconds++;
     if (answers[qIndex]) answers[qIndex].seconds = seconds;
-    paintTotal();
     paintTimer();
   }, 1000);
   paintTimerButton();
@@ -1336,6 +1356,16 @@ function startTicking() {
 function stopTicking() {
   ticking = false;
   if (tickId) { clearInterval(tickId); tickId = null; }
+  answering = false;     // 면접을 멈추면 답변 시계도 같이 멈춥니다. 이어 갈 때는 «답변 시작» 을 다시
+  paintTimerButton();
+}
+
+// «답변 시작» / «답변 끝» — 면접 시계가 아직 안 흐르면 같이 켭니다(한 번만 눌러도 되게).
+function toggleAnswer() {
+  if (answering) { answering = false; paintTimerButton(); return; }
+  if (!ticking) toggleTimer();
+  if (!ticking) return;          // 지난 회차(liveInterview 아님)에서는 시계가 안 켜집니다
+  answering = true;
   paintTimerButton();
 }
 
@@ -1353,10 +1383,19 @@ function paintTimerButton() {
   // 지난 회차를 열어 고치는 중이면 시간이 더 흘러서는 안 됩니다.
   b.hidden = !liveInterview;
   b.textContent = ticking ? '일시정지' : (startedOnce ? '이어서' : '면접 시작');
-  b.className = ticking ? 'btn' : 'btn solid';
+  b.className = ticking ? 'ghost tbtn' : 'btn solid tbtn';
+  var ab = document.getElementById('btn-answer');
+  if (ab) {
+    ab.hidden = !liveInterview;
+    ab.textContent = answering ? '답변 끝' : '답변 시작';
+    ab.className = answering ? 'btn tbtn' : 'btn solid tbtn';
+  }
   var box = document.getElementById('timerbox');
-  if (box) box.setAttribute('data-running', ticking ? 'yes' : 'no');
-  // 받아 적기는 시계와 같이 켜지고 멈춥니다 (listen.js)
+  if (box) {
+    box.setAttribute('data-running', ticking ? 'yes' : 'no');
+    box.setAttribute('data-answering', answering ? 'yes' : 'no');
+  }
+  // 받아 적기는 답변 시계와 같이 켜지고 멈춥니다 (listen.js)
   if (typeof listenSync === 'function') listenSync();
 }
 
@@ -1374,8 +1413,9 @@ function showQuestion() {
   document.getElementById('run-comp').textContent = q.competency;
   document.getElementById('run-question').textContent = q.text;
 
-  // 시계는 그대로 둡니다. 질문을 넘겼다고 면접이 멈추는 건 아니니까요.
-  // 「이 질문 답변」만 새 질문의 시간으로 갈아 끼웁니다.
+  // 면접 전체 시계는 그대로 둡니다. 질문을 넘겼다고 면접이 멈추는 건 아니니까요.
+  // 「이 질문 답변」은 새 질문의 시간으로 갈아 끼우고 **멈춘 채** 둡니다 — 선생님이 질문을 읽고 «답변 시작» 을 누르면 흐릅니다.
+  answering = false;
   seconds = answers[qIndex].seconds;
   paintTimer();
   paintTotal();
@@ -1387,6 +1427,8 @@ function showQuestion() {
     (qIndex === questions.length - 1) ? '면접 마무리 →' : '다음 질문 →';
 
   renderRating();
+  renderAreas('area-grid', qIndex);
+  document.getElementById('answer-memo').value = answers[qIndex].memo || '';
   paintMarks();
   // 받아 적는 칸은 지금 질문의 글로 갈아 끼웁니다 (listen.js — 음성 인식이 없는 브라우저면 안내만)
   if (typeof listenShowQuestion === 'function') listenShowQuestion();
@@ -1436,7 +1478,7 @@ function marksLine(marks) {
 }
 
 // ── 키보드 — 화면을 안 보고도 누를 수 있게 ──
-//   ↑ 좋았다 · ↓ 아쉽다 · 1 2 3 우수·보통·미흡 · Space 시계 · → 다음 질문 · ← 이전 · Backspace 마지막 찍은 것 지우기
+//   ↑ 좋았다 · ↓ 아쉽다 · 1 2 3 우수·보통·미흡 · Space 답변 시작/끝 · → 다음 질문 · ← 이전 · Backspace 마지막 찍은 것 지우기
 // 글자 칸에 커서가 있을 때는 끼어들지 않습니다. 진행 화면이 보일 때만 듣습니다.
 document.addEventListener('keydown', function (e) {
   var run = document.getElementById('view-run');
@@ -1448,7 +1490,7 @@ document.addEventListener('keydown', function (e) {
   if (k === 'ArrowUp') addMark('good');
   else if (k === 'ArrowDown') addMark('bad');
   else if (k === '1' || k === '2' || k === '3') pickRating(RATINGS[Number(k) - 1]);
-  else if (k === ' ' || k === 'Spacebar') toggleTimer();
+  else if (k === ' ' || k === 'Spacebar') toggleAnswer();
   // 저장하는 중(단추가 잠김)에 연타하면 두 질문을 건너뛰므로 그동안은 듣지 않습니다
   else if (k === 'ArrowRight') { if (document.getElementById('btn-next').disabled) return; nextQuestion(); }
   else if (k === 'ArrowLeft') { if (document.getElementById('btn-next').disabled) return; prevQuestion(); }
@@ -1457,6 +1499,34 @@ document.addEventListener('keydown', function (e) {
   // 단추에 초점이 있으면 Space·Enter 가 그 단추를 또 누르므로 막습니다
   e.preventDefault();
 });
+
+// 영역별 판정 표 — 진행 화면(#area-grid)과 마무리 화면(질문마다) 둘 다 이걸로 그립니다.
+function areasHTML(i) {
+  var cur = answers[i].areas || {};
+  return AREAS.map(function (ar) {
+    return '<div class="arearow">' +
+      '<span class="arealabel"><b>' + esc(ar.key) + '</b><span class="desc">' + esc(ar.desc) + '</span></span>' +
+      '<span class="areapicks">' + LEVELS.map(function (lv) {
+        return '<button class="abtn l' + LEVELS.indexOf(lv) + '" aria-pressed="' + (cur[ar.key] === lv) + '"' +
+               ' onclick="pickArea(' + i + ', \'' + ar.key + '\', \'' + lv + '\')">' + lv + '</button>';
+      }).join('') + '</span>' +
+    '</div>';
+  }).join('');
+}
+function renderAreas(boxId, i) {
+  var box = document.getElementById(boxId);
+  if (box) box.innerHTML = areasHTML(i);
+}
+function pickArea(i, key, lv) {
+  var a = answers[i];
+  a.areas = a.areas || {};
+  if (a.areas[key] === lv) delete a.areas[key]; else a.areas[key] = lv;   // 다시 누르면 지움
+  if (i === qIndex) renderAreas('area-grid', i);
+  repaintAnswerRow(i);     // 마무리 화면에 그 질문 칸이 있으면 같이
+  renderRailProgress();
+}
+
+function setMemo(el) { answers[qIndex].memo = el.value; }
 
 // 한 줄 판정 — 우수 · 보통 · 미흡
 function renderRating() {
@@ -1607,7 +1677,8 @@ async function saveAnswer(i) {
     rating: a.rating,
     memo: a.memo || '',
     transcript: a.transcript || '',   // 받아 적은 학생 답변 (listen.js)
-    marks: a.marks || []              // 들으면서 찍은 👍👎 — [{ t: 몇 초째, k: 'good'|'bad' }]
+    marks: a.marks || [],             // 들으면서 찍은 👍👎 — [{ t: 몇 초째, k: 'good'|'bad' }]
+    areas: a.areas || {}              // 영역별 좋음·보통·아쉬움 — { 내용: '좋음', … }
   }, { onConflict: 'interview_id,seq' });
   if (error) toast('이 질문을 저장하지 못했습니다: ' + error.message, 'bad');
 }
@@ -1687,13 +1758,14 @@ function answerRowHTML(i) {
       ? '<div class="ansmarks">' + esc(marksLine(marks)) + '</div>'
       : '') +
     '<div class="anseval">' +
+      '<div class="areagrid">' + areasHTML(i) + '</div>' +
       '<div class="ratingrow">' + RATINGS.map(function (r) {
         return '<button class="rbtn" aria-pressed="' + (a.rating === r) + '"' +
                ' onclick="pickRatingAt(' + i + ', \'' + r + '\')">' + r + '</button>';
       }).join('') + '</div>' +
       tagPanelHTML(i) +
       '<textarea class="ansmemo-in" oninput="setMemoAt(' + i + ', this)" ' +
-        'placeholder="답변 요지 — 한두 줄이면 충분합니다. 학생 리포트에 그대로 들어갑니다. (안 적어도 됩니다)">' +
+        'placeholder="평가 · 답변 요지 — 면접 중에 적은 것이 그대로 옵니다. 학생 리포트에 들어갑니다.">' +
         esc(a.memo || '') + '</textarea>' +
     '</div>';
 }
@@ -1716,7 +1788,7 @@ async function saveAllAnswers() {
       competency: q.competency, question: q.text,
       seconds: a.seconds, good_tags: a.good, bad_tags: a.bad,
       rating: a.rating, memo: a.memo || '',
-      transcript: a.transcript || '', marks: a.marks || []
+      transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {}
     };
   });
   const { error } = await sb.from('interview_answers').upsert(rows, { onConflict: 'interview_id,seq' });
@@ -1914,7 +1986,7 @@ async function openPast(id, round) {
   answers = r.answers.map(function (a) {
     return { seconds: a.seconds || 0, good: a.good_tags || [], bad: a.bad_tags || [],
              rating: a.rating || null, memo: a.memo || '',
-             transcript: a.transcript || '', marks: a.marks || [] };
+             transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {} };
   });
   grades = r.interview.grades || {};
   totalSeconds = r.interview.total_seconds || 0;

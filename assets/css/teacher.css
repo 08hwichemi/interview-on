@@ -332,9 +332,10 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 }
 .timer.total{color:var(--ink-2)}
 /* 멈춰 있을 때는 숫자를 흐리게 — 멈춘 줄 모르고 면접을 보면 안 됩니다 */
-.timerbox[data-running="no"] .timer{opacity:.4}
+.timerbox[data-running="no"] .timer.total{opacity:.4}
+.timerbox[data-answering="no"] #timer{opacity:.4}
 .timerbox[data-running="no"] .tlabel{opacity:.6}
-.timerbox .btn{min-width:120px}
+.tslot .tbtn{margin-top:8px;min-width:132px;padding:10px 16px}
 
 /* 평가 단추 */
 .tagrow{display:flex;gap:14px;align-items:flex-start;margin-bottom:14px;
@@ -355,7 +356,8 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   .qcard{font-size:17px;padding:22px 16px;min-height:96px}
   .timer{font-size:40px}
   .timerbox{gap:20px}
-  .timerbox .btn{flex:1 1 100%}
+  .tslot{flex:1 1 40%}
+  .tslot .tbtn{min-width:0;width:100%}
   .qrow{flex-wrap:wrap}
   .qrow input[type=text]{flex:1 1 100%;order:1}
   .qrow .qno{order:0}
@@ -694,6 +696,26 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .hint.keys b{display:inline-block;padding:0 6px;border:1px solid var(--line-2);border-radius:4px;
   font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
 
+/* 영역별 좋음·보통·아쉬움 — 한 줄에 영역 이름과 단추 셋. 들으면서 누르는 것이라 단추를 큼직하게 */
+.areagrid{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.arearow{display:grid;grid-template-columns:minmax(120px,1fr) auto;gap:10px;align-items:center;
+  padding:6px 0;border-bottom:1px solid var(--line)}
+.arearow:last-child{border-bottom:0}
+.arealabel b{display:block;font-size:14px;font-weight:700}
+.arealabel .desc{display:block;font-size:11.5px;color:var(--ink-3);line-height:1.4}
+.areapicks{display:flex;gap:6px}
+.abtn{
+  min-width:72px;padding:10px 12px;border:1px solid var(--line-2);border-radius:7px;background:var(--surface);
+  color:var(--ink-2);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;
+}
+.abtn:hover{border-color:var(--ink-3);color:var(--ink)}
+.abtn.l0[aria-pressed="true"]{background:#1F4D3A;border-color:#1F4D3A;color:#fff}
+.abtn.l1[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.abtn.l2[aria-pressed="true"]{background:var(--rose);border-color:var(--rose);color:#fff}
+.anseval .areagrid{margin:0 0 12px}
+.anseval .abtn{min-width:60px;padding:7px 10px;font-size:13px}
+.anseval .arealabel b{font-size:13px}
+
 /* ── 마무리 — 질문마다 평가 칸 ── */
 .ansrow.edit{padding:16px 0}
 .anssaid{margin:9px 0 0 29px;padding:10px 13px;border-radius:6px;background:var(--surface-2);border-left:3px solid var(--line-2)}
@@ -711,5 +733,8 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 @media(max-width:640px){
   .markbtn{padding:14px 8px;font-size:16px}
   .hint.keys{display:none}   /* 휴대폰엔 키보드가 없습니다 */
+  .arearow{grid-template-columns:1fr;gap:4px}
+  .areapicks{width:100%}
+  .abtn{flex:1;min-width:0;padding:9px 6px}
   .anssaid,.ansmarks,.anseval{margin-left:0}
 }
