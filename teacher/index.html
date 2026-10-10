@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-10-08.2">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-10-10.1">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-08.2">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-08.2">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-08.2">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-08.2">
-  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-08.2">
-  <link rel="stylesheet" href="../assets/css/hugi.css?v=2026-10-08.2">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-08.2">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-10.1">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-10.1">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-10.1">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-10.1">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-10.1">
+  <link rel="stylesheet" href="../assets/css/hugi.css?v=2026-10-10.1">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-10.1">
 </head>
 <body>
 
@@ -327,15 +327,25 @@
             <button class="btn solid" id="btn-timer" onclick="toggleTimer()">면접 시작</button>
           </div>
 
-          <p class="sec" style="margin-top:22px">이 답변은</p>
-          <div class="ratingrow" id="rating-area"></div>
+          <!-- 학생이 말하는 동안 받아 적는 칸 (크롬에 들어 있는 음성 인식, listen.js).
+               2026-10-10 선생님 말씀: 들으면서 단추 62개를 찾아 누르면 흐름이 끊기고 내용을 놓친다.
+               그래서 면접 중에는 «받아 적기 + 큰 단추 몇 개» 만 두고, 자세한 평가는 마무리 화면에서 합니다. -->
+          <div class="livebox" id="livebox" data-on="no">
+            <div class="livehead">
+              <p class="sec" style="margin:0">학생이 말한 내용 <span class="opt" id="live-state"></span></p>
+              <button class="ghost" id="btn-stt" onclick="toggleListen()">🎤 받아 적기 켜기</button>
+            </div>
+            <div class="livetext" id="live-text"></div>
+            <p class="hint" id="live-hint" style="margin:8px 0 0"></p>
+          </div>
 
-          <p class="sec" style="margin-top:20px">들으면서 누르세요</p>
-          <div id="tag-area"></div>
-
-          <p class="sec" style="margin-top:20px">답변 요지 <span class="opt">(안 적어도 됩니다)</span></p>
-          <textarea id="answer-memo" oninput="setMemo(this)" style="min-height:60px"
-            placeholder="한두 줄이면 충분합니다. 학생 리포트에 그대로 들어갑니다."></textarea>
+          <p class="sec" style="margin-top:22px">들으면서 — 순간을 찍어 두세요 <span class="opt">(자세한 평가는 면접이 끝난 뒤에)</span></p>
+          <div class="markrow" id="mark-area">
+            <button class="markbtn good" id="mark-good" onclick="addMark('good')">👍 좋았다<span class="n" id="mark-good-n"></span></button>
+            <button class="markbtn bad" id="mark-bad" onclick="addMark('bad')">👎 아쉽다<span class="n" id="mark-bad-n"></span></button>
+          </div>
+          <div class="ratingrow big" id="rating-area"></div>
+          <p class="hint keys">키보드로도 됩니다 — <b>↑</b> 좋았다 · <b>↓</b> 아쉽다 · <b>1 2 3</b> 우수·보통·미흡 · <b>Space</b> 시계 · <b>→</b> 다음 질문</p>
 
           <div class="btnrow" style="margin:16px 0 0">
             <button class="ghost" id="btn-prev" onclick="prevQuestion()">← 이전</button>
@@ -357,7 +367,9 @@
             면접 전체 <b id="finish-total"></b> · 답변한 시간만 더하면 <b id="finish-spoken"></b>
           </p>
 
-          <p class="sec" style="margin-top:20px">질문별 기록</p>
+          <!-- 질문마다 «받아 적은 글 · 👍👎 찍은 순간» 을 보면서 평가를 매기는 자리입니다.
+               면접 중에는 듣기만 하고, 평가는 여기서 합니다(2026-10-10). -->
+          <p class="sec" style="margin-top:20px">질문별 평가 <span class="opt">학생이 말한 내용을 보면서 매기세요</span></p>
           <div id="answer-summary"></div>
 
           <p class="sec" style="margin-top:22px">채점표</p>
@@ -589,22 +601,23 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-10-08.2"></script>
-<script src="../assets/js/update-bar.js?v=2026-10-08.2"></script>
-<script src="../assets/js/utils.js?v=2026-10-08.2"></script>
-<script src="../assets/js/api.js?v=2026-10-08.2"></script>
-<script src="../assets/js/browse.js?v=2026-10-08.2"></script>
-<script src="../assets/js/reviews.js?v=2026-10-08.2"></script>
-<script src="../assets/js/questions.js?v=2026-10-08.2"></script>
-<script src="../assets/js/report.js?v=2026-10-08.2"></script>
-<script src="../assets/js/chat.js?v=2026-10-08.2"></script>
-<script src="../assets/js/practice.js?v=2026-10-08.2"></script>
-<script src="../assets/js/hugi.js?v=2026-10-08.2"></script>
-<script src="../assets/js/notice.js?v=2026-10-08.2"></script>
-<script src="../assets/js/badges.js?v=2026-10-08.2"></script>
-<script src="../assets/js/admin-notice.js?v=2026-10-08.2"></script>
-<script src="../assets/js/teacher-app.js?v=2026-10-08.2"></script>
-<script src="../assets/js/saenggibu.js?v=2026-10-08.2"></script>
+<script src="../assets/js/config.js?v=2026-10-10.1"></script>
+<script src="../assets/js/update-bar.js?v=2026-10-10.1"></script>
+<script src="../assets/js/utils.js?v=2026-10-10.1"></script>
+<script src="../assets/js/api.js?v=2026-10-10.1"></script>
+<script src="../assets/js/browse.js?v=2026-10-10.1"></script>
+<script src="../assets/js/reviews.js?v=2026-10-10.1"></script>
+<script src="../assets/js/questions.js?v=2026-10-10.1"></script>
+<script src="../assets/js/report.js?v=2026-10-10.1"></script>
+<script src="../assets/js/chat.js?v=2026-10-10.1"></script>
+<script src="../assets/js/practice.js?v=2026-10-10.1"></script>
+<script src="../assets/js/hugi.js?v=2026-10-10.1"></script>
+<script src="../assets/js/notice.js?v=2026-10-10.1"></script>
+<script src="../assets/js/badges.js?v=2026-10-10.1"></script>
+<script src="../assets/js/admin-notice.js?v=2026-10-10.1"></script>
+<script src="../assets/js/teacher-app.js?v=2026-10-10.1"></script>
+<script src="../assets/js/listen.js?v=2026-10-10.1"></script>
+<script src="../assets/js/saenggibu.js?v=2026-10-10.1"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);

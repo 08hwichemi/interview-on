@@ -656,3 +656,60 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   .susirow .iv{order:1}
   .susirow .adm{order:2;flex:1 0 100%;padding-left:20px}
 }
+
+/* ── 면접 중 — 받아 적기 · 순간 찍기 (2026-10-10) ──
+   들으면서는 단추를 찾지 않습니다. 받아 적히는 글과 큰 단추 넷뿐입니다. */
+.livebox{margin-top:18px}
+.livehead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.livehead .ghost[aria-pressed="true"]{border-color:var(--ink);color:var(--ink)}
+.livetext{
+  min-height:96px;max-height:240px;overflow:auto;padding:14px 16px;border:1px solid var(--line-2);
+  border-radius:var(--r);background:var(--surface-2);font-size:16px;line-height:1.75;word-break:keep-all;
+}
+.livetext .interim{color:var(--ink-3)}
+.livetext .empty{color:var(--ink-3);font-size:14px}
+/* 받아 적는 동안은 테두리가 살짝 진해지고 «●» 가 깜빡입니다 */
+.livebox[data-on="yes"] .livetext{border-color:var(--ink-3)}
+.livebox[data-on="yes"] #live-state{color:var(--rose);animation:livedot 1.4s ease-in-out infinite}
+@keyframes livedot{0%,100%{opacity:1}50%{opacity:.35}}
+
+.markrow{display:flex;gap:10px;margin-bottom:12px}
+.markbtn{
+  flex:1;padding:18px 12px;border:1.5px solid var(--line-2);border-radius:10px;background:var(--surface);
+  font-family:inherit;font-size:19px;font-weight:700;cursor:pointer;color:var(--ink);
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.markbtn.good{border-color:#BFD3C8}
+.markbtn.bad{border-color:#E4C4C4}
+.markbtn:hover{border-color:var(--ink-3)}
+.markbtn .n{min-width:26px;padding:2px 8px;border-radius:999px;font-size:13px;font-variant-numeric:tabular-nums}
+.markbtn.good .n:not(:empty){background:#1F4D3A;color:#fff}
+.markbtn.bad .n:not(:empty){background:var(--rose);color:#fff}
+/* 눌린 느낌 — 화면을 안 보고 눌러도 눈가에 걸리게 */
+.markbtn.hit{animation:markhit .35s ease-out}
+@keyframes markhit{0%{transform:scale(1)}35%{transform:scale(1.06);background:var(--surface-2)}100%{transform:scale(1)}}
+
+.ratingrow.big .rbtn{flex:1;padding:14px 12px;font-size:16px}
+.hint.keys{margin:10px 0 0;font-size:12.5px;color:var(--ink-3)}
+.hint.keys b{display:inline-block;padding:0 6px;border:1px solid var(--line-2);border-radius:4px;
+  font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+
+/* ── 마무리 — 질문마다 평가 칸 ── */
+.ansrow.edit{padding:16px 0}
+.anssaid{margin:9px 0 0 29px;padding:10px 13px;border-radius:6px;background:var(--surface-2);border-left:3px solid var(--line-2)}
+.anssaid .cap{display:block;margin-bottom:4px;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--ink-3)}
+.anssaid .opt{font-weight:400;font-size:11px;letter-spacing:0;text-transform:none;color:var(--ink-3)}
+.anssaid p{margin:0;font-size:14px;line-height:1.75;word-break:keep-all}
+.ansmarks{margin:7px 0 0 29px;font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.anseval{margin:12px 0 0 29px}
+.anseval .ratingrow{margin-bottom:12px}
+.tagpanel .tagrow.quick{border-bottom:0;margin-bottom:6px;padding-bottom:0}
+.tagmore{display:inline-block;margin:0 0 10px;font-size:12.5px;color:var(--ink-2);background:none;border:0;padding:4px 0;cursor:pointer;font-family:inherit}
+.tagmore:hover{color:var(--ink);text-decoration:underline}
+.tagfull{padding-top:8px;border-top:1px dashed var(--line-2)}
+.ansmemo-in{min-height:52px;margin-top:10px;font-size:13.5px}
+@media(max-width:640px){
+  .markbtn{padding:14px 8px;font-size:16px}
+  .hint.keys{display:none}   /* 휴대폰엔 키보드가 없습니다 */
+  .anssaid,.ansmarks,.anseval{margin-left:0}
+}
