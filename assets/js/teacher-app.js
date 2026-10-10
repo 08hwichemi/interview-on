@@ -1429,56 +1429,15 @@ function showQuestion() {
   renderRating();
   renderAreas('area-grid', qIndex);
   document.getElementById('answer-memo').value = answers[qIndex].memo || '';
-  paintMarks();
   // 받아 적는 칸은 지금 질문의 글로 갈아 끼웁니다 (listen.js — 음성 인식이 없는 브라우저면 안내만)
   if (typeof listenShowQuestion === 'function') listenShowQuestion();
   renderRailProgress();
 }
 
-// ── 들으면서 찍는 순간 — 👍 좋았다 · 👎 아쉽다 ──
-//
-// 2026-10-10 선생님 말씀: 1~2분 답변이 쉴 새 없이 이어지는데 단추 62개에서 고르다 보면 내용을 놓친다.
-// 그래서 면접 중에는 «몇 초째에 좋았다/아쉬웠다» 만 찍어 두고(눈으로 찾을 게 없음),
-// 무엇이 좋았는지는 마무리 화면에서 받아 적은 글을 보며 고릅니다.
-function addMark(kind) {
-  var a = answers[qIndex];
-  if (!a) return;
-  a.marks = a.marks || [];
-  a.marks.push({ t: seconds, k: kind });
-  paintMarks();
-  // 눌렸다는 느낌 — 화면을 안 보고 눌러도 알 수 있게 잠깐 커졌다 돌아옵니다
-  var b = document.getElementById('mark-' + kind);
-  if (b) { b.classList.remove('hit'); void b.offsetWidth; b.classList.add('hit'); }
-  renderRailProgress();
-}
-
-// 마지막에 찍은 것을 지웁니다 — 잘못 눌렀을 때 되돌릴 길
-function undoMark() {
-  var a = answers[qIndex];
-  if (!a || !a.marks || !a.marks.length) return;
-  a.marks.pop();
-  paintMarks();
-}
-
-function paintMarks() {
-  var a = answers[qIndex] || { marks: [] };
-  var m = a.marks || [];
-  var g = m.filter(function (x) { return x.k === 'good'; }).length;
-  var b = m.filter(function (x) { return x.k === 'bad'; }).length;
-  var eg = document.getElementById('mark-good-n'), eb = document.getElementById('mark-bad-n');
-  if (eg) eg.textContent = g ? String(g) : '';
-  if (eb) eb.textContent = b ? String(b) : '';
-}
-
-// 「0:12 👍 · 0:48 👎」 — 마무리 화면과 리포트에서 찍은 순간을 한 줄로
-function marksLine(marks) {
-  return (marks || []).map(function (x) {
-    return mmss(x.t || 0) + ' ' + (x.k === 'good' ? '👍' : '👎');
-  }).join(' · ');
-}
+// marks 칸(👍👎 몇 초째)은 .1~.2 에 있다가 뺐습니다 — «우수·보통·미흡과 겹친다». 서버 칸과 저장은 그대로 두었습니다(빈 배열).
 
 // ── 키보드 — 화면을 안 보고도 누를 수 있게 ──
-//   ↑ 좋았다 · ↓ 아쉽다 · 1 2 3 우수·보통·미흡 · Space 답변 시작/끝 · → 다음 질문 · ← 이전 · Backspace 마지막 찍은 것 지우기
+//   1 2 3 우수·보통·미흡 · Space 답변 시작/끝 · → 다음 질문 · ← 이전
 // 글자 칸에 커서가 있을 때는 끼어들지 않습니다. 진행 화면이 보일 때만 듣습니다.
 document.addEventListener('keydown', function (e) {
   var run = document.getElementById('view-run');
@@ -1487,14 +1446,11 @@ document.addEventListener('keydown', function (e) {
   var tag = (e.target && e.target.tagName) || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) return;
   var k = e.key;
-  if (k === 'ArrowUp') addMark('good');
-  else if (k === 'ArrowDown') addMark('bad');
-  else if (k === '1' || k === '2' || k === '3') pickRating(RATINGS[Number(k) - 1]);
+  if (k === '1' || k === '2' || k === '3') pickRating(RATINGS[Number(k) - 1]);
   else if (k === ' ' || k === 'Spacebar') toggleAnswer();
   // 저장하는 중(단추가 잠김)에 연타하면 두 질문을 건너뛰므로 그동안은 듣지 않습니다
   else if (k === 'ArrowRight') { if (document.getElementById('btn-next').disabled) return; nextQuestion(); }
   else if (k === 'ArrowLeft') { if (document.getElementById('btn-next').disabled) return; prevQuestion(); }
-  else if (k === 'Backspace') undoMark();
   else return;
   // 단추에 초점이 있으면 Space·Enter 가 그 단추를 또 누르므로 막습니다
   e.preventDefault();
@@ -1741,7 +1697,6 @@ function repaintAnswerRow(i) {
 
 function answerRowHTML(i) {
   var q = questions[i], a = answers[i];
-  var marks = a.marks || [];
   return '<div class="anshead">' +
       '<span class="qno">' + (i + 1) + '</span>' +
       '<span class="qt">' + esc(q.text) + '</span>' +
@@ -1753,9 +1708,6 @@ function answerRowHTML(i) {
     (a.transcript
       ? '<div class="anssaid"><span class="cap">학생이 말한 내용 <span class="opt">받아 적은 것이라 틀린 데가 있을 수 있습니다</span></span>' +
           '<p>' + esc(a.transcript) + '</p></div>'
-      : '') +
-    (marks.length
-      ? '<div class="ansmarks">' + esc(marksLine(marks)) + '</div>'
       : '') +
     '<div class="anseval">' +
       '<div class="areagrid">' + areasHTML(i) + '</div>' +

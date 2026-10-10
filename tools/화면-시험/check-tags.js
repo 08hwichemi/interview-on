@@ -43,7 +43,7 @@ function 확인(무엇, ok, 덧){ console.log((ok?'  ✓ ':'  ✗ ')+무엇+(덧
   });
   await p.waitForTimeout(200);
   확인('진행 화면에 .chip 이 하나도 없는가', await p.evaluate(() => document.querySelectorAll('#view-run .chip').length === 0));
-  확인('대신 👍👎 단추가 있는가', await p.evaluate(() => !!document.getElementById('mark-good') && !!document.getElementById('mark-bad')));
+  확인('대신 우수·보통·미흡과 영역 표가 있는가', await p.evaluate(() => document.querySelectorAll('#rating-area .rbtn').length === 3 && document.querySelectorAll('#area-grid .arearow').length === 5));
 
   console.log('\n── 마무리 화면 — 지난 회차에서 쓰던 옛 문구 ──');
   await p.evaluate(() => { try { localStorage.removeItem('tagUse'); } catch(e){} openFinish(); });

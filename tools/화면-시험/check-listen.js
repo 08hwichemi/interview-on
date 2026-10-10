@@ -85,14 +85,11 @@ const FAKE_SR = () => {
   확인('확정된 글이 첫 질문에 붙는가', await p.evaluate(() => answers[0].transcript === '안녕하세요 저는 고다윤입니다'), await p.evaluate(() => answers[0].transcript));
   확인('화면에도 보이는가', (await p.evaluate(() => document.getElementById('live-text').textContent)).indexOf('고다윤입니다') > -1);
 
-  console.log('\n── 들으면서 찍기 — 단추와 키보드 ──');
-  await p.click('#mark-good'); await p.waitForTimeout(50);
-  확인('👍 를 누르면 몇 초째인지와 함께 남는가', await p.evaluate(() => answers[0].marks.length === 1 && answers[0].marks[0].k === 'good' && typeof answers[0].marks[0].t === 'number'));
-  확인('단추에 숫자 1', (await p.evaluate(() => document.getElementById('mark-good-n').textContent)) === '1');
-  await p.keyboard.press('ArrowDown'); await p.waitForTimeout(50);
-  확인('↓ 키로 👎', await p.evaluate(() => answers[0].marks.length === 2 && answers[0].marks[1].k === 'bad'));
-  await p.keyboard.press('Backspace'); await p.waitForTimeout(50);
-  확인('Backspace 로 마지막 찍은 것을 지우는가', await p.evaluate(() => answers[0].marks.length === 1));
+  console.log('\n── 들으면서 누르기 — 단추와 키보드 ──');
+  확인('👍👎 단추는 없고(우수·보통·미흡과 겹쳐 뺌) 판정이 영역 표 위에 있는가', await p.evaluate(() => {
+    var r = document.getElementById('rating-area'), g = document.getElementById('area-grid');
+    return !document.getElementById('mark-good') && r && g && (r.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING);
+  }));
   await p.keyboard.press('2'); await p.waitForTimeout(50);
   확인('2 키로 «보통»', await p.evaluate(() => answers[0].rating === '보통'));
   확인('판정 단추가 눌린 채로 그려지는가', await p.evaluate(() => document.querySelector('#rating-area .rbtn[aria-pressed="true"]').textContent === '보통'));
@@ -114,8 +111,8 @@ const FAKE_SR = () => {
   확인('면접 중에 쓴 평가가 남는가', await p.evaluate(() => answers[0].memo === '동기가 또렷함'));
   // 글자 칸에 커서가 있을 땐 끼어들지 않는다
   await p.evaluate(() => { var t = document.createElement('textarea'); t.id = 'tmp-ta'; document.getElementById('view-run').appendChild(t); t.focus(); });
-  await p.keyboard.press('ArrowUp'); await p.waitForTimeout(50);
-  확인('글자 칸에 커서가 있으면 ↑ 가 👍 로 안 가는가', await p.evaluate(() => answers[0].marks.length === 1));
+  await p.keyboard.press('3'); await p.waitForTimeout(50);
+  확인('글자 칸에 커서가 있으면 3 이 «미흡» 으로 안 가는가', await p.evaluate(() => answers[0].rating === '우수'));
   await p.evaluate(() => { document.getElementById('tmp-ta').remove(); document.body.focus(); });
 
   console.log('\n── 질문을 넘기면 글이 질문을 따라간다 ──');
@@ -134,7 +131,7 @@ const FAKE_SR = () => {
   const calls0 = await p.evaluate(() => window.__calls.filter(c => c.table === 'interview_answers' && c.op === 'upsert').length);
   확인('질문을 넘길 때 저장에 받아 적은 글이 들어가는가', await p.evaluate(() => {
     var c = window.__calls.filter(c => c.table === 'interview_answers' && c.op === 'upsert').pop();
-    return c && c.v.transcript === '안녕하세요 저는 고다윤입니다 그리고 또' && Array.isArray(c.v.marks) && c.v.marks.length === 1 &&
+    return c && c.v.transcript === '안녕하세요 저는 고다윤입니다 그리고 또' &&
            c.v.areas && c.v.areas['내용'] === '좋음' && c.v.memo === '동기가 또렷함';
   }), '저장 ' + calls0 + '번');
 
@@ -168,15 +165,12 @@ const FAKE_SR = () => {
     const r0 = document.getElementById('ansrow-0'), r1 = document.getElementById('ansrow-1');
     return {
       글0: r0.querySelector('.anssaid p').textContent, 글1: r1.querySelector('.anssaid p').textContent,
-      찍은0: r0.querySelector('.ansmarks').textContent, 찍은1: !!r1.querySelector('.ansmarks'),
       자주: r0.querySelectorAll('.tagrow.quick .chip').length, 접힘: r0.querySelector('.tagfull').hidden,
       판정0: r0.querySelector('.rbtn[aria-pressed="true"]') && r0.querySelector('.rbtn[aria-pressed="true"]').textContent
     };
   });
   확인('첫 질문의 받아 적은 글이 보이는가', fin.글0 === '안녕하세요 저는 고다윤입니다 그리고 또', fin.글0);
   확인('두 번째 질문의 글도', fin.글1 === '열을 가하면 패치가');
-  확인('찍은 순간이 «0:00 👍» 꼴로', /👍/.test(fin.찍은0), fin.찍은0);
-  확인('안 찍은 질문에는 그 줄이 없는가', !fin.찍은1);
   확인('자주 쓰는 것이 보이고 나머지는 접혀 있는가', fin.자주 > 0 && fin.자주 <= 14 && fin.접힘, fin.자주 + '개');
   확인('면접 중에 1 키로 매긴 «우수» 가 그대로', fin.판정0 === '우수', fin.판정0);
   확인('면접 중에 누른 영역 판정이 마무리 화면 표에도 눌린 채로',
@@ -227,8 +221,8 @@ const FAKE_SR = () => {
   확인('«답변 시작» 하나로 면접 시계까지 켜지는가', await p2.evaluate(() => ticking && answering));
   확인('단추가 숨고 «크롬에서 열면» 안내가 보이는가',
        await p2.evaluate(() => document.getElementById('btn-stt').hidden && document.getElementById('live-hint').textContent.indexOf('크롬') > -1 && !LISTEN.on));
-  await p2.keyboard.press('ArrowUp'); await p2.waitForTimeout(50);
-  확인('👍 는 그대로 되는가', await p2.evaluate(() => answers[0].marks.length === 1));
+  await p2.keyboard.press('1'); await p2.waitForTimeout(50);
+  확인('판정은 그대로 되는가', await p2.evaluate(() => answers[0].rating === '우수'));
   확인('콘솔 오류 없음', errs2.length === 0, errs2.join(' | '));
 
   await b.close();

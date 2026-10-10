@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-10-10.2">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-10-10.3">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-10.2">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-10.2">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-10.2">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-10.2">
-  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-10.2">
-  <link rel="stylesheet" href="../assets/css/hugi.css?v=2026-10-10.2">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-10.2">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-10.3">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-10.3">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-10.3">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-10.3">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-10.3">
+  <link rel="stylesheet" href="../assets/css/hugi.css?v=2026-10-10.3">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-10.3">
 </head>
 <body>
 
@@ -341,16 +341,12 @@
             <p class="hint" id="live-hint" style="margin:8px 0 0"></p>
           </div>
 
-          <p class="sec" style="margin-top:22px">들으면서 — 순간을 찍어 두세요 <span class="opt">(자세한 평가는 면접이 끝난 뒤에)</span></p>
-          <div class="markrow" id="mark-area">
-            <button class="markbtn good" id="mark-good" onclick="addMark('good')">👍 좋았다<span class="n" id="mark-good-n"></span></button>
-            <button class="markbtn bad" id="mark-bad" onclick="addMark('bad')">👎 아쉽다<span class="n" id="mark-bad-n"></span></button>
-          </div>
-          <!-- 영역별 좋음·보통·아쉬움 (2026-10-10 선생님 말씀: 👍👎 만으로는 모자라다) -->
-          <div class="areagrid" id="area-grid"></div>
-          <p class="sec" style="margin-top:18px">이 답변은</p>
+          <!-- 들으면서 누르는 것: 이 답변은 우수·보통·미흡 + 영역 다섯 줄.
+               .1~.2 엔 👍👎(몇 초째) 단추도 있었는데 «우수·보통·미흡과 겹친다» 는 말씀에 뺐습니다(2026-10-10). -->
+          <p class="sec" style="margin-top:22px">이 답변은 <span class="opt">(자세한 평가는 면접이 끝난 뒤에)</span></p>
           <div class="ratingrow big" id="rating-area"></div>
-          <p class="hint keys">키보드로도 됩니다 — <b>↑</b> 좋았다 · <b>↓</b> 아쉽다 · <b>1 2 3</b> 우수·보통·미흡 · <b>Space</b> 답변 시작/끝 · <b>→</b> 다음 질문</p>
+          <div class="areagrid" id="area-grid"></div>
+          <p class="hint keys">키보드로도 됩니다 — <b>1 2 3</b> 우수·보통·미흡 · <b>Space</b> 답변 시작/끝 · <b>→</b> 다음 질문 · <b>←</b> 이전</p>
 
           <!-- 선생님이 쓰는 칸 — 처음(.1)엔 뺐다가 «평가를 써야 한다» 는 말씀에 되살림. 마무리 화면에도 같은 글이 옵니다 -->
           <p class="sec" style="margin-top:20px">평가 · 답변 요지 <span class="opt">(안 적어도 됩니다)</span></p>
@@ -611,23 +607,23 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-10-10.2"></script>
-<script src="../assets/js/update-bar.js?v=2026-10-10.2"></script>
-<script src="../assets/js/utils.js?v=2026-10-10.2"></script>
-<script src="../assets/js/api.js?v=2026-10-10.2"></script>
-<script src="../assets/js/browse.js?v=2026-10-10.2"></script>
-<script src="../assets/js/reviews.js?v=2026-10-10.2"></script>
-<script src="../assets/js/questions.js?v=2026-10-10.2"></script>
-<script src="../assets/js/report.js?v=2026-10-10.2"></script>
-<script src="../assets/js/chat.js?v=2026-10-10.2"></script>
-<script src="../assets/js/practice.js?v=2026-10-10.2"></script>
-<script src="../assets/js/hugi.js?v=2026-10-10.2"></script>
-<script src="../assets/js/notice.js?v=2026-10-10.2"></script>
-<script src="../assets/js/badges.js?v=2026-10-10.2"></script>
-<script src="../assets/js/admin-notice.js?v=2026-10-10.2"></script>
-<script src="../assets/js/teacher-app.js?v=2026-10-10.2"></script>
-<script src="../assets/js/listen.js?v=2026-10-10.2"></script>
-<script src="../assets/js/saenggibu.js?v=2026-10-10.2"></script>
+<script src="../assets/js/config.js?v=2026-10-10.3"></script>
+<script src="../assets/js/update-bar.js?v=2026-10-10.3"></script>
+<script src="../assets/js/utils.js?v=2026-10-10.3"></script>
+<script src="../assets/js/api.js?v=2026-10-10.3"></script>
+<script src="../assets/js/browse.js?v=2026-10-10.3"></script>
+<script src="../assets/js/reviews.js?v=2026-10-10.3"></script>
+<script src="../assets/js/questions.js?v=2026-10-10.3"></script>
+<script src="../assets/js/report.js?v=2026-10-10.3"></script>
+<script src="../assets/js/chat.js?v=2026-10-10.3"></script>
+<script src="../assets/js/practice.js?v=2026-10-10.3"></script>
+<script src="../assets/js/hugi.js?v=2026-10-10.3"></script>
+<script src="../assets/js/notice.js?v=2026-10-10.3"></script>
+<script src="../assets/js/badges.js?v=2026-10-10.3"></script>
+<script src="../assets/js/admin-notice.js?v=2026-10-10.3"></script>
+<script src="../assets/js/teacher-app.js?v=2026-10-10.3"></script>
+<script src="../assets/js/listen.js?v=2026-10-10.3"></script>
+<script src="../assets/js/saenggibu.js?v=2026-10-10.3"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
