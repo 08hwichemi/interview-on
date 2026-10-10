@@ -198,6 +198,10 @@ const FAKE_SR = () => {
   }));
   확인('리포트 화면으로 넘어갔는가', await p.evaluate(() => !!document.querySelector('#view-report:not([hidden])')));
   확인('리포트에 「전공 연결 아쉬움」 이 보이는가', (await p.evaluate(() => document.getElementById('report-body').textContent)).indexOf('전공 연결 아쉬움') > -1);
+  확인('리포트에 받아 적은 글이 질문마다 보이는가', await p.evaluate(() => {
+    var said = Array.from(document.querySelectorAll('#report-body .anssaid p')).map(e => e.textContent);
+    return said.length === 2 && said[0] === '안녕하세요 저는 고다윤입니다 그리고 또' && said[1] === '열을 가하면 패치가';
+  }));
   확인('콘솔 오류 없음', errs.length === 0, errs.join(' | '));
   await ctx.close();
 

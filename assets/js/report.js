@@ -53,6 +53,15 @@ async function fetchReport(interviewId) {
   return { interview: iv, answers: rows || [] };
 }
 
+// 학생이 말한 내용 — 면접 중에 받아 적은 글(틀릴 수 있어 그렇다고 적어 둡니다).
+// 선생님 리포트·인쇄·학생 리포트에 다 나옵니다(2026-10-10 선생님이 «리포트와 인쇄에도 나오게» 하심).
+function saidBlock(text) {
+  if (!text) return '';
+  return '<div class="anssaid"><span class="cap">학생이 말한 내용 ' +
+    '<span class="opt">받아 적은 것이라 틀린 데가 있을 수 있습니다</span></span>' +
+    '<p>' + esc(text) + '</p></div>';
+}
+
 // 영역별 판정 — 「내용 좋음 · 근거 보통 · 태도 아쉬움」 (면접 중 누른 것, 안 누른 영역은 빠짐)
 function areasLine(areas) {
   var keys = Object.keys(areas || {});
@@ -118,6 +127,7 @@ function reportHTML(iv, answers, who, round) {
         '</div>' +
         (a.competency && a.competency !== '기타'
           ? '<div class="anscomp">' + esc(a.competency) + ' 질문</div>' : '') +
+        saidBlock(a.transcript) +
         areasLine(a.areas) +
         (good.length || bad.length
           ? '<div class="anstags">' +

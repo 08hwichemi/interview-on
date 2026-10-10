@@ -73,13 +73,18 @@
 .minitag.bad{border-color:#E4C4C4;color:var(--rose)}
 .minitag.mid{border-color:var(--line-2);color:var(--ink-2)}
 .ansareas{display:flex;flex-wrap:wrap;gap:5px;margin:7px 0 0 29px}
+/* 학생이 말한 내용 — 면접 중에 받아 적은 글. 마무리 화면·리포트·인쇄·학생 앱에 같은 모양 */
+.anssaid{margin:9px 0 0 29px;padding:10px 13px;border-radius:6px;background:var(--surface-2);border-left:3px solid var(--line-2)}
+.anssaid .cap{display:block;margin-bottom:4px;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--ink-3)}
+.anssaid .opt{font-weight:400;font-size:11px;letter-spacing:0;text-transform:none;color:var(--ink-3)}
+.anssaid p{margin:0;font-size:14px;line-height:1.75;word-break:keep-all}
 .ansmemo{
   margin:7px 0 0 29px;padding:8px 11px;border-radius:6px;background:var(--surface-2);
   font-size:13px;line-height:1.6;color:var(--ink-2);
 }
 
 @media(max-width:640px){
-  .anstags,.ansareas,.ansmemo{margin-left:0}
+  .anstags,.ansareas,.anssaid,.ansmemo{margin-left:0}
 }
 
 /* ── 리포트 위의 단추 줄 (학생 앱) ── */
@@ -121,6 +126,9 @@
 #print-root .anstags,#print-root .ansareas{gap:4px;margin:4px 0 0 24px}
 #print-root .minitag{font-size:10.5px;padding:1px 6px}
 #print-root .ansmemo{margin:4px 0 0 24px;padding:5px 8px;font-size:11.5px;line-height:1.45}
+#print-root .anssaid{margin:4px 0 0 24px;padding:5px 8px;border-left-width:2px}
+#print-root .anssaid .cap{font-size:9.5px;margin-bottom:2px}
+#print-root .anssaid p{font-size:11px;line-height:1.45}
 
 #print-root .rp-srow{grid-template-columns:76px 1fr 44px;gap:9px;padding:6px 10px}
 /* 좁은 화면용 규칙(.rp-srow .area{grid-column:1/-1})이 인쇄본까지 건드리면

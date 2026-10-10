@@ -702,10 +702,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 
 /* ── 마무리 — 질문마다 평가 칸 ── */
 .ansrow.edit{padding:16px 0}
-.anssaid{margin:9px 0 0 29px;padding:10px 13px;border-radius:6px;background:var(--surface-2);border-left:3px solid var(--line-2)}
-.anssaid .cap{display:block;margin-bottom:4px;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--ink-3)}
-.anssaid .opt{font-weight:400;font-size:11px;letter-spacing:0;text-transform:none;color:var(--ink-3)}
-.anssaid p{margin:0;font-size:14px;line-height:1.75;word-break:keep-all}
+/* .anssaid(학생이 말한 내용)는 report.css 에 — 리포트·인쇄·학생 앱도 같이 씁니다 */
 .anseval{margin:12px 0 0 29px}
 .anseval .ratingrow{margin-bottom:12px}
 .tagpanel .tagrow.quick{border-bottom:0;margin-bottom:6px;padding-bottom:0}
@@ -718,5 +715,5 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   .arearow{grid-template-columns:1fr;gap:4px}
   .areapicks{width:100%}
   .abtn{flex:1;min-width:0;padding:9px 6px}
-  .anssaid,.anseval{margin-left:0}
+  .anseval{margin-left:0}
 }
