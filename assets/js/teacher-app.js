@@ -28,7 +28,7 @@
 //   ③ 한 눈에 읽히게 **열 자 안팎**으로 짧게 씁니다
 //   ④ 지난 회차에서 쓰던 문구를 지워도 **그 리포트에는 그대로 남습니다**
 //      (리포트는 저장된 글자를 그리고, 이 목록을 보지 않습니다).
-//      다시 열어 고칠 때도 사라지지 않도록 renderTagButtons() 가 뒤에 붙여 줍니다
+//      다시 열어 고칠 때도 사라지지 않도록 tagPanelHTML() 이 «지난 기록» 줄에 붙여 줍니다
 var TAGS = {
   // 무엇을 말했나 — 답변의 알맹이
   '내용': {
@@ -73,6 +73,19 @@ var TAGS = {
 
 // 태그를 다 누르지 못해도 이것 하나면 흐름이 읽힙니다.
 var RATINGS = ['우수', '보통', '미흡'];
+
+// 면접 중 영역별 한 줄 판정 (2026-10-10 선생님 말씀: 👍👎 만으로는 모자라다 —
+// 영역을 대여섯으로 나눠 거기서 좋음·보통·아쉬움을 누르는 게 낫겠다).
+// 위 TAGS 의 네 축에 «전공 연결» 을 더한 다섯 줄. 줄마다 하나만, 다시 누르면 지움.
+// 마무리 화면에서도 같은 표를 고칠 수 있고, 리포트에 한 줄로 들어갑니다(report.js areasLine).
+var AREAS = [
+  { key: '내용',     desc: '질문의 핵심을 짚었나' },
+  { key: '근거',     desc: '사례·기록으로 뒷받침했나' },
+  { key: '말하기',   desc: '결론부터 · 알맞은 길이와 속도' },
+  { key: '태도',     desc: '시선 · 자세 · 침착함' },
+  { key: '전공 연결', desc: '지원 학과와 이어지나' }
+];
+var LEVELS = ['좋음', '보통', '아쉬움'];
 
 // 채점표(SCORESHEET)와 등급(GRADES), esc()·mmss() 는 report.js 에 있습니다.
 // 선생님이 보는 리포트와 학생이 받는 리포트가 같은 종이여야 해서 한 곳에 모았습니다.
@@ -195,7 +208,7 @@ var midQuestions = [];    // 준비 화면에서 손으로 채우는 가운데 �
 var questions = [];       // 면접에 실제로 내는 질문 (첫인사 + 가운데 + 끝인사)
 var interviewId = null;
 var qIndex = 0;
-var answers = [];         // [{ seconds, good, bad, rating, memo }]
+var answers = [];         // [{ seconds, good, bad, rating, memo, transcript, marks, areas }]
 var grades = {};          // { 평가항목: 'A'~'E' }
 
 // 시간을 두 개 보여주지만, 시계는 하나입니다.
@@ -428,8 +441,9 @@ function renderRailProgress() {
   // 시간을 «건드린 질문만» 보여주니 1번에만 00:00 이 뜨고 나머지는 빈 줄이라
   // 고장난 것처럼 보였습니다. 이제 모든 줄에 똑같이 보여줍니다.
   document.getElementById('progress-list').innerHTML = questions.map(function (q, i) {
-    var a = answers[i] || { seconds: 0, good: [], bad: [], rating: null, memo: '' };
-    var done = a.seconds > 0 || a.good.length || a.bad.length || a.rating || a.memo;
+    var a = answers[i] || { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {} };
+    var done = a.seconds > 0 || a.good.length || a.bad.length || a.rating || a.memo ||
+               a.transcript || (a.marks && a.marks.length) || Object.keys(a.areas || {}).length;
     return '<button class="railrow q" aria-current="' + (i === qIndex) + '" onclick="goToQuestion(' + i + ')">' +
       '<span class="qn">' + (i + 1) + '</span>' +
       '<span class="qt">' + esc(q.text) + '</span>' +
@@ -608,7 +622,8 @@ async function resumeInterview(id) {
   }));
   answers = (r.answers || []).map(function (a) {
     return { seconds: a.seconds || 0, good: a.good_tags || [], bad: a.bad_tags || [],
-             rating: a.rating || null, memo: a.memo || '' };
+             rating: a.rating || null, memo: a.memo || '',
+             transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {} };
   });
   grades = iv.grades || {};
 
@@ -626,7 +641,8 @@ async function resumeInterview(id) {
   for (var i = 0; i < answers.length; i++) {
     qIndex = i;
     var a = answers[i];
-    if (!(a.seconds > 0 || a.good.length || a.bad.length || a.rating || a.memo)) break;
+    if (!(a.seconds > 0 || a.good.length || a.bad.length || a.rating || a.memo ||
+          a.transcript || (a.marks && a.marks.length) || Object.keys(a.areas || {}).length)) break;
   }
 
   paintHistoryAcc();
@@ -1229,7 +1245,7 @@ async function startInterview() {
   interviewId = sheetId;     // 이 줄에 답을 적어 갑니다 (아직 '준비중' 입니다)
   qIndex = 0;
   answers = questions.map(function () {
-    return { seconds: 0, good: [], bad: [], rating: null, memo: '' };
+    return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {} };
   });
   grades = {};
   liveInterview = true;
@@ -1277,7 +1293,7 @@ async function resumeWithQuestions(list) {
       used[i] = true;
       return oldA[i];
     }
-    return { seconds: 0, good: [], bad: [], rating: null, memo: '' };
+    return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {} };
   });
   questions = list;
   if (qIndex >= questions.length) qIndex = questions.length - 1;
@@ -1306,7 +1322,8 @@ async function rewriteAnswers() {
       interview_id: interviewId, seq: i + 1,
       competency: q.competency, question: q.text,
       seconds: a.seconds, good_tags: a.good, bad_tags: a.bad,
-      rating: a.rating, memo: a.memo || ''
+      rating: a.rating, memo: a.memo || '',
+      transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {}
     };
   });
   if (!rows.length) return true;
@@ -1315,15 +1332,22 @@ async function rewriteAnswers() {
   return true;
 }
 
-// ── 시계 하나로 둘을 같이 ──
+// ── 시계 둘 ──
+//   «면접 전체»(ticking)  — «면접 시작» 한 번 누르면 끝까지 흐릅니다(선생님이 질문 읽는 시간도 면접입니다)
+//   «이 질문 답변»(answering) — 질문마다 선생님이 읽고 나서 «답변 시작» 을 누르면 그때부터. 받아 적기도 이것에 붙어 있습니다
+// 2026-10-10 선생님 말씀: 교사가 질문을 말하고 학생 답변 시간을 재 준다 — 시계 하나가 계속 흐르면
+// 질문 읽는 소리까지 받아 적히고 그 시간도 답변에 들어간다.
+var answering = false;
+
 function startTicking() {
   if (tickId) return;
   ticking = true;
   tickId = setInterval(function () {
     totalSeconds++;
+    paintTotal();
+    if (!answering) return;
     seconds++;
     if (answers[qIndex]) answers[qIndex].seconds = seconds;
-    paintTotal();
     paintTimer();
   }, 1000);
   paintTimerButton();
@@ -1332,6 +1356,16 @@ function startTicking() {
 function stopTicking() {
   ticking = false;
   if (tickId) { clearInterval(tickId); tickId = null; }
+  answering = false;     // 면접을 멈추면 답변 시계도 같이 멈춥니다. 이어 갈 때는 «답변 시작» 을 다시
+  paintTimerButton();
+}
+
+// «답변 시작» / «답변 끝» — 면접 시계가 아직 안 흐르면 같이 켭니다(한 번만 눌러도 되게).
+function toggleAnswer() {
+  if (answering) { answering = false; paintTimerButton(); return; }
+  if (!ticking) toggleTimer();
+  if (!ticking) return;          // 지난 회차(liveInterview 아님)에서는 시계가 안 켜집니다
+  answering = true;
   paintTimerButton();
 }
 
@@ -1349,9 +1383,20 @@ function paintTimerButton() {
   // 지난 회차를 열어 고치는 중이면 시간이 더 흘러서는 안 됩니다.
   b.hidden = !liveInterview;
   b.textContent = ticking ? '일시정지' : (startedOnce ? '이어서' : '면접 시작');
-  b.className = ticking ? 'btn' : 'btn solid';
+  b.className = ticking ? 'ghost tbtn' : 'btn solid tbtn';
+  var ab = document.getElementById('btn-answer');
+  if (ab) {
+    ab.hidden = !liveInterview;
+    ab.textContent = answering ? '답변 끝' : '답변 시작';
+    ab.className = answering ? 'btn tbtn' : 'btn solid tbtn';
+  }
   var box = document.getElementById('timerbox');
-  if (box) box.setAttribute('data-running', ticking ? 'yes' : 'no');
+  if (box) {
+    box.setAttribute('data-running', ticking ? 'yes' : 'no');
+    box.setAttribute('data-answering', answering ? 'yes' : 'no');
+  }
+  // 받아 적기는 답변 시계와 같이 켜지고 멈춥니다 (listen.js)
+  if (typeof listenSync === 'function') listenSync();
 }
 
 function paintTotal() {
@@ -1368,8 +1413,9 @@ function showQuestion() {
   document.getElementById('run-comp').textContent = q.competency;
   document.getElementById('run-question').textContent = q.text;
 
-  // 시계는 그대로 둡니다. 질문을 넘겼다고 면접이 멈추는 건 아니니까요.
-  // 「이 질문 답변」만 새 질문의 시간으로 갈아 끼웁니다.
+  // 면접 전체 시계는 그대로 둡니다. 질문을 넘겼다고 면접이 멈추는 건 아니니까요.
+  // 「이 질문 답변」은 새 질문의 시간으로 갈아 끼우고 **멈춘 채** 둡니다 — 선생님이 질문을 읽고 «답변 시작» 을 누르면 흐릅니다.
+  answering = false;
   seconds = answers[qIndex].seconds;
   paintTimer();
   paintTotal();
@@ -1381,10 +1427,62 @@ function showQuestion() {
     (qIndex === questions.length - 1) ? '면접 마무리 →' : '다음 질문 →';
 
   renderRating();
-  renderTagButtons();
+  renderAreas('area-grid', qIndex);
   document.getElementById('answer-memo').value = answers[qIndex].memo || '';
+  // 받아 적는 칸은 지금 질문의 글로 갈아 끼웁니다 (listen.js — 음성 인식이 없는 브라우저면 안내만)
+  if (typeof listenShowQuestion === 'function') listenShowQuestion();
   renderRailProgress();
 }
+
+// marks 칸(👍👎 몇 초째)은 .1~.2 에 있다가 뺐습니다 — «우수·보통·미흡과 겹친다». 서버 칸과 저장은 그대로 두었습니다(빈 배열).
+
+// ── 키보드 — 화면을 안 보고도 누를 수 있게 ──
+//   1 2 3 우수·보통·미흡 · Space 답변 시작/끝 · → 다음 질문 · ← 이전
+// 글자 칸에 커서가 있을 때는 끼어들지 않습니다. 진행 화면이 보일 때만 듣습니다.
+document.addEventListener('keydown', function (e) {
+  var run = document.getElementById('view-run');
+  if (!run || run.hidden) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  var tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) return;
+  var k = e.key;
+  if (k === '1' || k === '2' || k === '3') pickRating(RATINGS[Number(k) - 1]);
+  else if (k === ' ' || k === 'Spacebar') toggleAnswer();
+  // 저장하는 중(단추가 잠김)에 연타하면 두 질문을 건너뛰므로 그동안은 듣지 않습니다
+  else if (k === 'ArrowRight') { if (document.getElementById('btn-next').disabled) return; nextQuestion(); }
+  else if (k === 'ArrowLeft') { if (document.getElementById('btn-next').disabled) return; prevQuestion(); }
+  else return;
+  // 단추에 초점이 있으면 Space·Enter 가 그 단추를 또 누르므로 막습니다
+  e.preventDefault();
+});
+
+// 영역별 판정 표 — 진행 화면(#area-grid)과 마무리 화면(질문마다) 둘 다 이걸로 그립니다.
+function areasHTML(i) {
+  var cur = answers[i].areas || {};
+  return AREAS.map(function (ar) {
+    return '<div class="arearow">' +
+      '<span class="arealabel"><b>' + esc(ar.key) + '</b><span class="desc">' + esc(ar.desc) + '</span></span>' +
+      '<span class="areapicks">' + LEVELS.map(function (lv) {
+        return '<button class="abtn l' + LEVELS.indexOf(lv) + '" aria-pressed="' + (cur[ar.key] === lv) + '"' +
+               ' onclick="pickArea(' + i + ', \'' + ar.key + '\', \'' + lv + '\')">' + lv + '</button>';
+      }).join('') + '</span>' +
+    '</div>';
+  }).join('');
+}
+function renderAreas(boxId, i) {
+  var box = document.getElementById(boxId);
+  if (box) box.innerHTML = areasHTML(i);
+}
+function pickArea(i, key, lv) {
+  var a = answers[i];
+  a.areas = a.areas || {};
+  if (a.areas[key] === lv) delete a.areas[key]; else a.areas[key] = lv;   // 다시 누르면 지움
+  if (i === qIndex) renderAreas('area-grid', i);
+  repaintAnswerRow(i);     // 마무리 화면에 그 질문 칸이 있으면 같이
+  renderRailProgress();
+}
+
+function setMemo(el) { answers[qIndex].memo = el.value; }
 
 // 한 줄 판정 — 우수 · 보통 · 미흡
 function renderRating() {
@@ -1399,60 +1497,117 @@ function pickRating(r, btn) {
   // 같은 것을 다시 누르면 지웁니다. 잘못 눌렀을 때 되돌릴 길이 있어야 합니다.
   var same = answers[qIndex].rating === r;
   answers[qIndex].rating = same ? null : r;
-  Array.prototype.forEach.call(btn.parentNode.children, function (b) {
-    b.setAttribute('aria-pressed', !same && b === btn);
-  });
+  renderRating();      // 키보드(1·2·3)로도 부르므로 단추를 넘겨받지 않고 다시 그립니다
   renderRailProgress();
 }
 
-function setMemo(el) { answers[qIndex].memo = el.value; }
+// ══════════════ 평가 단추(태그) — 마무리 화면에서 질문마다 ══════════════
+//
+// 2026-10-10 까지는 진행 화면에 62개가 다 펼쳐져 있었는데, 실제로 눌린 답변은 303개 가운데 30개(10%),
+// 눌린 것도 아홉 문구가 70% 였습니다(서버에서 세어 봄). 들으면서 찾아 누르는 표가 아니라
+// «다 들은 뒤 몇 개 고르는 것» 이라, 마무리 화면으로 옮기고 **자주 쓰는 것을 앞에** 둡니다.
+//
+// 자주 쓰는 순서: 이 브라우저에서 누른 횟수(localStorage `tagUse`) + 처음 씨앗(실제 기록에서 많이 눌린 것).
+// 서버에서 세지 않습니다 — 요청이 늘지 않게.
+var TAG_SEED = {
+  good: ['생기부 기록과 맞음', '눈을 맞춤', '결론부터 말함(두괄식)', '질문의 핵심을 짚음', '자세가 바름', '구체적 사례를 듦'],
+  bad:  ['군더더기(음, 그)', '시선을 피함', '당황하면 말이 끊김', '긴장이 심함', '개념이 부정확', '외운 티가 남', '답이 너무 길어짐']
+};
+var TAG_QUICK_N = 6;   // 자주 쓰는 것으로 보여 주는 개수(좋음·아쉬움 각각)
 
-// 좋았던 것과 아쉬운 것을 갈라 놓습니다.
-// 한 줄에 섞어 놓으면 면접 중에 급히 누를 때 잘못 누릅니다.
-function renderTagButtons() {
-  var a = answers[qIndex];
-
-  // 지난 회차에서 쓰던 문구가 지금 목록에 없을 수 있습니다(문구를 다듬으면서 뺀 것들).
-  // 그대로 두면 다시 열어 고칠 때 조용히 사라지므로 목록에 붙여 눌린 채로 보여 줍니다.
-  // ⚠️ 어느 축의 것이었는지는 알 길이 없습니다. 그래서 **맨 아래 한 줄에만** 모읍니다.
-  //    축마다 붙이면 같은 문구가 네 번 나옵니다.
-  function leftovers(kind) {
-    var known = [];
-    Object.keys(TAGS).forEach(function (ax) { known = known.concat(TAGS[ax][kind]); });
-    return (a[kind] || []).filter(function (t) { return known.indexOf(t) === -1; });
-  }
-
-  function group(kind, list, label) {
-    return '<div class="tagcol"><span class="cap ' + kind + '">' + label + '</span><div class="chips">' +
-      list.map(function (t) {
-        return '<button class="chip ' + kind + '" aria-pressed="' + (a[kind].indexOf(t) > -1) + '"' +
-               ' onclick="toggleTag(\'' + kind + '\', this)" data-tag="' + esc(t) + '">' + esc(t) + '</button>';
-      }).join('') + '</div></div>';
-  }
-
-  var 옛좋음 = leftovers('good'), 옛아쉬움 = leftovers('bad');
-
-  document.getElementById('tag-area').innerHTML =
-    Object.keys(TAGS).map(function (axis) {
-      return '<div class="tagrow"><span class="axis">' + axis + '</span><div class="tagcols">' +
-        group('good', TAGS[axis].good, '좋았던 점') +
-        group('bad',  TAGS[axis].bad,  '아쉬운 점') +
-        '</div></div>';
-    }).join('') +
-    (옛좋음.length || 옛아쉬움.length
-      ? '<div class="tagrow"><span class="axis">지난 기록</span><div class="tagcols">' +
-          group('good', 옛좋음, '좋았던 점') +
-          group('bad',  옛아쉬움, '아쉬운 점') +
-        '</div></div>'
-      : '');
+function tagUse() {
+  try { return JSON.parse(localStorage.getItem('tagUse') || '{}') || {}; } catch (e) { return {}; }
+}
+function bumpTagUse(t) {
+  try {
+    var u = tagUse(); u[t] = (u[t] || 0) + 1;
+    localStorage.setItem('tagUse', JSON.stringify(u));
+  } catch (e) { /* 사생활 보호 모드 — 순서만 못 기억할 뿐 */ }
+}
+function allTags(kind) {
+  var out = [];
+  Object.keys(TAGS).forEach(function (ax) { out = out.concat(TAGS[ax][kind]); });
+  return out;
+}
+// 자주 쓰는 것 — 누른 횟수가 많은 것부터, 횟수가 같으면 씨앗 순서
+function quickTags(kind) {
+  var u = tagUse(), seed = TAG_SEED[kind];
+  return allTags(kind).map(function (t, i) {
+    var si = seed.indexOf(t);
+    return { t: t, n: u[t] || 0, s: si === -1 ? 99 : si, i: i };
+  }).sort(function (a, z) { return (z.n - a.n) || (a.s - z.s) || (a.i - z.i); })
+    .slice(0, TAG_QUICK_N).map(function (x) { return x.t; });
 }
 
-function toggleTag(kind, btn) {
+// 질문 i 의 평가 단추 한 묶음.
+//   위: 자주 쓰는 것(좋음 · 아쉬움 한 줄씩) + «모든 단추 보기»
+//   아래(펼쳤을 때): 내용·근거·말하기·태도 네 줄 — 좋았던 점 | 아쉬운 점
+// 지난 회차에서 쓰던 옛 문구(지금 목록에 없는 것)는 눌린 채로 «지난 기록» 줄에 남깁니다 —
+// 그대로 두면 다시 열어 고칠 때 조용히 사라집니다. 어느 축이었는지는 모르니 한 줄에만.
+var tagOpen = {};   // { 질문번호: true } — «모든 단추 보기» 를 펼쳐 둔 질문
+
+function tagChip(i, kind, t, pressed) {
+  return '<button class="chip ' + kind + '" aria-pressed="' + pressed + '"' +
+         ' onclick="toggleTagAt(' + i + ', \'' + kind + '\', this)" data-tag="' + esc(t) + '">' + esc(t) + '</button>';
+}
+
+function tagPanelHTML(i) {
+  var a = answers[i];
+  function has(kind, t) { return (a[kind] || []).indexOf(t) > -1; }
+  function group(kind, list, label) {
+    return '<div class="tagcol"><span class="cap ' + kind + '">' + label + '</span><div class="chips">' +
+      list.map(function (t) { return tagChip(i, kind, t, has(kind, t)); }).join('') + '</div></div>';
+  }
+  function leftovers(kind) {
+    var known = allTags(kind);
+    return (a[kind] || []).filter(function (t) { return known.indexOf(t) === -1; });
+  }
+  // 자주 쓰는 것에는 «이미 누른 것» 도 끼워 넣습니다 — 펼치지 않아도 뭘 골랐는지 보이게
+  function quick(kind) {
+    var list = quickTags(kind);
+    (a[kind] || []).forEach(function (t) { if (list.indexOf(t) === -1) list.push(t); });
+    return list;
+  }
+  var open = !!tagOpen[i];
+  var 옛좋음 = leftovers('good'), 옛아쉬움 = leftovers('bad');
+
+  return '<div class="tagpanel" data-open="' + open + '">' +
+    '<div class="tagrow quick"><span class="axis">자주 씀</span><div class="tagcols">' +
+      group('good', quick('good'), '좋았던 점') +
+      group('bad',  quick('bad'),  '아쉬운 점') +
+    '</div></div>' +
+    '<button class="linkbtn tagmore" onclick="toggleTagPanel(' + i + ')">' +
+      (open ? '▲ 접기' : '▼ 모든 평가 단추 보기') + '</button>' +
+    '<div class="tagfull" ' + (open ? '' : 'hidden') + '>' +
+      Object.keys(TAGS).map(function (axis) {
+        return '<div class="tagrow"><span class="axis">' + axis + '</span><div class="tagcols">' +
+          group('good', TAGS[axis].good, '좋았던 점') +
+          group('bad',  TAGS[axis].bad,  '아쉬운 점') +
+          '</div></div>';
+      }).join('') +
+      (옛좋음.length || 옛아쉬움.length
+        ? '<div class="tagrow"><span class="axis">지난 기록</span><div class="tagcols">' +
+            group('good', 옛좋음, '좋았던 점') +
+            group('bad',  옛아쉬움, '아쉬운 점') +
+          '</div></div>'
+        : '') +
+    '</div>' +
+  '</div>';
+}
+
+function toggleTagPanel(i) {
+  tagOpen[i] = !tagOpen[i];
+  repaintAnswerRow(i);
+}
+
+// 같은 문구가 자주 쓰는 줄과 펼친 줄에 둘 다 있을 수 있어, 누르면 그 질문 칸을 통째로 다시 그립니다.
+function toggleTagAt(i, kind, btn) {
   var tag = btn.dataset.tag;
-  var arr = answers[qIndex][kind];
+  var arr = answers[i][kind];
   var at = arr.indexOf(tag);
-  if (at > -1) arr.splice(at, 1); else arr.push(tag);
-  btn.setAttribute('aria-pressed', at === -1);
+  if (at > -1) arr.splice(at, 1); else { arr.push(tag); bumpTagUse(tag); }
+  repaintAnswerRow(i);
+  renderRailProgress();
 }
 
 function paintTimer() { document.getElementById('timer').textContent = mmss(seconds); }
@@ -1465,6 +1620,8 @@ async function saveAnswer(i) {
   // ⚠️ 질문이 하나도 없는 면접(시작만 하고 질문을 안 낸 것)을 다시 열면
   //    여기가 빈칸을 집어 터졌고, 그 뒤 «질문 고치기» 가 통째로 멎었습니다.
   if (!q || !a) return;
+  // 받아 적는 중이면 아직 확정 안 된 글까지 붙여서 저장합니다 (listen.js)
+  if (typeof listenCut === 'function') listenCut(i);
   const { error } = await sb.from('interview_answers').upsert({
     interview_id: interviewId,
     seq: i + 1,
@@ -1474,7 +1631,10 @@ async function saveAnswer(i) {
     good_tags: a.good,
     bad_tags: a.bad,
     rating: a.rating,
-    memo: a.memo || ''
+    memo: a.memo || '',
+    transcript: a.transcript || '',   // 받아 적은 학생 답변 (listen.js)
+    marks: a.marks || [],             // 들으면서 찍은 👍👎 — [{ t: 몇 초째, k: 'good'|'bad' }]
+    areas: a.areas || {}              // 영역별 좋음·보통·아쉬움 — { 내용: '좋음', … }
   }, { onConflict: 'interview_id,seq' });
   if (error) toast('이 질문을 저장하지 못했습니다: ' + error.message, 'bad');
 }
@@ -1521,32 +1681,71 @@ function openFinish() {
   show('finish');
 }
 
-// 질문마다 «무슨 질문 / 얼마나 / 어땠는지» 를 한 덩어리로 훑어봅니다.
-// 학생 리포트에도 이 모양 그대로 들어갑니다.
+// 질문마다 «무슨 질문 / 학생이 말한 내용 / 찍은 순간» 을 보면서 평가를 매깁니다.
+// 받아 적은 글이 있으면 그것이 평가의 바탕입니다. 요지는 선생님이 한두 줄로 — 학생 리포트에 그대로 갑니다.
 function renderAnswerSummary() {
-  // report.js 가 그리는 리포트와 같은 모양으로 맞춥니다.
-  // 선생님이 마무리 화면에서 본 것과 학생이 받는 것이 달라서는 안 됩니다.
   document.getElementById('answer-summary').innerHTML =
     '<div class="rp-answers">' + questions.map(function (q, i) {
-      var a = answers[i];
-      return '<div class="ansrow">' +
-        '<div class="anshead">' +
-          '<span class="qno">' + (i + 1) + '</span>' +
-          '<span class="qt">' + esc(q.text) + '</span>' +
-          (a.rating ? '<span class="pill rate">' + esc(a.rating) + '</span>' : '') +
-          '<span class="secs">' + mmss(a.seconds) + '</span>' +
-        '</div>' +
-        (q.competency && q.competency !== '기타'
-          ? '<div class="anscomp">' + esc(q.competency) + ' 질문</div>' : '') +
-        (a.good.length || a.bad.length
-          ? '<div class="anstags">' +
-              a.good.map(function (x) { return '<span class="minitag good">' + esc(x) + '</span>'; }).join('') +
-              a.bad.map(function (x) { return '<span class="minitag bad">' + esc(x) + '</span>'; }).join('') +
-            '</div>'
-          : '') +
-        (a.memo ? '<p class="ansmemo">' + esc(a.memo) + '</p>' : '') +
-        '</div>';
+      return '<div class="ansrow edit" id="ansrow-' + i + '">' + answerRowHTML(i) + '</div>';
     }).join('') + '</div>';
+}
+
+function repaintAnswerRow(i) {
+  var el = document.getElementById('ansrow-' + i);
+  if (el) el.innerHTML = answerRowHTML(i);
+}
+
+function answerRowHTML(i) {
+  var q = questions[i], a = answers[i];
+  return '<div class="anshead">' +
+      '<span class="qno">' + (i + 1) + '</span>' +
+      '<span class="qt">' + esc(q.text) + '</span>' +
+      '<span class="secs">' + mmss(a.seconds) + '</span>' +
+    '</div>' +
+    (q.competency && q.competency !== '기타'
+      ? '<div class="anscomp">' + esc(q.competency) + ' 질문</div>' : '') +
+    // 학생이 말한 내용 — 받아 적은 것이 없으면 그 자리만 비워 둡니다
+    (a.transcript
+      ? '<div class="anssaid"><span class="cap">학생이 말한 내용 <span class="opt">받아 적은 것이라 틀린 데가 있을 수 있습니다</span></span>' +
+          '<p>' + esc(a.transcript) + '</p></div>'
+      : '') +
+    '<div class="anseval">' +
+      '<div class="areagrid">' + areasHTML(i) + '</div>' +
+      '<div class="ratingrow">' + RATINGS.map(function (r) {
+        return '<button class="rbtn" aria-pressed="' + (a.rating === r) + '"' +
+               ' onclick="pickRatingAt(' + i + ', \'' + r + '\')">' + r + '</button>';
+      }).join('') + '</div>' +
+      tagPanelHTML(i) +
+      '<textarea class="ansmemo-in" oninput="setMemoAt(' + i + ', this)" ' +
+        'placeholder="평가 · 답변 요지 — 면접 중에 적은 것이 그대로 옵니다. 학생 리포트에 들어갑니다.">' +
+        esc(a.memo || '') + '</textarea>' +
+    '</div>';
+}
+
+function pickRatingAt(i, r) {
+  answers[i].rating = (answers[i].rating === r) ? null : r;   // 다시 누르면 지움
+  repaintAnswerRow(i);
+  renderRailProgress();
+}
+
+function setMemoAt(i, el) { answers[i].memo = el.value; }
+
+// 마무리 화면에서 매긴 것을 한 번에 저장합니다(질문 수만큼이 아니라 요청 한 번).
+async function saveAllAnswers() {
+  if (!questions.length) return true;
+  var rows = questions.map(function (q, i) {
+    var a = answers[i];
+    return {
+      interview_id: interviewId, seq: i + 1,
+      competency: q.competency, question: q.text,
+      seconds: a.seconds, good_tags: a.good, bad_tags: a.bad,
+      rating: a.rating, memo: a.memo || '',
+      transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {}
+    };
+  });
+  const { error } = await sb.from('interview_answers').upsert(rows, { onConflict: 'interview_id,seq' });
+  if (error) { toast('평가를 저장하지 못했습니다: ' + error.message, 'bad'); return false; }
+  return true;
 }
 
 function renderScoresheet() {
@@ -1591,6 +1790,9 @@ async function finishInterview() {
   var label = btn.textContent;
   btn.disabled = true;
   btn.textContent = '저장하는 중...';
+
+  // 마무리 화면에서 매긴 평가·요지는 여기서 한꺼번에 저장합니다
+  if (!(await saveAllAnswers())) { btn.disabled = false; btn.textContent = label; return; }
 
   var patch = {
     finished_at: new Date().toISOString(),
@@ -1735,7 +1937,8 @@ async function openPast(id, round) {
   }));
   answers = r.answers.map(function (a) {
     return { seconds: a.seconds || 0, good: a.good_tags || [], bad: a.bad_tags || [],
-             rating: a.rating || null, memo: a.memo || '' };
+             rating: a.rating || null, memo: a.memo || '',
+             transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {} };
   });
   grades = r.interview.grades || {};
   totalSeconds = r.interview.total_seconds || 0;
