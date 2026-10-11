@@ -705,15 +705,17 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 /* .anssaid(학생이 말한 내용)는 report.css 에 — 리포트·인쇄·학생 앱도 같이 씁니다 */
 .anseval{margin:12px 0 0 29px}
 /* 영역 다섯 줄 × (이름 · 좋음/보통/아쉬움 · 좋았던 점 · 아쉬운 점) — 2026-10-11 선생님 «왼쪽 줄에 맞춰 상세 단추» */
-.evalgrid{display:grid;grid-template-columns:minmax(118px,auto) auto minmax(0,1fr) minmax(0,1fr);gap:0 14px;align-items:center}
+.evalgrid{display:grid;grid-template-columns:minmax(118px,auto) auto minmax(0,1fr) minmax(0,1fr);gap:0;align-items:center}
 .evalgrid>*{display:contents}
 .eg-head>*{padding-bottom:4px;font-size:11px;font-weight:700;letter-spacing:.04em;align-self:end}
 .eg-head .cap.good{color:#1F4D3A}
 .eg-head .cap.bad{color:var(--rose)}
 /* 🚨 가로선은 줄의 모든 칸에 — 처음(.6)엔 이름·단추 칸에만 그어져 단추들이 어느 줄 것인지 안 보였습니다.
    칸마다 위아래 여백을 넉넉히 두고(12px) 세로 가운데에 맞춰 한 줄이 한 덩어리로 읽히게 합니다 */
-/* 줄 사이 선은 진하게(--line-2) — 연한 선으로는 줄이 안 갈라져 보인다는 말씀(2026-10-11) */
-.eg-row>*,.eg-row .eg-chips>*{padding:12px 0;border-top:1px solid var(--line-2);min-width:0;align-self:stretch;display:flex;align-items:center}
+/* 줄 사이 선은 진하게(--ink-3) 그리고 끊김 없이 — 칸 사이 간격(gap) 대신 칸 오른쪽 여백을 써서 선이 한 줄로 이어집니다.
+   연한 선으로는 줄이 안 갈라져 보인다는 말씀(2026-10-11) */
+.eg-row>*,.eg-row .eg-chips>*{padding:12px 14px 12px 0;border-top:1px solid var(--ink-3);min-width:0;align-self:stretch;display:flex;align-items:center}
+.eg-head>*{padding-right:14px}
 .eg-row .arealabel{display:block;align-self:center}
 .eg-row .arealabel b{font-size:13px;line-height:1.2;display:block}
 .eg-row .arealabel .desc{font-size:10.5px;line-height:1.3;display:block;color:var(--ink-3)}
@@ -727,7 +729,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 /* 좁은 노트북(1300px 아래): 칸 셋 — 좋았던 점 뒤에 아쉬운 점이 이어 흐릅니다(색으로 구분) */
 @media(max-width:1300px){
   .evalgrid{grid-template-columns:minmax(110px,auto) auto minmax(0,1fr)}
-  .eg-chips{display:flex;flex-wrap:wrap;gap:3px;padding:12px 0;border-top:1px solid var(--line-2);min-width:0;align-self:stretch;align-items:center}
+  .eg-chips{display:flex;flex-wrap:wrap;gap:3px;padding:12px 0;border-top:1px solid var(--ink-3);min-width:0;align-self:stretch;align-items:center}
   .eg-head .eg-chips{border-top:0;padding:0 0 4px;gap:14px}
   .eg-chips .chips{display:contents}
   .eg-chips .chips>*{border-top:0;padding:0}
@@ -744,7 +746,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   .abtn{flex:1;min-width:0;padding:9px 6px}
   .anseval{margin-left:0}
   /* 휴대폰: 줄마다 이름 · 단추 셋 한 줄, 그 아래 좋았던 점 · 아쉬운 점 */
-  .evalgrid{grid-template-columns:1fr auto;gap:0 8px}
+  .evalgrid{grid-template-columns:1fr auto;gap:0}
   .eg-head{display:none}
   .eg-row .arealabel{grid-column:1}
   .eg-row .areapicks{grid-column:2;justify-content:flex-end}
