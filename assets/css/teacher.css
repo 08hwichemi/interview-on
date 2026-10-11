@@ -734,7 +734,9 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   .eg-chips{display:flex;flex-wrap:wrap;gap:3px;padding:12px 0;border-top:1px solid var(--ink-3);min-width:0;align-self:stretch;align-items:center}
   .eg-head .eg-chips{border-top:0;padding:0 0 4px;gap:14px}
   .eg-chips .chips{display:contents}
-  .eg-chips .chips>*{border-top:0;padding:0}
+  /* 🚨 여기 «.eg-chips .chips>*{border-top:0;padding:0}» 가 있어서 1300px 아래에선 태그 단추의 안쪽 여백과
+     윗테두리가 사라져 글자가 테두리에 달라붙어 보였습니다(2026-10-11 선생님 화면, 판 .8~.11).
+     단추 모양은 위의 .eg-row .chip 그대로 둡니다 */
   .eg-head .cap.bad::before{content:'·';color:var(--ink-3);margin-right:14px}
 }
 .anseval .ratingrow{margin:12px 0 0;gap:6px;flex-wrap:nowrap;max-width:460px}
@@ -758,3 +760,86 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   .anseval .ratingrow{max-width:none}
   .anseval .rbtn{padding:9px 6px}
 }
+
+/* ── 타학교 면접 (other-school.js) ──
+   #rail-students.other-mode  왼쪽 칸이 타학교 목록
+   #page-interview.is-other   타학교 학생을 보는 중 → 우리 학교에만 있는 칸(.ours-only)을 가리고 .other-only 를 보임 */
+.railtabs{display:flex;gap:4px;padding:10px 12px 0;flex:0 0 auto}
+.railtab{
+  flex:1;padding:7px 6px;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);
+  font-family:inherit;font-size:12.5px;font-weight:600;color:var(--ink-2);cursor:pointer;white-space:nowrap;
+}
+.railtab:hover{border-color:var(--ink-3);color:var(--ink)}
+.railtab[aria-current="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+#rail-students:not(.other-mode) #other-head,
+#rail-students:not(.other-mode) #other-list{display:none!important}
+#rail-students.other-mode #ours-head,
+#rail-students.other-mode #fav-box,
+#rail-students.other-mode #student-list{display:none!important}
+#page-interview.is-other .ours-only{display:none!important}
+#page-interview:not(.is-other) .other-only{display:none!important}
+@media(max-width:900px){
+  #rail-students.folded #rail-tabs,
+  #rail-students.folded #other-head,
+  #rail-students.folded #other-list{display:none!important}
+}
+.otheradd{width:100%;margin-top:10px}
+.railnote{margin:8px 0 0;font-size:11.5px;line-height:1.55;color:var(--ink-3)}
+
+/* 타학교 목록 한 줄 — 이름 · 희망 전공(작게) · 어디까지 했는지 */
+.railrow.orow{align-items:center}
+.railrow.orow .who{flex:1;min-width:0;display:flex;flex-direction:column}
+.railrow.orow .sub{font-size:11.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.railrow.orow[aria-current="true"] .sub{color:rgba(255,255,255,.7)}
+.railrow .ost{
+  flex:0 0 auto;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px;
+  background:var(--surface-2);color:var(--ink-3);border:1px solid var(--line);white-space:nowrap;
+}
+.railrow .ost.warn{background:var(--amber-soft);color:var(--amber);border-color:#EBD9B4}
+.railrow .ost.ok{background:var(--ink);color:#fff;border-color:var(--ink)}
+.railrow[aria-current="true"] .ost{background:rgba(255,255,255,.18);color:#fff;border-color:transparent}
+
+/* 준비 화면 맨 위 — 이름 · 희망 전공 */
+.otherform{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:12px;margin-top:16px}
+.otherform label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:var(--ink-2)}
+@media(max-width:600px){ .otherform{grid-template-columns:1fr} }
+.otherpaste{margin:0 0 14px;padding:12px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--surface-2)}
+.otherpaste textarea{width:100%;margin-bottom:10px;font-size:14px;line-height:1.6}
+.otherpaste .btnrow{justify-content:flex-end;margin:0}
+
+/* QR — 책상 건너편에서 폰으로 찍습니다. 화면 높이에 맞춰 크게 */
+.qr-overlay{position:fixed;inset:0;z-index:2100;display:none;align-items:center;justify-content:center;
+  padding:16px;background:rgba(24,24,27,.55)}
+.qr-card{background:var(--surface);border-radius:12px;box-shadow:var(--shadow-lift);
+  width:min(560px,100%);max-height:calc(100dvh - 32px);overflow:auto;padding:22px 24px;text-align:center}
+.qr-card h2{margin:4px 0 10px;font-size:20px}
+.qr-box{width:min(420px,100%,calc(100dvh - 300px));min-width:220px;margin:0 auto;background:#fff}
+.qr-box svg{display:block;width:100%;height:auto}
+.qr-say{margin:10px 0 4px;font-size:17px;font-weight:700}
+.qr-url{margin:10px 0 0;font-size:11px;color:var(--ink-3);word-break:break-all;user-select:all}
+.qr-btns{justify-content:center;margin:16px 0 0}
+
+/* 타학교 목록 — 학교별 묶음(접고 펴기) · 줄마다 🗑 · 묶음 끝에 «이 학교 모두 지우기» */
+.ogroup+.ogroup{margin-top:4px}
+.ohead{
+  width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border:0;border-radius:6px;
+  background:var(--surface-2);font-family:inherit;text-align:left;cursor:pointer;color:var(--ink);
+}
+.ohead:hover{background:var(--accent-soft)}
+.ohead .chev{flex:0 0 auto;font-size:10px;color:var(--ink-2);transition:transform .15s ease}
+.ohead[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+.ohead .sch{flex:1;min-width:0;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ohead .n{flex:0 0 auto;font-size:11.5px;font-weight:600;color:var(--ink-3)}
+.obody{padding:2px 0 4px}
+.odel{
+  flex:0 0 auto;width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:6px;
+  background:transparent;cursor:pointer;font-size:13px;opacity:.35;transition:opacity .12s;
+}
+.odel:hover{opacity:1;background:var(--rose-soft)}
+.odelall{display:block;margin:2px 10px 4px auto;font-size:11.5px}
+
+/* «명단 저장» 줄 — 세 칸 바로 아래 오른쪽 */
+.otheracts{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:10px;flex-wrap:wrap}
+.otheracts .hint{margin:0 auto 0 0;font-size:12.5px}
+/* 타학교 줄은 ★ · 🗑 두 단추가 붙습니다 */
+.ofav{margin:0 -6px 6px;border-radius:0}
