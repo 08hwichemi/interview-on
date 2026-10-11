@@ -191,7 +191,15 @@ function decomposeQuestions(list) {
   closing = { on: false, text: closing.text };
 
   (list || []).forEach(function (q) {
-    if (q.slot === 'opening') { opening = { on: true, key: opening.key, text: q.text, comp: q.competency }; return; }
+    if (q.slot === 'opening') {
+      // 🚨 어느 칩(자기소개 / 지원동기 / 둘 다)을 눌렀는지는 표에 없고 글자만 있습니다.
+      //    예전엔 이전 값(기본 '자기소개')을 그대로 둬서, «자기소개 + 지원동기» 를 골라 둔 질문지를
+      //    다시 열면 글자는 맞는데 칩은 «자기소개» 가 켜져 있었습니다(2026-10-11 선생님이 발견).
+      //    글자와 같은 인사말이 있으면 그 칩을, 글자를 고쳐 둔 것이면 이전 칩을 그대로 둡니다.
+      var same = OPENINGS.filter(function (o) { return o.text === q.text; })[0];
+      opening = { on: true, key: same ? same.key : opening.key, text: q.text, comp: q.competency };
+      return;
+    }
     if (q.slot === 'closing') { closing = { on: true, text: q.text }; return; }
     midQuestions.push({ text: q.text, competency: q.competency });
   });
