@@ -704,22 +704,33 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .ansrow.edit{padding:16px 0}
 /* .anssaid(학생이 말한 내용)는 report.css 에 — 리포트·인쇄·학생 앱도 같이 씁니다 */
 .anseval{margin:12px 0 0 29px}
-/* 두 칸 — 왼쪽 영역 표 + 판정, 오른쪽 자주 쓰는 단추. 아래에 요지 칸이 길게(시연 «안 1», 2026-10-11) */
-.evalcols{display:grid;grid-template-columns:minmax(300px,2fr) 3fr;gap:10px 28px;align-items:start}
-.evalcols>*{min-width:0}
-.anseval .areagrid{margin:0;gap:2px}
-.anseval .arearow{padding:3px 0;gap:8px}
-.anseval .arealabel b{font-size:13px;line-height:1.2}
-.anseval .arealabel .desc{font-size:10.5px;line-height:1.3}
-.anseval .areapicks{gap:4px}
-.anseval .abtn{min-width:48px;padding:5px 8px;font-size:12.5px;border-radius:6px}
-.anseval .ratingrow{margin:10px 0 0;gap:6px;flex-wrap:nowrap}
+/* 영역 다섯 줄 × (이름 · 좋음/보통/아쉬움 · 좋았던 점 · 아쉬운 점) — 2026-10-11 선생님 «왼쪽 줄에 맞춰 상세 단추» */
+.evalgrid{display:grid;grid-template-columns:minmax(118px,auto) auto minmax(0,1fr) minmax(0,1fr);gap:0 14px;align-items:start}
+.evalgrid>*{display:contents}
+.eg-head>*{padding-bottom:4px;font-size:11px;font-weight:700;letter-spacing:.04em}
+.eg-head .cap.good{color:#1F4D3A}
+.eg-head .cap.bad{color:var(--rose)}
+.eg-row>*{padding:6px 0;border-top:1px solid var(--line);min-width:0}
+.eg-row .arealabel b{font-size:13px;line-height:1.2;display:block}
+.eg-row .arealabel .desc{font-size:10.5px;line-height:1.3;display:block;color:var(--ink-3)}
+.eg-row .areapicks{display:flex;gap:4px}
+.eg-row .abtn{min-width:48px;padding:5px 8px;font-size:12.5px;border-radius:6px}
+.eg-row .chips{gap:3px;margin:0}
+.eg-row .chip{padding:3px 9px;font-size:11.5px}
+.eg-row.old .arealabel b{color:var(--ink-3)}
+.eg-chips{display:contents}                       /* 넓을 때: 좋았던 점 · 아쉬운 점이 각각 칸 */
+.eg-chips .chips{min-width:0}
+/* 좁은 노트북(1300px 아래): 칸 셋 — 좋았던 점 뒤에 아쉬운 점이 이어 흐릅니다(색으로 구분) */
+@media(max-width:1300px){
+  .evalgrid{grid-template-columns:minmax(110px,auto) auto minmax(0,1fr)}
+  .eg-chips{display:flex;flex-wrap:wrap;gap:3px;padding:6px 0;border-top:1px solid var(--line);min-width:0}
+  .eg-head .eg-chips{border-top:0;padding-bottom:4px;gap:14px}
+  .eg-chips .chips{display:contents}
+  .eg-head .cap.bad::before{content:'·';color:var(--ink-3);margin-right:14px}
+}
+.anseval .ratingrow{margin:12px 0 0;gap:6px;flex-wrap:nowrap;max-width:460px}
 .anseval .ratingrow .lab{flex:0 0 auto;align-self:center;font-size:12px;font-weight:700;color:var(--ink-3);margin-right:4px}
 .anseval .rbtn{flex:1;padding:7px 10px;font-size:13px}
-.evalright .tagrow.quick .axis{display:none}          /* «자주 씀» 글자 없이 좋았던 점 · 아쉬운 점만 */
-.evalright .tagrow.quick .tagcols{gap:12px}
-.evalright .chip{padding:4px 10px;font-size:12px}
-.tagpanel .tagrow.quick{border-bottom:0;margin-bottom:6px;padding-bottom:0}
 .ansmemo-in{min-height:52px;margin-top:10px;font-size:13.5px}
 @media(max-width:640px){
   .hint.keys{display:none}   /* 휴대폰엔 키보드가 없습니다 */
@@ -727,6 +738,13 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   .areapicks{width:100%}
   .abtn{flex:1;min-width:0;padding:9px 6px}
   .anseval{margin-left:0}
-  .evalcols{grid-template-columns:1fr}
+  /* 휴대폰: 줄마다 이름 · 단추 셋 한 줄, 그 아래 좋았던 점 · 아쉬운 점 */
+  .evalgrid{grid-template-columns:1fr auto;gap:0 8px}
+  .eg-head{display:none}
+  .eg-row .arealabel{grid-column:1}
+  .eg-row .areapicks{grid-column:2;justify-content:flex-end}
+  .eg-row .abtn{min-width:0;padding:5px 7px;white-space:nowrap}
+  .eg-row .eg-chips{grid-column:1/-1;border-top:0;padding-top:0}
+  .anseval .ratingrow{max-width:none}
   .anseval .rbtn{padding:9px 6px}
 }

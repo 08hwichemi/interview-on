@@ -28,16 +28,16 @@
 //   ③ 한 눈에 읽히게 **열 자 안팎**으로 짧게 씁니다
 //   ④ 지난 회차에서 쓰던 문구를 지워도 **그 리포트에는 그대로 남습니다**
 //      (리포트는 저장된 글자를 그리고, 이 목록을 보지 않습니다).
-//      다시 열어 고칠 때도 사라지지 않도록 tagPanelHTML() 이 «지난 기록» 줄에 붙여 줍니다
+//      다시 열어 고칠 때도 사라지지 않도록 evalGridHTML() 이 «지난 기록» 줄에 붙여 줍니다
 var TAGS = {
   // 무엇을 말했나 — 답변의 알맹이
   '내용': {
     good: ['질문의 핵심을 짚음', '개념을 정확히 씀', '동기가 분명함',
-           '과정을 순서대로 설명', '배운 점까지 연결', '전공과 이어짐',
+           '과정을 순서대로 설명', '배운 점까지 연결',
            '한계도 스스로 짚음'],
     bad:  ['질문을 빗나감', '개념이 부정확', '활동 나열에 그침',
            '과정 없이 결과만', '왜 했는지가 없음', '배운 점이 없음',
-           '전공과 연결이 약함', '누구나 할 수 있는 답', '외운 티가 남',
+           '누구나 할 수 있는 답', '외운 티가 남',
            '용어를 뜻 모르고 씀']
   },
   // 그 말을 무엇으로 뒷받침했나
@@ -68,6 +68,11 @@ var TAGS = {
     bad:  ['시선을 피함', '자세가 흐트러짐', '당황하면 말이 끊김', '긴장이 심함',
            '손·다리를 자꾸 움직임', '말을 끊고 답함', '표정이 굳음',
            '모르는데 얼버무림']
+  },
+  // 지원 학과와 이어지나 — 2026-10-11 마무리 화면이 영역 다섯 줄(AREAS)과 1:1 이 되면서 «내용» 에서 떼어 냈습니다
+  '전공 연결': {
+    good: ['전공과 이어짐', '지원 동기가 또렷함'],
+    bad:  ['전공과 연결이 약함', '왜 이 학과인지 없음']
   }
 };
 
@@ -1486,7 +1491,7 @@ function pickArea(i, key, lv) {
   a.areas = a.areas || {};
   if (a.areas[key] === lv) delete a.areas[key]; else a.areas[key] = lv;   // 다시 누르면 지움
   if (i === qIndex) renderAreas('area-grid', i);
-  repaintAnswerRow(i);     // 마무리 화면에 그 질문 칸이 있으면 같이
+  repaintAnswerRow(i);     // 마무리 화면의 표에도 같은 영역이 있으니 같이
   renderRailProgress();
 }
 
@@ -1511,18 +1516,12 @@ function pickRating(r, btn) {
 
 // ══════════════ 평가 단추(태그) — 마무리 화면에서 질문마다 ══════════════
 //
-// 2026-10-10 까지는 진행 화면에 62개가 다 펼쳐져 있었는데, 실제로 눌린 답변은 303개 가운데 30개(10%),
-// 눌린 것도 아홉 문구가 70% 였습니다(서버에서 세어 봄). 들으면서 찾아 누르는 표가 아니라
-// «다 들은 뒤 몇 개 고르는 것» 이라, 마무리 화면으로 옮기고 **자주 쓰는 것을 앞에** 둡니다.
-//
-// 자주 쓰는 순서: 이 브라우저에서 누른 횟수(localStorage `tagUse`) + 처음 씨앗(실제 기록에서 많이 눌린 것).
-// 서버에서 세지 않습니다 — 요청이 늘지 않게.
-var TAG_SEED = {
-  good: ['생기부 기록과 맞음', '눈을 맞춤', '결론부터 말함(두괄식)', '질문의 핵심을 짚음', '자세가 바름', '구체적 사례를 듦'],
-  bad:  ['군더더기(음, 그)', '시선을 피함', '당황하면 말이 끊김', '긴장이 심함', '개념이 부정확', '외운 티가 남', '답이 너무 길어짐']
-};
-var TAG_QUICK_N = 6;   // 자주 쓰는 것으로 보여 주는 개수(좋음·아쉬움 각각)
-
+// 2026-10-10 까지는 진행 화면에 62개가 다 펼쳐져 있었는데, 실제로 눌린 답변은 303개 가운데 30개(10%)였습니다.
+// 그래서 마무리 화면으로 옮겼고, 10-11 선생님 말씀대로 **영역 다섯 줄(AREAS)에 줄마다 그 갈래의 단추**를 붙입니다 —
+// 「내용 · 좋음/보통/아쉬움 · 좋았던 점 단추들 · 아쉬운 점 단추들」 한 줄. 처음 보는 분도 갈래를 보고 고릅니다.
+// (그 사이에 «자주 쓰는 것 6개 + 펼치기» 도 해 봤는데 «펼치면 너무 길다 → 펼치기 없애자 → 빈 자리에 단추 더 →
+//  갈래에 맞게 → 왼쪽 줄에 맞춰» 로 왔습니다.)
+// 줄 안에서는 이 브라우저에서 누른 횟수(localStorage `tagUse`)가 많은 것부터 — 서버에서 세지 않습니다.
 function tagUse() {
   try { return JSON.parse(localStorage.getItem('tagUse') || '{}') || {}; } catch (e) { return {}; }
 }
@@ -1537,44 +1536,53 @@ function allTags(kind) {
   Object.keys(TAGS).forEach(function (ax) { out = out.concat(TAGS[ax][kind]); });
   return out;
 }
-// 자주 쓰는 것 — 누른 횟수가 많은 것부터, 횟수가 같으면 씨앗 순서
-function quickTags(kind) {
-  var u = tagUse(), seed = TAG_SEED[kind];
-  return allTags(kind).map(function (t, i) {
-    var si = seed.indexOf(t);
-    return { t: t, n: u[t] || 0, s: si === -1 ? 99 : si, i: i };
-  }).sort(function (a, z) { return (z.n - a.n) || (a.s - z.s) || (a.i - z.i); })
-    .slice(0, TAG_QUICK_N).map(function (x) { return x.t; });
+// 한 갈래의 단추를 누른 횟수 순으로(같으면 적힌 순서)
+function rankedTags(axis, kind) {
+  var u = tagUse();
+  return (TAGS[axis] ? TAGS[axis][kind] : []).map(function (t, i) { return { t: t, n: u[t] || 0, i: i }; })
+    .sort(function (a, z) { return (z.n - a.n) || (a.i - z.i); })
+    .map(function (x) { return x.t; });
 }
-
-// 질문 i 의 평가 단추 — 자주 쓰는 것(좋음 · 아쉬움 6개씩)만.
-// 2026-10-11 까지는 «모든 평가 단추 보기» 로 네 축 62개를 펼칠 수 있었는데, 선생님 말씀
-// «많은 단추가 필요 없다, 펼치기 자체를 없애자» 로 뺐습니다. TAGS 는 자주 쓰는 것을 고르는 샘으로만 씁니다.
-// 이미 누른 문구(옛 문구 포함)는 목록에 없어도 눌린 채로 같이 보입니다 — 다시 열어 고칠 때 사라지지 않게.
 
 function tagChip(i, kind, t, pressed) {
   return '<button class="chip ' + kind + '" aria-pressed="' + pressed + '"' +
          ' onclick="toggleTagAt(' + i + ', \'' + kind + '\', this)" data-tag="' + esc(t) + '">' + esc(t) + '</button>';
 }
 
-function tagPanelHTML(i) {
+// 질문 i 의 평가 표 — 영역 다섯 줄 × (이름 · 좋음/보통/아쉬움 · 좋았던 점 · 아쉬운 점).
+// 지난 회차에서 쓰던 옛 문구(지금 목록에 없는 것)는 눌린 채로 «지난 기록» 줄에 남깁니다 —
+// 그대로 두면 다시 열어 고칠 때 조용히 사라집니다. 어느 갈래였는지는 모르니 한 줄에만.
+function evalGridHTML(i) {
   var a = answers[i];
+  var cur = a.areas || {};
   function has(kind, t) { return (a[kind] || []).indexOf(t) > -1; }
-  function group(kind, list, label) {
-    return '<div class="tagcol"><span class="cap ' + kind + '">' + label + '</span><div class="chips">' +
-      list.map(function (t) { return tagChip(i, kind, t, has(kind, t)); }).join('') + '</div></div>';
+  function chips(kind, list) {
+    return '<div class="chips ' + kind + '">' + list.map(function (t) { return tagChip(i, kind, t, has(kind, t)); }).join('') + '</div>';
   }
-  // 자주 쓰는 것 + 이미 누른 것(목록에 없는 옛 문구도)
-  function quick(kind) {
-    var list = quickTags(kind);
-    (a[kind] || []).forEach(function (t) { if (list.indexOf(t) === -1) list.push(t); });
-    return list;
+  function leftovers(kind) {
+    var known = allTags(kind);
+    return (a[kind] || []).filter(function (t) { return known.indexOf(t) === -1; });
   }
-  return '<div class="tagpanel">' +
-    '<div class="tagrow quick"><span class="axis">자주 씀</span><div class="tagcols">' +
-      group('good', quick('good'), '좋았던 점') +
-      group('bad',  quick('bad'),  '아쉬운 점') +
-    '</div></div>' +
+  var 옛좋음 = leftovers('good'), 옛아쉬움 = leftovers('bad');
+
+  return '<div class="evalgrid">' +
+    '<div class="eg-head"><span></span><span></span>' +
+      '<div class="eg-chips"><span class="cap good">좋았던 점</span><span class="cap bad">아쉬운 점</span></div></div>' +
+    AREAS.map(function (ar) {
+      return '<div class="eg-row">' +
+        '<span class="arealabel"><b>' + esc(ar.key) + '</b><span class="desc">' + esc(ar.desc) + '</span></span>' +
+        '<span class="areapicks">' + LEVELS.map(function (lv) {
+          return '<button class="abtn l' + LEVELS.indexOf(lv) + '" aria-pressed="' + (cur[ar.key] === lv) + '"' +
+                 ' onclick="pickArea(' + i + ', \'' + ar.key + '\', \'' + lv + '\')">' + lv + '</button>';
+        }).join('') + '</span>' +
+        // 넓은 화면에선 좋았던 점 · 아쉬운 점이 칸 둘, 좁은 노트북(1300px 아래)에선 한 칸에 이어 흐름(CSS .eg-chips)
+        '<div class="eg-chips">' + chips('good', rankedTags(ar.key, 'good')) + chips('bad', rankedTags(ar.key, 'bad')) + '</div>' +
+      '</div>';
+    }).join('') +
+    (옛좋음.length || 옛아쉬움.length
+      ? '<div class="eg-row old"><span class="arealabel"><b>지난 기록</b><span class="desc">예전 문구</span></span><span></span>' +
+          '<div class="eg-chips">' + chips('good', 옛좋음) + chips('bad', 옛아쉬움) + '</div></div>'
+      : '') +
   '</div>';
 }
 
@@ -1704,19 +1712,14 @@ function answerRowHTML(i) {
       ? '<div class="anssaid"><span class="cap">학생이 말한 내용 <span class="opt">받아 적은 것이라 틀린 데가 있을 수 있습니다</span></span>' +
           '<p>' + esc(a.transcript) + '</p></div>'
       : '') +
-    // 노트북에서 한 질문이 한 화면에 들어오게(2026-10-11 선생님이 시연 «안 1» 을 고르심):
-    //   왼쪽 — 영역 표(촘촘히) + 이 답변은 / 오른쪽 — 자주 쓰는 단추 / 아래 — 평가·요지 칸을 길게
+    // 노트북에서 한 질문이 한 화면에(2026-10-11): 영역 다섯 줄에 줄마다 그 갈래의 단추(evalGridHTML),
+    // 그 아래 «이 답변은», 맨 아래 평가·요지 칸을 길게
     '<div class="anseval">' +
-      '<div class="evalcols">' +
-        '<div class="evalleft">' +
-          '<div class="areagrid">' + areasHTML(i) + '</div>' +
-          '<div class="ratingrow"><span class="lab">이 답변은</span>' + RATINGS.map(function (r) {
-            return '<button class="rbtn" aria-pressed="' + (a.rating === r) + '"' +
-                   ' onclick="pickRatingAt(' + i + ', \'' + r + '\')">' + r + '</button>';
-          }).join('') + '</div>' +
-        '</div>' +
-        '<div class="evalright">' + tagPanelHTML(i) + '</div>' +
-      '</div>' +
+      evalGridHTML(i) +
+      '<div class="ratingrow"><span class="lab">이 답변은</span>' + RATINGS.map(function (r) {
+        return '<button class="rbtn" aria-pressed="' + (a.rating === r) + '"' +
+               ' onclick="pickRatingAt(' + i + ', \'' + r + '\')">' + r + '</button>';
+      }).join('') + '</div>' +
       '<textarea class="ansmemo-in" oninput="setMemoAt(' + i + ', this)" ' +
         'placeholder="평가 · 답변 요지 — 면접 중에 적은 것이 그대로 옵니다. 학생 리포트에 들어갑니다.">' +
         esc(a.memo || '') + '</textarea>' +
