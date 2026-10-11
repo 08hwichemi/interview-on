@@ -161,6 +161,19 @@ async function 준비(b, rows, vw, vh, init) {
     const b = document.querySelector('#other-list .ofav'); return !!b && b.textContent.indexOf('담당 학생 1명') > -1 && b.textContent.indexOf('다온고 · 수학교육과') > -1; }));
   await p.evaluate(() => { otherFav = {}; return otherLoad(); }); await p.waitForTimeout(200);
   확인('목록을 새로 받아도 별이 켜진 채', await p.evaluate(() => document.querySelector('#other-list .obody .srow .star[aria-pressed="true"]') !== null && !!document.querySelector('#other-list .ofav')));
+  // 🚨 담당 학생 칸에서 «지금 고른 학생» 줄에 마우스를 올리면 흰 바탕에 흰 글씨로 비어 보였던 것(2026-10-11 선생님 발견)
+  await p.click('#other-list .ofav .orow'); await p.waitForTimeout(300);
+  await p.hover('#other-list .ofav .orow[aria-current="true"]'); await p.waitForTimeout(150);
+  const 색 = await p.evaluate(() => { const s = getComputedStyle(document.querySelector('#other-list .ofav .orow[aria-current="true"]')); return [s.backgroundColor, s.color]; });
+  확인('고른 학생 줄에 마우스를 올려도 글씨가 보임(바탕 ≠ 글씨색)', 색[0] !== 색[1], 색.join(' / '));
+  await p.click('#rail-tab-ours'); await p.waitForTimeout(150);
+  await p.click('#student-list .star'); await p.waitForTimeout(200);          // 우리 학교 담당 학생 칸도 같은 규칙
+  await p.click('#fav-list .railrow'); await p.waitForTimeout(300);
+  await p.hover('#fav-list .railrow[aria-current="true"]'); await p.waitForTimeout(150);
+  const 색2 = await p.evaluate(() => { const s = getComputedStyle(document.querySelector('#fav-list .railrow[aria-current="true"]')); return [s.backgroundColor, s.color]; });
+  확인('우리 학교 담당 학생 칸도 마찬가지', 색2[0] !== 색2[1], 색2.join(' / '));
+  await p.click('#student-list .star'); await p.waitForTimeout(200);
+  await p.click('#rail-tab-other'); await p.waitForTimeout(300);
   await p.click('#other-list .ofav .star'); await p.waitForTimeout(300);
   확인('다시 누르면 빠지고 담당 학생 칸도 사라짐', !(await 표(p, 'teacher_other_favorites')).length && !(await p.$('#other-list .ofav')));
   // 뒤 검사를 위해 다온고 두 명은 치웁니다
