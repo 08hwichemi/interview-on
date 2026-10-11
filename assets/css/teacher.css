@@ -437,8 +437,10 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 }
 .favbox .sec{margin:0 0 4px;padding:0 10px;flex:0 0 auto}
 .favlist{overflow-y:auto;min-height:0;max-height:34vh}
-/* 담아 둔 학생 줄은 종이빛 바탕 위에 올라가야 눌린 줄이 드러납니다 */
-.favlist .railrow:hover{background:var(--surface)}
+/* 담아 둔 학생 줄은 종이빛 바탕 위에 올라가야 눌린 줄이 드러납니다.
+   🚨 지금 고른 학생 줄(검은 바탕 · 흰 글씨)은 빼야 합니다 — 예전엔 마우스를 올리면 바탕만 흰색이 되어
+   흰 바탕에 흰 글씨로 줄이 비어 보였습니다(2026-10-11 선생님이 타학교 담당 학생 칸에서 발견, 우리 학교 칸도 같았음) */
+.favlist .railrow:not([aria-current="true"]):hover{background:var(--surface)}
 
 /* 학생 한 줄 = 고르는 단추 + 별표 단추.
    단추 안에 단추를 넣을 수 없어서 감싸는 칸을 둡니다. */
