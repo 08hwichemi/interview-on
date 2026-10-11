@@ -117,8 +117,17 @@ const FAKE_SR = () => {
 
   console.log('\n── 질문을 넘기면 글이 질문을 따라간다 ──');
   await p.evaluate(() => window.__say('그리고 또', false)); await p.waitForTimeout(50);
-  await p.keyboard.press('ArrowRight'); await p.waitForTimeout(400);
+  // 아래 평가 표를 보다가 넘기는 상황 — 넘기면 질문 카드와 «답변 시작» 이 보이게 위로 올라와야 합니다
+  await p.setViewportSize({ width: 1512, height: 600 });
+  await p.evaluate(() => window.scrollTo(0, 700)); await p.waitForTimeout(100);
+  const before = await p.evaluate(() => window.scrollY);
+  await p.keyboard.press('ArrowRight'); await p.waitForTimeout(900);
   확인('→ 키로 다음 질문', await p.evaluate(() => qIndex === 1));
+  확인('넘기면 위로 올라가 «답변 시작» 이 보이는가', await p.evaluate(() => {
+    var r = document.getElementById('btn-answer').getBoundingClientRect();
+    return r.top >= 0 && r.bottom <= window.innerHeight;
+  }), '스크롤 ' + before + ' → ' + await p.evaluate(() => window.scrollY));
+  await p.setViewportSize({ width: 1512, height: 1000 });
   확인('새 질문은 답변 시계가 멈춘 채 «답변 시작» 을 기다리는가',
        await p.evaluate(() => !answering && ticking && document.getElementById('btn-answer').textContent === '답변 시작'));
   확인('그래서 듣기도 멈췄는가', await p.evaluate(() => !LISTEN.on));

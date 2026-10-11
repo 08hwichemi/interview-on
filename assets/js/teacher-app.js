@@ -1647,11 +1647,26 @@ async function saveAnswer(i) {
   if (error) toast('이 질문을 저장하지 못했습니다: ' + error.message, 'bad');
 }
 
+// 질문을 넘기면 화면을 질문 카드 맨 위로 올립니다 — «답변 시작» 을 바로 눌러야 하는데
+// 아래 평가 표를 보다 넘기면 단추가 화면 밖에 있습니다(2026-10-11 선생님 말씀).
+// 휴대폰은 왼쪽 칸이 위에 쌓이므로 맨 위(0)가 아니라 진행 칸 자리로. 머리줄이 붙박이라 그만큼 뺍니다.
+function scrollToQuestion() {
+  var run = document.getElementById('view-run');
+  if (!run) return;
+  var head = document.querySelector('header.top');
+  var off = head ? head.getBoundingClientRect().height + 8 : 0;
+  var bar = document.getElementById('updateBar');            // 새 판 띠도 붙박이라 떠 있으면 그만큼 더
+  if (bar && !bar.hidden) off += bar.getBoundingClientRect().height;
+  var top = run.getBoundingClientRect().top + window.pageYOffset - off;
+  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+}
+
 async function goToQuestion(i) {
   if (i === qIndex) return;
   await saveAnswer(qIndex);
   qIndex = i;
   showQuestion();
+  scrollToQuestion();
 }
 
 async function prevQuestion() {
@@ -1661,6 +1676,7 @@ async function prevQuestion() {
   await saveAnswer(qIndex);
   qIndex--;
   showQuestion();
+  scrollToQuestion();
 }
 
 async function nextQuestion() {
@@ -1672,6 +1688,7 @@ async function nextQuestion() {
   if (qIndex === questions.length - 1) { openFinish(); return; }
   qIndex++;
   showQuestion();
+  scrollToQuestion();
 }
 
 // ══════════════ 마무리 ══════════════
