@@ -45,35 +45,28 @@ function 확인(무엇, ok, 덧){ console.log((ok?'  ✓ ':'  ✗ ')+무엇+(덧
   확인('진행 화면에 .chip 이 하나도 없는가', await p.evaluate(() => document.querySelectorAll('#view-run .chip').length === 0));
   확인('대신 우수·보통·미흡과 영역 표가 있는가', await p.evaluate(() => document.querySelectorAll('#rating-area .rbtn').length === 3 && document.querySelectorAll('#area-grid .arearow').length === 5));
 
-  console.log('\n── 마무리 화면 — 지난 회차에서 쓰던 옛 문구 ──');
+  console.log('\n── 마무리 화면 — 자주 쓰는 것만, 옛 문구도 눌린 채로 ──');
   await p.evaluate(() => { try { localStorage.removeItem('tagUse'); } catch(e){} openFinish(); });
   await p.waitForTimeout(300);
   const r = await p.evaluate(() => {
     const row = document.getElementById('ansrow-0');
-    const 눌린 = Array.from(new Set(Array.from(row.querySelectorAll('.chip[aria-pressed="true"]')).map(c=>c.dataset.tag)));
+    const 눌린 = Array.from(row.querySelectorAll('.chip[aria-pressed="true"]')).map(c=>c.dataset.tag);
     const quick = row.querySelector('.tagrow.quick');
-    return { 눌린, 칩수: row.querySelectorAll('.chip').length,
-             접힘: row.querySelector('.tagfull').hidden,
+    return { 눌린, 칩수: row.querySelectorAll('.chip').length, 펼치기: !!row.querySelector('.tagmore, .tagfull'),
              자주좋음: quick.querySelectorAll('.chip.good').length, 자주아쉬움: quick.querySelectorAll('.chip.bad').length };
   });
   확인('옛 문구도 목록에 나타나는가', r.눌린.indexOf('숫자·이름까지 말함') > -1 && r.눌린.indexOf('아주 옛날 문구') > -1, r.눌린.join(', '));
   확인('옛 문구가 «눌린» 채로 보이는가', r.눌린.length === 2, '눌린 '+r.눌린.length+'개');
-  확인('처음엔 모든 단추가 접혀 있는가', r.접힘);
-  확인('자주 쓰는 것은 좋음·아쉬움 각각 7개 이하인가(6개 + 이미 누른 옛 문구)',
-       r.자주좋음 <= TAG_QUICK_N_MAX() && r.자주아쉬움 <= TAG_QUICK_N_MAX(), r.자주좋음 + ' / ' + r.자주아쉬움);
-  function TAG_QUICK_N_MAX(){ return 7; }
+  확인('«모든 평가 단추 보기»(펼치기)가 없는가 — 2026-10-11 뺌', !r.펼치기);
+  확인('자주 쓰는 것은 좋음·아쉬움 각각 7개 이하인가(6개 + 이미 누른 옛 문구)', r.자주좋음 <= 7 && r.자주아쉬움 <= 7, r.자주좋음 + ' / ' + r.자주아쉬움);
+  확인('단추가 모두 합쳐 20개 안쪽인가(전엔 62개)', r.칩수 <= 20, r.칩수 + '개');
 
-  console.log('\n── 펼쳐서 눌렀다 떼기 ──');
-  await p.click('#ansrow-0 .tagmore'); await p.waitForTimeout(100);
-  확인('«모든 평가 단추 보기» 로 펼쳐지는가', await p.evaluate(() => !document.querySelector('#ansrow-0 .tagfull').hidden));
-  await p.click('#ansrow-0 .tagfull .chip.bad[data-tag="질문을 빗나감"]'); await p.waitForTimeout(100);
-  확인('아쉬운 점을 누르면 저장되는가', await p.evaluate(()=>answers[0].bad.indexOf('질문을 빗나감') > -1));
-  확인('펼친 채로 남아 있는가', await p.evaluate(() => !document.querySelector('#ansrow-0 .tagfull').hidden));
-  확인('누른 것이 «자주 쓰는 것» 줄에도 눌린 채로 보이는가',
-       await p.evaluate(() => !!document.querySelector('#ansrow-0 .tagrow.quick .chip[data-tag="질문을 빗나감"][aria-pressed="true"]')));
-  확인('누른 횟수가 브라우저에 남는가', await p.evaluate(() => (tagUse()['질문을 빗나감'] || 0) === 1));
-  await p.click('#ansrow-0 .tagrow.quick .chip.bad[data-tag="질문을 빗나감"]'); await p.waitForTimeout(100);
-  확인('다시 누르면 빠지는가', await p.evaluate(()=>answers[0].bad.indexOf('질문을 빗나감') === -1));
+  console.log('\n── 눌렀다 떼기 ──');
+  await p.click('#ansrow-0 .tagrow.quick .chip.bad[data-tag="군더더기(음, 그)"]'); await p.waitForTimeout(100);
+  확인('아쉬운 점을 누르면 저장되는가', await p.evaluate(()=>answers[0].bad.indexOf('군더더기(음, 그)') > -1));
+  확인('누른 횟수가 브라우저에 남는가', await p.evaluate(() => (tagUse()['군더더기(음, 그)'] || 0) === 1));
+  await p.click('#ansrow-0 .tagrow.quick .chip.bad[data-tag="군더더기(음, 그)"]'); await p.waitForTimeout(100);
+  확인('다시 누르면 빠지는가', await p.evaluate(()=>answers[0].bad.indexOf('군더더기(음, 그)') === -1));
   확인('그래도 옛 문구는 그대로 남아 있는가', await p.evaluate(()=>answers[0].bad.indexOf('아주 옛날 문구') > -1));
   확인('많이 누른 것이 자주 쓰는 것 맨 앞에 오는가', await p.evaluate(() => {
     for (let i=0;i<5;i++) bumpTagUse('문장이 간결함');

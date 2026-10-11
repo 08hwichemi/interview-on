@@ -1547,12 +1547,10 @@ function quickTags(kind) {
     .slice(0, TAG_QUICK_N).map(function (x) { return x.t; });
 }
 
-// 질문 i 의 평가 단추 한 묶음.
-//   위: 자주 쓰는 것(좋음 · 아쉬움 한 줄씩) + «모든 단추 보기»
-//   아래(펼쳤을 때): 내용·근거·말하기·태도 네 줄 — 좋았던 점 | 아쉬운 점
-// 지난 회차에서 쓰던 옛 문구(지금 목록에 없는 것)는 눌린 채로 «지난 기록» 줄에 남깁니다 —
-// 그대로 두면 다시 열어 고칠 때 조용히 사라집니다. 어느 축이었는지는 모르니 한 줄에만.
-var tagOpen = {};   // { 질문번호: true } — «모든 단추 보기» 를 펼쳐 둔 질문
+// 질문 i 의 평가 단추 — 자주 쓰는 것(좋음 · 아쉬움 6개씩)만.
+// 2026-10-11 까지는 «모든 평가 단추 보기» 로 네 축 62개를 펼칠 수 있었는데, 선생님 말씀
+// «많은 단추가 필요 없다, 펼치기 자체를 없애자» 로 뺐습니다. TAGS 는 자주 쓰는 것을 고르는 샘으로만 씁니다.
+// 이미 누른 문구(옛 문구 포함)는 목록에 없어도 눌린 채로 같이 보입니다 — 다시 열어 고칠 때 사라지지 않게.
 
 function tagChip(i, kind, t, pressed) {
   return '<button class="chip ' + kind + '" aria-pressed="' + pressed + '"' +
@@ -1566,49 +1564,21 @@ function tagPanelHTML(i) {
     return '<div class="tagcol"><span class="cap ' + kind + '">' + label + '</span><div class="chips">' +
       list.map(function (t) { return tagChip(i, kind, t, has(kind, t)); }).join('') + '</div></div>';
   }
-  function leftovers(kind) {
-    var known = allTags(kind);
-    return (a[kind] || []).filter(function (t) { return known.indexOf(t) === -1; });
-  }
-  // 자주 쓰는 것에는 «이미 누른 것» 도 끼워 넣습니다 — 펼치지 않아도 뭘 골랐는지 보이게
+  // 자주 쓰는 것 + 이미 누른 것(목록에 없는 옛 문구도)
   function quick(kind) {
     var list = quickTags(kind);
     (a[kind] || []).forEach(function (t) { if (list.indexOf(t) === -1) list.push(t); });
     return list;
   }
-  var open = !!tagOpen[i];
-  var 옛좋음 = leftovers('good'), 옛아쉬움 = leftovers('bad');
-
-  return '<div class="tagpanel" data-open="' + open + '">' +
+  return '<div class="tagpanel">' +
     '<div class="tagrow quick"><span class="axis">자주 씀</span><div class="tagcols">' +
       group('good', quick('good'), '좋았던 점') +
       group('bad',  quick('bad'),  '아쉬운 점') +
     '</div></div>' +
-    '<button class="linkbtn tagmore" onclick="toggleTagPanel(' + i + ')">' +
-      (open ? '▲ 접기' : '▼ 모든 평가 단추 보기') + '</button>' +
-    '<div class="tagfull" ' + (open ? '' : 'hidden') + '>' +
-      Object.keys(TAGS).map(function (axis) {
-        return '<div class="tagrow"><span class="axis">' + axis + '</span><div class="tagcols">' +
-          group('good', TAGS[axis].good, '좋았던 점') +
-          group('bad',  TAGS[axis].bad,  '아쉬운 점') +
-          '</div></div>';
-      }).join('') +
-      (옛좋음.length || 옛아쉬움.length
-        ? '<div class="tagrow"><span class="axis">지난 기록</span><div class="tagcols">' +
-            group('good', 옛좋음, '좋았던 점') +
-            group('bad',  옛아쉬움, '아쉬운 점') +
-          '</div></div>'
-        : '') +
-    '</div>' +
   '</div>';
 }
 
-function toggleTagPanel(i) {
-  tagOpen[i] = !tagOpen[i];
-  repaintAnswerRow(i);
-}
-
-// 같은 문구가 자주 쓰는 줄과 펼친 줄에 둘 다 있을 수 있어, 누르면 그 질문 칸을 통째로 다시 그립니다.
+// 누르면 그 질문 칸을 다시 그립니다(순서가 바뀔 수 있어서).
 function toggleTagAt(i, kind, btn) {
   var tag = btn.dataset.tag;
   var arr = answers[i][kind];

@@ -719,11 +719,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .evalright .tagrow.quick .axis{display:none}          /* «자주 씀» 글자 없이 좋았던 점 · 아쉬운 점만 */
 .evalright .tagrow.quick .tagcols{gap:12px}
 .evalright .chip{padding:4px 10px;font-size:12px}
-.evalright .tagmore{margin:6px 0 0}
 .tagpanel .tagrow.quick{border-bottom:0;margin-bottom:6px;padding-bottom:0}
-.tagmore{display:inline-block;margin:0 0 10px;font-size:12.5px;color:var(--ink-2);background:none;border:0;padding:4px 0;cursor:pointer;font-family:inherit}
-.tagmore:hover{color:var(--ink);text-decoration:underline}
-.tagfull{padding-top:8px;border-top:1px dashed var(--line-2)}
 .ansmemo-in{min-height:52px;margin-top:10px;font-size:13.5px}
 @media(max-width:640px){
   .hint.keys{display:none}   /* 휴대폰엔 키보드가 없습니다 */

@@ -174,13 +174,13 @@ const FAKE_SR = () => {
     const r0 = document.getElementById('ansrow-0'), r1 = document.getElementById('ansrow-1');
     return {
       글0: r0.querySelector('.anssaid p').textContent, 글1: r1.querySelector('.anssaid p').textContent,
-      자주: r0.querySelectorAll('.tagrow.quick .chip').length, 접힘: r0.querySelector('.tagfull').hidden,
+      자주: r0.querySelectorAll('.tagrow.quick .chip').length, 펼치기: !!r0.querySelector('.tagmore, .tagfull'),
       판정0: r0.querySelector('.rbtn[aria-pressed="true"]') && r0.querySelector('.rbtn[aria-pressed="true"]').textContent
     };
   });
   확인('첫 질문의 받아 적은 글이 보이는가', fin.글0 === '안녕하세요 저는 고다윤입니다 그리고 또', fin.글0);
   확인('두 번째 질문의 글도', fin.글1 === '열을 가하면 패치가');
-  확인('자주 쓰는 것이 보이고 나머지는 접혀 있는가', fin.자주 > 0 && fin.자주 <= 14 && fin.접힘, fin.자주 + '개');
+  확인('자주 쓰는 것만 보이고 펼치기는 없는가', fin.자주 > 0 && fin.자주 <= 14 && !fin.펼치기, fin.자주 + '개');
   확인('면접 중에 1 키로 매긴 «우수» 가 그대로', fin.판정0 === '우수', fin.판정0);
   확인('면접 중에 누른 영역 판정이 마무리 화면 표에도 눌린 채로',
        await p.evaluate(() => document.querySelector('#ansrow-0 .areagrid .arearow:nth-child(1) .abtn.l0').getAttribute('aria-pressed') === 'true'));
