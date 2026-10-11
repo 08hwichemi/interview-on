@@ -208,7 +208,8 @@ window.supabase = {
           return 결과({ interview: {
               started_at: iv.started_at, teacher_name: iv.teacher_name, total_seconds: iv.total_seconds || 0,
               grades: iv.grades || {}, overall_note: iv.overall_note || '', edited_at: iv.edited_at || null,
-              other_name: iv.other_name, other_major: iv.other_major || '', share_until: iv.share_until },
+              other_name: iv.other_name, other_major: iv.other_major || '', other_school: iv.other_school || '',
+              share_until: iv.share_until },
             answers: ans });
         }
         // 학생 접속 표시(presence.js) — 로그인한 학생 본인 줄의 last_seen_at 만 찍습니다

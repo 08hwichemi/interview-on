@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-10-11.11">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-10-11.12">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-11.11">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-11.11">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-11.11">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-11.11">
-  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-11.11">
-  <link rel="stylesheet" href="../assets/css/hugi.css?v=2026-10-11.11">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-11.11">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-11.12">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-11.12">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-11.12">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-11.12">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-11.12">
+  <link rel="stylesheet" href="../assets/css/hugi.css?v=2026-10-11.12">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-11.12">
 </head>
 <body>
 
@@ -98,7 +98,7 @@
         <div class="railhead" id="other-head">
           <p class="sec" style="margin:0">타학교 학생 <span id="other-count"></span>명</p>
           <button class="btn solid otheradd" onclick="otherNew()">＋ 타학교 학생 더하기</button>
-          <p class="railnote">이름 · 희망 전공 · 질문만 넣습니다. 평가서는 QR 로 주고, 보여 준 때부터 하루 뒤 서버에서 지워집니다.</p>
+          <p class="railnote">학교 · 이름 · 희망 전공 · 질문만 넣습니다. 평가서는 QR 로 주고, 보여 준 때부터 하루 뒤 서버에서 지워집니다. 먼저 지우려면 🗑</p>
         </div>
         <div class="raillist" id="other-list"></div>
       </div>
@@ -153,6 +153,7 @@
                쓰는 건 학생 혼자 하는 일입니다 (RLS 가 선생님 쪽 쓰기를 막아 둡니다). -->
           <!-- 타학교 학생 — 아는 것은 이름 · 희망 전공뿐입니다(other-school.js) -->
           <div class="otherform other-only">
+            <label>학교 <input type="text" id="other-school" placeholder="예: 한빛고" maxlength="40" oninput="otherSetSchool(this)"></label>
             <label>이름 <input type="text" id="other-name" placeholder="예: 홍길동" maxlength="30" oninput="otherSetName(this)"></label>
             <label>희망 전공 <input type="text" id="other-major" placeholder="예: 컴퓨터공학과" maxlength="60" oninput="otherSetMajor(this)"></label>
           </div>
@@ -661,25 +662,25 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-10-11.11"></script>
-<script src="../assets/js/update-bar.js?v=2026-10-11.11"></script>
-<script src="../assets/js/utils.js?v=2026-10-11.11"></script>
-<script src="../assets/js/api.js?v=2026-10-11.11"></script>
-<script src="../assets/js/browse.js?v=2026-10-11.11"></script>
-<script src="../assets/js/reviews.js?v=2026-10-11.11"></script>
-<script src="../assets/js/questions.js?v=2026-10-11.11"></script>
-<script src="../assets/js/report.js?v=2026-10-11.11"></script>
-<script src="../assets/js/chat.js?v=2026-10-11.11"></script>
-<script src="../assets/js/practice.js?v=2026-10-11.11"></script>
-<script src="../assets/js/hugi.js?v=2026-10-11.11"></script>
-<script src="../assets/js/notice.js?v=2026-10-11.11"></script>
-<script src="../assets/js/badges.js?v=2026-10-11.11"></script>
-<script src="../assets/js/admin-notice.js?v=2026-10-11.11"></script>
-<script src="../assets/js/teacher-app.js?v=2026-10-11.11"></script>
-<script src="../assets/js/listen.js?v=2026-10-11.11"></script>
-<script src="../assets/js/saenggibu.js?v=2026-10-11.11"></script>
-<script src="../assets/vendor/qrcode.js?v=2026-10-11.11"></script>
-<script src="../assets/js/other-school.js?v=2026-10-11.11"></script>
+<script src="../assets/js/config.js?v=2026-10-11.12"></script>
+<script src="../assets/js/update-bar.js?v=2026-10-11.12"></script>
+<script src="../assets/js/utils.js?v=2026-10-11.12"></script>
+<script src="../assets/js/api.js?v=2026-10-11.12"></script>
+<script src="../assets/js/browse.js?v=2026-10-11.12"></script>
+<script src="../assets/js/reviews.js?v=2026-10-11.12"></script>
+<script src="../assets/js/questions.js?v=2026-10-11.12"></script>
+<script src="../assets/js/report.js?v=2026-10-11.12"></script>
+<script src="../assets/js/chat.js?v=2026-10-11.12"></script>
+<script src="../assets/js/practice.js?v=2026-10-11.12"></script>
+<script src="../assets/js/hugi.js?v=2026-10-11.12"></script>
+<script src="../assets/js/notice.js?v=2026-10-11.12"></script>
+<script src="../assets/js/badges.js?v=2026-10-11.12"></script>
+<script src="../assets/js/admin-notice.js?v=2026-10-11.12"></script>
+<script src="../assets/js/teacher-app.js?v=2026-10-11.12"></script>
+<script src="../assets/js/listen.js?v=2026-10-11.12"></script>
+<script src="../assets/js/saenggibu.js?v=2026-10-11.12"></script>
+<script src="../assets/vendor/qrcode.js?v=2026-10-11.12"></script>
+<script src="../assets/js/other-school.js?v=2026-10-11.12"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);

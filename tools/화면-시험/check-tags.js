@@ -81,6 +81,14 @@ function 확인(무엇, ok, 덧){ console.log((ok?'  ✓ ':'  ✗ ')+무엇+(덧
   확인('다시 누르면 빠지는가', await p.evaluate(()=>answers[0].bad.indexOf('질문을 빗나감') === -1));
   확인('그래도 옛 문구는 그대로 남아 있는가', await p.evaluate(()=>answers[0].bad.indexOf('아주 옛날 문구') > -1));
 
+  // 🚨 1300px 아래(좁은 노트북)에서 태그 단추의 안쪽 여백 · 윗테두리가 사라졌던 것(2026-10-11 선생님 화면)
+  for (const w of [1512, 1280, 1000]) {
+    await p.setViewportSize({ width: w, height: 1000 }); await p.waitForTimeout(100);
+    const s = await p.evaluate(() => { const c = getComputedStyle(document.querySelector('#ansrow-0 .eg-row .chip'));
+      return { l: parseFloat(c.paddingLeft), top: parseFloat(c.borderTopWidth), bottom: parseFloat(c.borderBottomWidth) }; });
+    확인(w + 'px — 태그 단추에 안쪽 여백과 윗테두리가 있는가', s.l >= 8 && s.top === s.bottom && s.top >= 1, JSON.stringify(s));
+  }
+
   확인('콘솔 오류 없음', errs.length===0, errs.join(' | '));
   await b.close();
   console.log(실패 ? '\n❌ '+실패+'개 실패' : '\n✅ 모두 통과');

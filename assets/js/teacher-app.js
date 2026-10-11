@@ -303,11 +303,11 @@ async function loadBrowseOnce() {
 // 학번 앞 3자리가 학년+반입니다 (3학년 2반 → 302)
 function classKey(s) { return String(s.student_no).slice(0, 3); }
 
-// 머리에 적을 이름 — 우리 학교는 «30101 고다윤», 타학교는 «타학교 홍길동».
-// 타학교 학생은 명단(students)에 없어서 target 이 { other: true, name, major, ivId } 입니다 (other-school.js)
+// 머리에 적을 이름 — 우리 학교는 «30101 고다윤», 타학교는 «○○고 홍길동»(학교를 안 적었으면 «타학교 홍길동»).
+// 타학교 학생은 명단(students)에 없어서 target 이 { other: true, name, major, school, ivId } 입니다 (other-school.js)
 function whoLabel(t) {
   if (!t) return '';
-  if (t.other) return '타학교 ' + (String(t.name || '').trim() || '(이름을 적으세요)');
+  if (t.other) return (String(t.school || '').trim() || '타학교') + ' ' + (String(t.name || '').trim() || '(이름을 적으세요)');
   return t.student_no + ' ' + t.name;
 }
 
@@ -598,7 +598,7 @@ async function loadUnfinished() {
   box.hidden = true;
 
   const { data, error } = await sb.from('interviews')
-    .select('id, student_id, other_name, started_at')
+    .select('id, student_id, other_name, other_school, started_at')
     .eq('teacher_id', me.id).eq('status', '진행중')
     .order('started_at', { ascending: false });
   // 못 읽어도 화면은 그냥 써야 하니 조용히 넘어갑니다.
@@ -606,7 +606,7 @@ async function loadUnfinished() {
 
   list.innerHTML = data.map(function (iv) {
     var s = students.filter(function (x) { return x.id === iv.student_id; })[0];
-    var who = iv.other_name ? whoLabel({ other: true, name: iv.other_name })
+    var who = iv.other_name ? whoLabel({ other: true, name: iv.other_name, school: iv.other_school })
             : s ? (s.student_no + ' ' + s.name) : '(알 수 없는 학생)';
     var d = new Date(iv.started_at);
     return '<button class="row pickable" onclick="resumeInterview(\'' + iv.id + '\')">' +
@@ -750,8 +750,7 @@ async function keepSheet(list) {
     };
     if (target.other) {
       row.student_id = null;
-      row.other_name = target.name.trim();
-      row.other_major = (target.major || '').trim();
+      Object.assign(row, otherFields());   // 이름 · 희망 전공 · 학교 (other-school.js)
     }
     const ins = await sb.from('interviews').insert(row).select('id, started_at').single();
     if (ins.error) {
@@ -772,9 +771,8 @@ async function keepSheet(list) {
     sheetId = ins.data.id; sheetSavedAt = ins.data.started_at;
     if (target.other) target.ivId = sheetId;
   } else if (target.other) {
-    // 이름·희망 전공을 고쳤을 수 있으니 같이 적습니다
-    const up = await sb.from('interviews')
-      .update({ other_name: target.name.trim(), other_major: (target.major || '').trim() }).eq('id', sheetId);
+    // 이름 · 희망 전공 · 학교를 고쳤을 수 있으니 같이 적습니다
+    const up = await sb.from('interviews').update(otherFields()).eq('id', sheetId);
     if (up.error) { toast('이름을 저장하지 못했습니다: ' + up.error.message, 'bad'); return false; }
   }
 

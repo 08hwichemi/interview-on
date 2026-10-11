@@ -61,7 +61,8 @@ function rWhen(iso) {
 
   R.iv = data.interview;
   R.answers = data.answers || [];
-  R.who = (R.iv.other_name || '') + (R.iv.other_major ? ' · ' + R.iv.other_major + ' 희망' : '');
+  R.who = [R.iv.other_name, R.iv.other_school, R.iv.other_major ? R.iv.other_major + ' 희망' : '']
+    .filter(function (x) { return x; }).join(' · ');
   document.title = (R.iv.other_name || '') + ' 면접 평가서 · 면접ON';
   document.getElementById('r-msg').hidden = true;
   document.getElementById('r-badge').hidden = false;

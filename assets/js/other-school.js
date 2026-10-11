@@ -23,7 +23,8 @@ var OTHER_HOURS = 24;     // QR 로 평가서가 열리는 시간 — 선생님 
 
 // 서버 줄 → 화면의 target
 function otherTarget(iv) {
-  return { id: null, other: true, ivId: iv.id, name: iv.other_name || '', major: iv.other_major || '', student_no: '' };
+  return { id: null, other: true, ivId: iv.id, name: iv.other_name || '', major: iv.other_major || '',
+           school: iv.other_school || '', student_no: '' };
 }
 
 // ── 왼쪽 칸: 우리 학교 / 타학교 ──
@@ -48,10 +49,11 @@ function otherPaint() {
   if (a) a.setAttribute('aria-current', !railOther);
   if (b) b.setAttribute('aria-current', railOther);
   if (target && target.other) {
-    var n = document.getElementById('other-name'), m = document.getElementById('other-major');
+    var n = document.getElementById('other-name'), m = document.getElementById('other-major'), s = document.getElementById('other-school');
     // 치는 중인 칸은 건드리지 않습니다(커서가 튑니다)
     if (n && document.activeElement !== n) n.value = target.name || '';
     if (m && document.activeElement !== m) m.value = target.major || '';
+    if (s && document.activeElement !== s) s.value = target.school || '';
   }
 }
 
@@ -64,11 +66,14 @@ async function otherLoad() {
   if (!box) return;
   if (!otherRows.length) box.innerHTML = '<p class="empty">불러오는 중...</p>';
   const { data, error } = await sb.from('interviews')
-    .select('id, other_name, other_major, status, teacher_name, started_at, share_until')
-    .not('other_name', 'is', null)
-    .order('other_name', { ascending: true });
+    .select('id, other_name, other_major, other_school, status, teacher_name, started_at, share_until')
+    .not('other_name', 'is', null);
   if (error) { box.innerHTML = '<p class="empty">타학교 목록을 못 읽었습니다: ' + esc(error.message) + '</p>'; return; }
-  otherRows = data || [];
+  // 학교 가나다 → 이름 가나다 (학교를 안 적은 학생은 맨 아래 묶음)
+  otherRows = (data || []).sort(function (a, z) {
+    var sa = a.other_school || '\uffff', sz = z.other_school || '\uffff';
+    return sa.localeCompare(sz, 'ko') || String(a.other_name).localeCompare(String(z.other_name), 'ko');
+  });
   otherRenderList();
 }
 
@@ -94,23 +99,96 @@ function otherState(iv) {
   return '<span class="ost">QR 끝남</span>';
 }
 
+// ── 학교별로 묶어 접고 펴기 (2026-10-11 선생님 말씀: 학교명으로 정리, 아코디언처럼) ──
+// 접힌 학교는 이 브라우저에 기억합니다(localStorage otherFold). 처음엔 모두 펴져 있습니다.
+function otherFoldMap() {
+  try { return JSON.parse(localStorage.getItem('otherFold') || '{}') || {}; } catch (e) { return {}; }
+}
+function otherToggleGroup(i) {
+  var school = otherGroups()[i].school;
+  var m = otherFoldMap();
+  if (m[school]) delete m[school]; else m[school] = true;
+  try { localStorage.setItem('otherFold', JSON.stringify(m)); } catch (e) { /* 막혀도 이번 화면에선 접힘 */ }
+  otherFoldNow = m;
+  otherRenderList();
+}
+var otherFoldNow = null;
+
+function otherGroups() {
+  var out = [], at = {};
+  otherRows.forEach(function (iv) {
+    var s = iv.other_school || '';
+    if (!(s in at)) { at[s] = out.length; out.push({ school: s, rows: [] }); }
+    out[at[s]].rows.push(iv);
+  });
+  return out;
+}
+
 function otherRenderList() {
   var box = document.getElementById('other-list');
   var cnt = document.getElementById('other-count');
   if (cnt) cnt.textContent = otherRows.length;
   if (!box) return;
   if (!otherRows.length) {
-    box.innerHTML = '<p class="empty">아직 없습니다.<br>위 «＋ 타학교 학생 더하기» 로 이름 · 희망 전공 · 질문을 넣어 두세요.</p>';
+    box.innerHTML = '<p class="empty">아직 없습니다.<br>위 «＋ 타학교 학생 더하기» 로 학교 · 이름 · 희망 전공 · 질문을 넣어 두세요.</p>';
     return;
   }
-  box.innerHTML = otherRows.map(function (iv) {
-    var on = target && target.other && target.ivId === iv.id;
-    return '<button class="railrow orow" aria-current="' + !!on + '" onclick="otherOpen(\'' + iv.id + '\')">' +
-      '<span class="who"><span class="nm">' + esc(iv.other_name) + '</span>' +
-        (iv.other_major ? '<span class="sub">' + esc(iv.other_major) + '</span>' : '') + '</span>' +
-      otherState(iv) +
-      '</button>';
+  var fold = otherFoldNow || (otherFoldNow = otherFoldMap());
+  box.innerHTML = otherGroups().map(function (g, gi) {
+    var hasOpen = target && target.other && g.rows.some(function (iv) { return iv.id === target.ivId; });
+    var shut = !!fold[g.school] && !hasOpen;      // 지금 보고 있는 학생의 학교는 접어도 펴 둡니다
+    return '<div class="ogroup">' +
+      '<button class="ohead" aria-expanded="' + !shut + '" onclick="otherToggleGroup(' + gi + ')">' +
+        '<span class="chev" aria-hidden="true">▾</span>' +
+        '<span class="sch">' + esc(g.school || '학교 안 적음') + '</span>' +
+        '<span class="n">' + g.rows.length + '명</span>' +
+      '</button>' +
+      (shut ? '' :
+        '<div class="obody">' + g.rows.map(function (iv) {
+          var on = target && target.other && target.ivId === iv.id;
+          return '<div class="srow">' +
+            '<button class="railrow orow" aria-current="' + !!on + '" onclick="otherOpen(\'' + iv.id + '\')">' +
+              '<span class="who"><span class="nm">' + esc(iv.other_name) + '</span>' +
+                (iv.other_major ? '<span class="sub">' + esc(iv.other_major) + '</span>' : '') + '</span>' +
+              otherState(iv) +
+            '</button>' +
+            '<button class="odel" title="이 학생 지우기" aria-label="' + esc(iv.other_name) + ' 지우기"' +
+              ' onclick="otherDelete([\'' + iv.id + '\'])">🗑</button>' +
+          '</div>';
+        }).join('') +
+        '<button class="linkbtn danger odelall" onclick="otherDeleteGroup(' + gi + ')">' +
+          esc(g.school || '학교 안 적은 학생') + ' ' + g.rows.length + '명 모두 지우기</button>' +
+        '</div>') +
+    '</div>';
   }).join('');
+}
+
+// ── 지우기 — 한 명(🗑) 또는 한 학교 모두 ──
+// 면접이 끝나면 QR 을 보여 준 때부터 하루 뒤 서버가 알아서 지웁니다. 그 전에 지우고 싶을 때, 또는 QR 을
+// 안 보여 준 학생(질문지만 만든 학생 등)을 치울 때 씁니다. 질문 · 평가 · 받아 적은 글이 같이 지워지고(on delete cascade),
+// QR 로 연 평가서도 더는 안 열립니다. 요청은 몇 명이든 한 번입니다.
+async function otherDelete(ids, label) {
+  if (editingMid || !ids.length) return;
+  var rows = otherRows.filter(function (r) { return ids.indexOf(r.id) > -1; });
+  if (!rows.length) return;
+  var who = label || rows.map(function (r) { return r.other_name; }).join(', ');
+  var sent = rows.filter(otherOpenNow).length;
+  var msg = who + ' — 지울까요?\n\n질문 · 평가 · 받아 적은 글이 모두 지워지고, 되돌릴 수 없습니다.' +
+            (sent ? '\nQR 로 평가서를 열 수 있는 학생 ' + sent + '명은 더는 열리지 않습니다.' : '');
+  if (!confirm(msg)) return;
+  const { error } = await sb.from('interviews').delete().in('id', ids);
+  if (error) { toast('지우지 못했습니다: ' + error.message, 'bad'); return; }
+  toast(rows.length + '명을 지웠습니다.', 'ok');
+  var wasOpen = target && target.other && ids.indexOf(target.ivId) > -1;
+  otherRows = otherRows.filter(function (r) { return ids.indexOf(r.id) === -1; });
+  if (wasOpen) { liveInterview = false; interviewId = null; backToList(); }   // 보고 있던 학생이면 첫 화면으로
+  else otherRenderList();
+}
+
+function otherDeleteGroup(gi) {
+  var g = otherGroups()[gi];
+  if (!g) return;
+  otherDelete(g.rows.map(function (r) { return r.id; }), (g.school || '학교 안 적은 학생') + ' ' + g.rows.length + '명 모두');
 }
 
 // 준비 화면을 타학교 학생으로 엽니다 (pickStudent 의 타학교 판)
@@ -138,9 +216,12 @@ function otherSetup(t) {
 }
 
 // «＋ 타학교 학생 더하기»
+// 학교 칸은 마지막에 적은 학교로 채워 둡니다 — 한 학교 학생을 줄줄이 넣으실 테니까요
 function otherNew() {
   if (editingMid) return;
-  otherSetup({ id: null, other: true, ivId: null, name: '', major: '', student_no: '' });
+  var last = '';
+  try { last = localStorage.getItem('otherLastSchool') || ''; } catch (e) { /* 없으면 빈칸 */ }
+  otherSetup({ id: null, other: true, ivId: null, name: '', major: '', school: last, student_no: '' });
   var n = document.getElementById('other-name');
   if (n) n.focus();
 }
@@ -168,6 +249,17 @@ function otherSetName(el) {
 function otherSetMajor(el) {
   if (!target || !target.other) return;
   target.major = el.value;
+}
+function otherSetSchool(el) {
+  if (!target || !target.other) return;
+  target.school = el.value;
+  document.getElementById('target-name').textContent = whoLabel(target);
+}
+// 저장할 때 서버에 보낼 세 칸 (keepSheet 가 씁니다). 학교는 다음 학생 칸에 미리 채우려고 기억해 둡니다
+function otherFields() {
+  var school = String(target.school || '').trim();
+  try { localStorage.setItem('otherLastSchool', school); } catch (e) { /* 기억 못 해도 저장은 됩니다 */ }
+  return { other_name: String(target.name || '').trim(), other_major: String(target.major || '').trim(), other_school: school };
 }
 
 // 저장 · 면접 화면으로 넘어가기 전에 — 이름이 없으면 막습니다
@@ -288,7 +380,8 @@ function otherShowQR(key, until) {
     // ⚠️ margin 은 칸 수가 아니라 px 입니다. 둘레 흰 테두리가 칸 4개는 되어야 폰이 잘 읽습니다(8px × 4)
     box.innerHTML = qr.createSvgTag({ cellSize: 8, margin: 32, scalable: true });
   }
-  document.getElementById('qr-who').textContent = target ? (target.name || '') + (target.major ? ' · ' + target.major : '') : '';
+  document.getElementById('qr-who').textContent = target
+    ? [target.name, target.school, target.major].filter(function (x) { return x; }).join(' · ') : '';
   document.getElementById('qr-until').textContent = otherWhen(until) + '까지 열립니다. 그 뒤에는 지워지니 바로 PDF 로 저장하게 해 주세요.';
   document.getElementById('qr-url').textContent = url;
   document.getElementById('qr-overlay').style.display = 'flex';

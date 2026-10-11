@@ -51,6 +51,8 @@ async function 준비(b, rows, vw, vh, init) {
   }, rows);
   const p = await ctx.newPage();
   p.__errs = []; p.on('pageerror', e => p.__errs.push(e.message));
+  // 묻는 창(confirm) — 기본은 «예», p.__dialog = 'dismiss' 면 «아니오»
+  p.__asked = []; p.on('dialog', d => { p.__asked.push(d.message()); p.__dialog === 'dismiss' ? d.dismiss() : d.accept(); });
   return { ctx, p };
 }
 
@@ -95,12 +97,15 @@ async function 준비(b, rows, vw, vh, init) {
   await p.click('#btn-save-sheet'); await p.waitForTimeout(200);
   확인('이름이 없으면 저장하지 않고 이름 칸으로', (await 표(p, 'interviews')).length === 0 && await p.evaluate(() => document.activeElement.id === 'other-name'));
   await p.fill('#other-name', '홍길동'); await p.fill('#other-major', '컴퓨터공학과');
-  확인('머리에 «타학교 홍길동»', (await p.textContent('#target-name')) === '타학교 홍길동');
+  확인('학교를 안 적으면 머리에 «타학교 홍길동»', (await p.textContent('#target-name')) === '타학교 홍길동');
+  await p.fill('#other-school', '한빛고');
+  확인('학교를 적으면 머리에 «한빛고 홍길동»', (await p.textContent('#target-name')) === '한빛고 홍길동');
   await p.click('#btn-save-sheet'); await p.waitForTimeout(300);
   let ivs = await 표(p, 'interviews');
   확인('질문지 줄 하나 — 학생 칸은 비고 이름·희망 전공이 들어감',
        ivs.length === 1 && ivs[0].student_id === null && ivs[0].other_name === '홍길동' && ivs[0].other_major === '컴퓨터공학과' && ivs[0].status === '준비중',
        JSON.stringify(ivs[0]));
+  확인('학교도 저장', ivs[0].other_school === '한빛고');
   확인('질문 5개 저장(첫인사 + 3 + 끝인사)', (await 표(p, 'interview_answers')).filter(a => a.interview_id === ivs[0].id).length === 5);
   확인('목록에 «홍길동 · 컴퓨터공학과 · 질문 준비»', (await p.textContent('#other-list')).replace(/\s+/g, '').indexOf('홍길동컴퓨터공학과질문준비') > -1, await p.textContent('#other-list'));
   // 이름을 고쳐 다시 저장하면 같은 줄이 고쳐짐
@@ -110,10 +115,21 @@ async function 준비(b, rows, vw, vh, init) {
 
   console.log('\n── 둘째 학생 · 목록에서 다시 열기 ──');
   await p.click('.otheradd'); await p.waitForTimeout(150);
-  확인('새 학생은 빈 칸으로', await p.evaluate(() => document.getElementById('other-name').value === '' && midQuestions.length === 0));
-  await p.fill('#other-name', '김철수'); await p.click('text=＋ 직접 적기'); await p.keyboard.type('자기 장점을 말해 보세요.');
+  확인('새 학생은 이름이 빈 칸 · 학교는 마지막에 적은 «한빛고»',
+       await p.evaluate(() => document.getElementById('other-name').value === '' && document.getElementById('other-school').value === '한빛고' && midQuestions.length === 0));
+  await p.fill('#other-school', '새솔고'); await p.fill('#other-name', '김철수'); await p.click('text=＋ 직접 적기'); await p.keyboard.type('자기 장점을 말해 보세요.');
   await p.click('#btn-save-sheet'); await p.waitForTimeout(300);
-  확인('목록이 가나다 순(김철수 → 홍길동)', await p.evaluate(() => Array.from(document.querySelectorAll('#other-list .nm')).map(x => x.textContent).join(',')) === '김철수,홍길동');
+  확인('학교별로 묶임(새솔고 1명 → 한빛고 1명)', await p.evaluate(() => Array.from(document.querySelectorAll('#other-list .ohead')).map(x => x.textContent).join(',')) === '▾새솔고1명,▾한빛고1명',
+       await p.evaluate(() => Array.from(document.querySelectorAll('#other-list .ohead')).map(x => x.textContent).join(',')));
+  console.log('\n── 학교 묶음 접고 펴기 ──');
+  await p.click('#other-list .ohead:has-text("새솔고")'); await p.waitForTimeout(100);
+  확인('보고 있는 학생(김철수)의 학교는 눌러도 펴 둠', await p.evaluate(() => document.querySelector('#other-list .ohead').getAttribute('aria-expanded') === 'true'));
+  await p.click('#other-list .orow:has-text("홍길동")'); await p.waitForTimeout(300);
+  확인('다른 학생으로 옮기면 새솔고가 접힘(김철수 줄이 안 보임)', await p.evaluate(() => !document.querySelector('#other-list .nm') || Array.from(document.querySelectorAll('#other-list .nm')).map(x => x.textContent).join(',') === '홍길동'));
+  await p.evaluate(() => otherLoad()); await p.waitForTimeout(150);
+  확인('목록을 새로 받아도 접힌 채(브라우저에 기억)', await p.evaluate(() => JSON.parse(localStorage.getItem('otherFold'))['새솔고'] === true && document.querySelector('#other-list .ohead').getAttribute('aria-expanded') === 'false'));
+  await p.click('#other-list .ohead:has-text("새솔고")'); await p.waitForTimeout(100);
+  확인('다시 누르면 펴짐', (await p.textContent('#other-list')).indexOf('김철수') > -1);
   await p.click('#other-list .orow:has-text("홍길동")'); await p.waitForTimeout(300);
   확인('홍길동을 누르면 이름·전공·질문이 그대로',
        await p.evaluate(() => document.getElementById('other-name').value === '홍길동' && document.getElementById('other-major').value === '소프트웨어학과' && midQuestions.length === 3 && !document.getElementById('sheet-note').hidden));
@@ -126,7 +142,7 @@ async function 준비(b, rows, vw, vh, init) {
   확인('면접 시작 → 진행중 · 시작한 선생님이 적힘', await p.evaluate(() => { const iv = window.__T.interviews.find(x => x.other_name === '홍길동'); return iv.status === '진행중' && iv.teacher_id === 'u1'; }));
   await p.keyboard.press('1');
   for (let i = 0; i < 5; i++) { await p.click('#btn-next'); await p.waitForTimeout(150); }
-  확인('마무리 화면 · 이름이 «타학교 홍길동»', await p.evaluate(() => !document.getElementById('view-finish').hidden && document.getElementById('finish-who').textContent === '타학교 홍길동'));
+  확인('마무리 화면 · 이름이 «한빛고 홍길동»', await p.evaluate(() => !document.getElementById('view-finish').hidden && document.getElementById('finish-who').textContent === '한빛고 홍길동'));
   확인('마무리 안내가 QR 로', await 보임(p, '#view-finish .note.other-only') && !(await 보임(p, '#view-finish .note.ours-only')));
   await p.click('#scoresheet .gbtn >> nth=0');
   await p.fill('#finish-note', '결론부터 말하는 연습이 필요합니다.');
@@ -171,6 +187,20 @@ async function 준비(b, rows, vw, vh, init) {
   await p.click('.qr-btns .btn.solid');
   await p.click('#rail-progress .backbtn'); await p.waitForTimeout(300);
   확인('목록으로 돌아오면 «QR 줌»', (await p.textContent('#other-list')).indexOf('QR 줌') > -1);
+
+  console.log('\n── 🗑 한 명 지우기 ──');
+  p.__dialog = 'dismiss';
+  await p.click('#other-list .srow:has-text("김철수") .odel'); await p.waitForTimeout(200);
+  확인('«아니오» 면 그대로', (await 표(p, 'interviews')).some(x => x.other_name === '김철수') && p.__asked.slice(-1)[0].indexOf('김철수') > -1);
+  p.__dialog = 'accept';
+  await p.click('#other-list .srow:has-text("김철수") .odel'); await p.waitForTimeout(300);
+  확인('«예» 면 서버에서 지워지고 새솔고 묶음도 사라짐',
+       !(await 표(p, 'interviews')).some(x => x.other_name === '김철수') && (await p.textContent('#other-list')).indexOf('새솔고') === -1);
+  p.__dialog = 'dismiss';
+  await p.click('#other-list .srow:has-text("홍길동") .odel'); await p.waitForTimeout(200);
+  확인('QR 을 준 학생을 지울 땐 «더는 열리지 않습니다» 를 같이 묻고, «아니오» 면 그대로',
+       p.__asked.slice(-1)[0].indexOf('더는 열리지 않습니다') > -1 && (await 표(p, 'interviews')).some(x => x.other_name === '홍길동'));
+  p.__dialog = 'accept';
   // 우리 학교 쪽은 그대로인가
   await p.click('#rail-tab-ours'); await p.waitForTimeout(150);
   await p.click('#student-list .railrow'); await p.waitForTimeout(300);
@@ -194,6 +224,13 @@ async function 준비(b, rows, vw, vh, init) {
   확인('첫 화면 «끝내지 못한 면접» 에 «타학교 박영희»', (await p.textContent('#unfinished-list')).indexOf('타학교 박영희') > -1);
   await p.click('#unfinished-list button'); await p.waitForTimeout(300);
   확인('이어서 열리고 진행 상황에 «타학교 박영희»', await p.evaluate(() => !document.getElementById('view-run').hidden && target.other && document.getElementById('progress-who').textContent === '타학교 박영희'));
+  console.log('\n── 한 학교 모두 지우기 ──');
+  await p.click('#rail-progress .backbtn'); await p.waitForTimeout(300);     // «면접을 접고 목록으로?» → 예
+  await p.click('#rail-tab-other'); await p.waitForTimeout(300);
+  확인('학교를 안 적은 학생은 «학교 안 적음» 묶음', (await p.textContent('#other-list .ohead')).indexOf('학교 안 적음') > -1);
+  await p.click('#other-list .odelall'); await p.waitForTimeout(300);
+  확인('«학교 안 적은 학생 1명 모두» 를 묻고 지움', p.__asked.slice(-1)[0].indexOf('1명 모두') > -1 && (await 표(p, 'interviews')).length === 0 &&
+       (await p.textContent('#other-list')).indexOf('아직 없습니다') > -1);
   확인('콘솔 오류 없음', p.__errs.length === 0, p.__errs.join(' | '));
   await ctx.close();
 
@@ -219,7 +256,7 @@ async function 준비(b, rows, vw, vh, init) {
   };
   ({ ctx, p } = await 준비(b, PHONE, 390, 844));
   await p.goto('http://127.0.0.1:8777/r.html#' + key1); await p.waitForTimeout(600);
-  확인('이름 · 희망 전공이 머리에', (await p.textContent('#r-body h2')) === '홍길동 · 소프트웨어학과 희망');
+  확인('이름 · 학교 · 희망 전공이 머리에', (await p.textContent('#r-body h2')) === '홍길동 · 한빛고 · 소프트웨어학과 희망', await p.textContent('#r-body h2'));
   확인('받아 적은 글 · 총평 · 채점표가 보임', await p.evaluate(() => { const t = document.getElementById('r-body').textContent; return t.indexOf('사람을 돕고 싶은') > -1 && t.indexOf('결론부터 말하는 연습') > -1 && t.indexOf('채점표') > -1; }));
   확인('«언제까지 열립니다» 안내', (await p.textContent('#r-until')).indexOf('까지만 열립니다') > -1);
   확인('옆으로 넘치지 않음(390px)', (await 넘침(p)) <= 0, String(await 넘침(p)));
