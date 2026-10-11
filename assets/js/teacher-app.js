@@ -1926,6 +1926,9 @@ function printTeacherReport() {
 // 서버에서 함께 지워집니다 (ON DELETE CASCADE).
 async function deleteReport() {
   if (!interviewId) return;
+  // 타학교 학생은 면접 줄이 곧 그 학생이라, 지우면 학생까지 사라졌습니다(2026-10-11 선생님 «오류야?»).
+  // 우리 학생처럼 평가만 지우고 학생 · 질문은 남깁니다. 학생을 지우는 것은 목록의 🗑 (other-school.js)
+  if (target && target.other) { await otherResetReport(); return; }
 
   var iv = viewing && viewing.interview;
   var who = target ? whoLabel(target) : '이 학생';
@@ -1947,8 +1950,7 @@ async function deleteReport() {
   toast('리포트를 지웠습니다.', 'ok');
 
   // 지운 뒤에는 그 학생의 준비 화면으로. 지난 기록 목록이 새로 그려집니다.
-  // 타학교 학생은 그 면접이 곧 그 학생이라 타학교 목록으로 돌아갑니다.
-  if (back && !back.other) pickStudent(back.id); else backToList();
+  if (back) pickStudent(back.id); else backToList();
 }
 
 // 리포트에서 다시 고치러 갑니다.

@@ -210,6 +210,29 @@ async function 준비(b, rows, vw, vh, init) {
   확인('콘솔 오류 없음', p.__errs.length === 0, p.__errs.join(' | '));
   const shared = (await 표(p, 'interviews')).find(x => x.other_name === '홍길동');
   const sharedAns = (await 표(p, 'interview_answers')).filter(a => a.interview_id === shared.id);
+
+  console.log('\n── 타학교 «이 리포트 지우기» — 학생 · 질문은 남고 평가만 ──');
+  await p.click('#rail-tab-other'); await p.waitForTimeout(300);
+  await p.click('#other-list .orow:has-text("홍길동")'); await p.waitForTimeout(400);
+  확인('평가서가 열림', await p.evaluate(() => !document.getElementById('view-report').hidden));
+  p.__dialog = 'dismiss';
+  await p.click('text=이 리포트 지우기'); await p.waitForTimeout(200);
+  확인('묻는 글에 «학생과 질문은 남는다» · «QR 도 안 열림» · 🗑 안내',
+       ['질문 준비', '더는 열리지 않습니다', '🗑'].every(w => p.__asked.slice(-1)[0].indexOf(w) > -1), p.__asked.slice(-1)[0]);
+  확인('«아니오» 면 그대로', (await 표(p, 'interviews')).find(x => x.other_name === '홍길동').status === '전달됨');
+  p.__dialog = 'accept';
+  await p.click('text=이 리포트 지우기'); await p.waitForTimeout(400);
+  const rz = (await 표(p, 'interviews')).find(x => x.other_name === '홍길동');
+  const ra = (await 표(p, 'interview_answers')).filter(a => a.interview_id === (rz && rz.id));
+  확인('학생은 남고 «질문 준비» · 열쇠 · 채점표 · 총평이 비워짐',
+       !!rz && rz.status === '준비중' && rz.share_key === null && rz.share_until === null && Object.keys(rz.grades).length === 0 && rz.overall_note === '' && rz.other_school === '한빛고',
+       JSON.stringify(rz));
+  확인('질문 5개는 그대로, 받아 적은 글 · 시간 · 판정은 비워짐',
+       ra.length === 5 && ra.every(a => a.question && a.transcript === '' && a.seconds === 0 && a.rating === null));
+  확인('그 학생의 준비 화면(질문지)으로 · 목록은 «질문 준비»',
+       await p.evaluate(() => !document.getElementById('view-setup').hidden && document.getElementById('other-name').value === '홍길동' && sheetId && midQuestions.length === 3) &&
+       (await p.textContent('#other-list .srow:has-text("홍길동")')).indexOf('질문 준비') > -1);
+  확인('콘솔 오류 없음', p.__errs.length === 0, p.__errs.join(' | '));
   await ctx.close();
 
   // ══ 2. 끝내지 못한 타학교 면접 이어서 하기 ══

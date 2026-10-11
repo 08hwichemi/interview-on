@@ -185,6 +185,40 @@ async function otherDelete(ids, label) {
   else otherRenderList();
 }
 
+// «이 리포트 지우기» (타학교) — 평가만 지우고 학생 · 질문은 남겨 «질문 준비» 로 되돌립니다.
+// 시간 · 판정 · 영역 · 태그 · 요지 · 받아 적은 글 · 채점표 · 총평을 비우고, QR 열쇠도 지워서 찍어 둔 평가서는 더는 안 열립니다.
+// 요청 두 번(질문 줄들을 한꺼번에 비우기 + 학생 줄 되돌리기)
+async function otherResetReport() {
+  var iv = viewing && viewing.interview;
+  var msg = whoLabel(target) + ' 학생의 면접 평가를 지웁니다.\n\n' +
+            '시간 · 평가 · 받아 적은 글 · 채점표 · 총평이 지워지고 되돌릴 수 없습니다.\n' +
+            '학교 · 이름 · 희망 전공 · 질문은 남아 «질문 준비» 로 돌아갑니다(다시 면접할 수 있습니다).' +
+            (otherOpenNow(iv) ? '\nQR 로 연 평가서도 더는 열리지 않습니다.' : '') +
+            '\n\n학생까지 지우려면 왼쪽 목록의 🗑 을 누르세요.';
+  if (!confirm(msg)) return;
+  var id = interviewId;
+  var a = await sb.from('interview_answers').update({
+    seconds: 0, good_tags: [], bad_tags: [], rating: null, memo: '', transcript: '', marks: [], areas: {}
+  }).eq('interview_id', id);
+  if (a.error) { toast('지우지 못했습니다: ' + a.error.message, 'bad'); return; }
+  var b = await sb.from('interviews').update({
+    status: '준비중', started_at: new Date().toISOString(), finished_at: null, delivered_at: null, edited_at: null,
+    total_seconds: 0, grades: {}, overall_note: '', share_key: null, share_until: null
+  }).eq('id', id);
+  if (b.error) { toast('지우지 못했습니다: ' + b.error.message, 'bad'); return; }
+
+  stopTicking();
+  liveInterview = false;
+  viewing = null;
+  document.getElementById('finish-note').value = '';
+  toast('평가를 지웠습니다. 학생과 질문은 그대로 있습니다.', 'ok');
+  var t = Object.assign({}, target);
+  railOther = true;
+  otherSetup(t);           // 그 학생의 준비 화면(질문지)으로
+  await loadSheet();
+  otherLoad();             // 왼쪽 목록의 상태를 «질문 준비» 로
+}
+
 function otherDeleteGroup(gi) {
   var g = otherGroups()[gi];
   if (!g) return;
