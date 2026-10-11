@@ -54,11 +54,12 @@ function 확인(무엇, ok, 덧){ console.log((ok?'  ✓ ':'  ✗ ')+무엇+(덧
     const 눌린 = Array.from(row.querySelectorAll('.chip[aria-pressed="true"]')).map(c=>c.dataset.tag);
     const 줄이름 = rows.map(r => r.querySelector('.arealabel b').textContent);
     // 줄마다: 이름 칸 · 단추 셋 · 좋았던 점 · 아쉬운 점이 같은 윗선에 있는가
-    // 줄의 칸들이 세로 가운데를 맞추고 있는가(이름·단추·좋았던 점·아쉬운 점의 가운데가 같은 높이)
+    // 줄의 네 칸(이름·단추·좋았던 점·아쉬운 점)이 **윗선도 아랫선도** 같은 높이인가 — 선이 한 줄로 이어지려면
+    // 칸이 줄 높이를 꽉 채워야 합니다(.9 에서 이름 칸만 짧아 선이 어긋났던 것)
     const 맞춤 = rows.slice(0,5).every(r => {
       const kids = [r.querySelector('.arealabel'), r.querySelector('.areapicks'), r.querySelector('.chips.good'), r.querySelector('.chips.bad')]
-        .map(k => { const b = k.getBoundingClientRect(); return Math.round(b.top + b.height / 2); });
-      return kids.every(t => Math.abs(t - kids[0]) < 4);
+        .map(k => k.getBoundingClientRect());
+      return kids.every(b => Math.abs(b.top - kids[0].top) < 1.5 && Math.abs(b.bottom - kids[0].bottom) < 1.5);
     });
     const 전공 = rows[4].querySelectorAll('.chip').length;
     return { 눌린, 줄이름, 맞춤, 전공, 칩수: row.querySelectorAll('.chip').length, 펼치기: !!row.querySelector('.tagmore, .tagfull') };

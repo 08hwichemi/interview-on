@@ -195,8 +195,8 @@ const FAKE_SR = () => {
     var r = row.querySelector('.eg-row:nth-child(4)');
     var kids = [r.querySelector('.arealabel'), r.querySelector('.areapicks'), r.querySelector('.chips.good'), r.querySelector('.chips.bad')].map(k => k.getBoundingClientRect());
     var m = row.querySelector('.ansmemo-in').getBoundingClientRect();
-    var mid = kids.map(k => k.top + k.height / 2);
-    return mid.every(c => Math.abs(c - mid[0]) < 4) && kids[3].left > kids[2].left && kids[2].left >= kids[1].right - 1 && m.top >= kids[3].bottom;
+    var same = kids.every(k => Math.abs(k.top - kids[0].top) < 1.5 && Math.abs(k.bottom - kids[0].bottom) < 1.5);   // 윗선·아랫선 모두
+    return same && kids[3].left > kids[2].left && kids[2].left >= kids[1].right - 1 && m.top >= kids[3].bottom;
   }));
   확인('한 질문의 평가 칸 높이가 560px 아래인가(전엔 약 700px)', await p.evaluate(() => {
     return document.querySelector('#ansrow-1 .anseval').getBoundingClientRect().height < 560;
