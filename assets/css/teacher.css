@@ -332,9 +332,10 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 }
 .timer.total{color:var(--ink-2)}
 /* 멈춰 있을 때는 숫자를 흐리게 — 멈춘 줄 모르고 면접을 보면 안 됩니다 */
-.timerbox[data-running="no"] .timer{opacity:.4}
+.timerbox[data-running="no"] .timer.total{opacity:.4}
+.timerbox[data-answering="no"] #timer{opacity:.4}
 .timerbox[data-running="no"] .tlabel{opacity:.6}
-.timerbox .btn{min-width:120px}
+.tslot .tbtn{margin-top:8px;min-width:132px;padding:10px 16px}
 
 /* 평가 단추 */
 .tagrow{display:flex;gap:14px;align-items:flex-start;margin-bottom:14px;
@@ -355,7 +356,8 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   .qcard{font-size:17px;padding:22px 16px;min-height:96px}
   .timer{font-size:40px}
   .timerbox{gap:20px}
-  .timerbox .btn{flex:1 1 100%}
+  .tslot{flex:1 1 40%}
+  .tslot .tbtn{min-width:0;width:100%}
   .qrow{flex-wrap:wrap}
   .qrow input[type=text]{flex:1 1 100%;order:1}
   .qrow .qno{order:0}
@@ -655,4 +657,104 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   /* 면접 날짜를 전형 이름보다 앞세워야 첫 줄에 남습니다 (안 그러면 셋째 줄로 밀립니다) */
   .susirow .iv{order:1}
   .susirow .adm{order:2;flex:1 0 100%;padding-left:20px}
+}
+
+/* ── 면접 중 — 받아 적기 · 우수/보통/미흡 · 영역 표 (2026-10-10) ──
+   들으면서는 단추를 찾지 않습니다. 받아 적히는 글과 큰 단추 몇 개뿐입니다. */
+.livebox{margin-top:18px}
+.livehead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.livehead .ghost[aria-pressed="true"]{border-color:var(--ink);color:var(--ink)}
+.livetext{
+  min-height:96px;max-height:240px;overflow:auto;padding:14px 16px;border:1px solid var(--line-2);
+  border-radius:var(--r);background:var(--surface-2);font-size:16px;line-height:1.75;word-break:keep-all;
+}
+.livetext .interim{color:var(--ink-3)}
+.livetext .empty{color:var(--ink-3);font-size:14px}
+/* 받아 적는 동안은 테두리가 살짝 진해지고 «●» 가 깜빡입니다 */
+.livebox[data-on="yes"] .livetext{border-color:var(--ink-3)}
+.livebox[data-on="yes"] #live-state{color:var(--rose);animation:livedot 1.4s ease-in-out infinite}
+@keyframes livedot{0%,100%{opacity:1}50%{opacity:.35}}
+
+.ratingrow.big .rbtn{flex:1;padding:14px 12px;font-size:16px}
+.hint.keys{margin:10px 0 0;font-size:12.5px;color:var(--ink-3)}
+.hint.keys b{display:inline-block;padding:0 6px;border:1px solid var(--line-2);border-radius:4px;
+  font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+
+/* 영역별 좋음·보통·아쉬움 — 한 줄에 영역 이름과 단추 셋. 들으면서 누르는 것이라 단추를 큼직하게 */
+.areagrid{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.arearow{display:grid;grid-template-columns:minmax(120px,1fr) auto;gap:10px;align-items:center;
+  padding:6px 0;border-bottom:1px solid var(--line)}
+.arearow:last-child{border-bottom:0}
+.arealabel b{display:block;font-size:14px;font-weight:700}
+.arealabel .desc{display:block;font-size:11.5px;color:var(--ink-3);line-height:1.4}
+.areapicks{display:flex;gap:6px}
+.abtn{
+  min-width:72px;padding:10px 12px;border:1px solid var(--line-2);border-radius:7px;background:var(--surface);
+  color:var(--ink-2);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;
+}
+.abtn:hover{border-color:var(--ink-3);color:var(--ink)}
+.abtn.l0[aria-pressed="true"]{background:#1F4D3A;border-color:#1F4D3A;color:#fff}
+.abtn.l1[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.abtn.l2[aria-pressed="true"]{background:var(--rose);border-color:var(--rose);color:#fff}
+.anseval .areagrid{margin:0 0 12px}
+.anseval .abtn{min-width:60px;padding:7px 10px;font-size:13px}
+.anseval .arealabel b{font-size:13px}
+
+/* ── 마무리 — 질문마다 평가 칸 ── */
+.ansrow.edit{padding:16px 0}
+/* .anssaid(학생이 말한 내용)는 report.css 에 — 리포트·인쇄·학생 앱도 같이 씁니다 */
+.anseval{margin:12px 0 0 29px}
+/* 영역 다섯 줄 × (이름 · 좋음/보통/아쉬움 · 좋았던 점 · 아쉬운 점) — 2026-10-11 선생님 «왼쪽 줄에 맞춰 상세 단추» */
+.evalgrid{display:grid;grid-template-columns:minmax(118px,auto) auto minmax(0,1fr) minmax(0,1fr);gap:0;align-items:center}
+.evalgrid>*{display:contents}
+.eg-head>*{padding-bottom:4px;font-size:11px;font-weight:700;letter-spacing:.04em;align-self:end}
+.eg-head .cap.good{color:#1F4D3A}
+.eg-head .cap.bad{color:var(--rose)}
+/* 🚨 가로선은 줄의 모든 칸에 — 처음(.6)엔 이름·단추 칸에만 그어져 단추들이 어느 줄 것인지 안 보였습니다.
+   칸마다 위아래 여백을 넉넉히 두고(12px) 세로 가운데에 맞춰 한 줄이 한 덩어리로 읽히게 합니다 */
+/* 줄 사이 선은 진하게(--ink-3) 그리고 끊김 없이 — 칸 사이 간격(gap) 대신 칸 오른쪽 여백을 써서 선이 한 줄로 이어집니다.
+   연한 선으로는 줄이 안 갈라져 보인다는 말씀(2026-10-11) */
+.eg-row>*,.eg-row .eg-chips>*{padding:12px 14px 12px 0;border-top:1px solid var(--ink-3);min-width:0;align-self:stretch;display:flex;align-items:center}
+.eg-head>*{padding-right:14px}
+/* 🚨 이름 칸도 줄 높이를 꽉 채워야 윗선이 다른 칸과 같은 높이에 그어집니다 — .9 에서 align-self:center 로 두어
+   칸이 제 글자 높이만큼만 되고 선이 줄 가운데쯤에 그어졌습니다(선생님이 발견). 글자만 가운데: flex 세로 정렬 */
+.eg-row .arealabel{flex-direction:column;justify-content:center;align-items:flex-start}
+.eg-row .arealabel b{font-size:13px;line-height:1.2;display:block}
+.eg-row .arealabel .desc{font-size:10.5px;line-height:1.3;display:block;color:var(--ink-3)}
+.eg-row .areapicks{display:flex;gap:4px}
+.eg-row .abtn{min-width:48px;padding:5px 8px;font-size:12.5px;border-radius:6px}
+.eg-row .chips{gap:3px;margin:0}
+.eg-row .chip{padding:3px 9px;font-size:11.5px}
+.eg-row.old .arealabel b{color:var(--ink-3)}
+.eg-chips{display:contents}                       /* 넓을 때: 좋았던 점 · 아쉬운 점이 각각 칸 */
+.eg-chips .chips{min-width:0;align-content:center}
+/* 좁은 노트북(1300px 아래): 칸 셋 — 좋았던 점 뒤에 아쉬운 점이 이어 흐릅니다(색으로 구분) */
+@media(max-width:1300px){
+  .evalgrid{grid-template-columns:minmax(110px,auto) auto minmax(0,1fr)}
+  .eg-chips{display:flex;flex-wrap:wrap;gap:3px;padding:12px 0;border-top:1px solid var(--ink-3);min-width:0;align-self:stretch;align-items:center}
+  .eg-head .eg-chips{border-top:0;padding:0 0 4px;gap:14px}
+  .eg-chips .chips{display:contents}
+  .eg-chips .chips>*{border-top:0;padding:0}
+  .eg-head .cap.bad::before{content:'·';color:var(--ink-3);margin-right:14px}
+}
+.anseval .ratingrow{margin:12px 0 0;gap:6px;flex-wrap:nowrap;max-width:460px}
+.anseval .ratingrow .lab{flex:0 0 auto;align-self:center;font-size:12px;font-weight:700;color:var(--ink-3);margin-right:4px}
+.anseval .rbtn{flex:1;padding:7px 10px;font-size:13px}
+.ansmemo-in{min-height:52px;margin-top:10px;font-size:13.5px}
+@media(max-width:640px){
+  .hint.keys{display:none}   /* 휴대폰엔 키보드가 없습니다 */
+  .arearow{grid-template-columns:1fr;gap:4px}
+  .areapicks{width:100%}
+  .abtn{flex:1;min-width:0;padding:9px 6px}
+  .anseval{margin-left:0}
+  /* 휴대폰: 줄마다 이름 · 단추 셋 한 줄, 그 아래 좋았던 점 · 아쉬운 점 */
+  .evalgrid{grid-template-columns:1fr auto;gap:0}
+  .eg-head{display:none}
+  .eg-row .arealabel{grid-column:1}
+  .eg-row .areapicks{grid-column:2;justify-content:flex-end}
+  .eg-row .abtn{min-width:0;padding:5px 7px;white-space:nowrap}
+  .eg-row .eg-chips{grid-column:1/-1;border-top:0;padding-top:0;padding-bottom:12px}
+  .eg-row .arealabel,.eg-row .areapicks{padding-bottom:6px}
+  .anseval .ratingrow{max-width:none}
+  .anseval .rbtn{padding:9px 6px}
 }

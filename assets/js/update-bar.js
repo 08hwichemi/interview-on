@@ -30,7 +30,7 @@
 // ※ 새 판을 올릴 때는 손으로 고치지 말고 `python3 tools/판올리기.py` 를 쓰세요.
 //    version.txt · BUILD_ID · 파일 주소 세 곳을 한꺼번에 맞춥니다.
 
-var BUILD_ID = '2026-10-08.2';
+var BUILD_ID = '2026-10-11.10';
 var UPDATE_SHOWN = false;
 var SERVER_VERSION = null;   // 서버에 올라와 있는 판 번호
 
@@ -78,9 +78,27 @@ function hideUpdateBar() {
 
 // «새로고침» 을 눌러 ?v=판번호 로 다시 열었는데도 판 번호가 그대로면,
 // 서버(또는 중간 서버)가 아직 옛 화면을 주고 있는 것입니다.
-// 그때 또 띠를 띄우면 눌러도 눌러도 안 사라지는 것처럼 보입니다. 한 번으로 끝냅니다.
+// 그때 또 띠를 띄우면 눌러도 눌러도 안 사라지는 것처럼 보입니다. 그래서 잠깐 쉽니다.
+//
+// 🚨 2026-10-11 까지는 주소의 ?v= 만 보고 «영영» 쉬었습니다. 설치한 앱 창은 며칠씩 열려 있으니,
+//    GitHub 이 10분 뒤 새 화면을 내놓아도 그 창은 창을 닫을 때까지 옛 판에 머물렀습니다 —
+//    선생님 말씀 «같은 GitHub 인데 면접ON 만 유독 늦게 뜬다» 의 까닭.
+//    이제 «언제 해 봤는지» 를 같이 적어 두고(sessionStorage — 그 창 안에서만), 10분이 지나면 다시 띄웁니다.
+var TRIED_FOR = 10 * 60 * 1000;   // GitHub Pages 가 파일을 쥐고 있으라는 시간과 같게
+
 function alreadyTried(v) {
-  try { return new URLSearchParams(location.search).get('v') === v; } catch (e) { return false; }
+  var t = null;
+  try { t = JSON.parse(sessionStorage.getItem('updateTried') || 'null'); } catch (e) { /* 못 읽으면 없는 셈 */ }
+  if (t && t.v === v) return (Date.now() - t.at) < TRIED_FOR;   // 적어 둔 게 있으면 10분 안인지만
+  // 적어 둔 건 없는데 주소에 그 판의 ?v= 가 있으면(막 다시 연 것) — 지금부터 10분 쉽니다.
+  // 주소만 보고 영영 쉬던 것이 예전 오류라, 여기서 시각을 적어 두는 것이 핵심입니다.
+  var inUrl = false;
+  try { inUrl = new URLSearchParams(location.search).get('v') === v; } catch (e) { /* */ }
+  if (inUrl) rememberTried(v);
+  return inUrl;
+}
+function rememberTried(v) {
+  try { sessionStorage.setItem('updateTried', JSON.stringify({ v: v, at: Date.now() })); } catch (e) { /* */ }
 }
 
 // 지금 새로고침하면 하던 것이 날아가는 중인가
@@ -161,7 +179,12 @@ function reloadFresh() {
   // 답안 연습장에 쓰던 글을 서버로 보내 봅니다(못 가도 그 기기 임시본에서 다음에 올라갑니다)
   if (typeof practiceFlushAll === 'function') { try { practiceFlushAll(); } catch (e) { /* 그래도 새로고침 */ } }
   var base = location.href.split('?')[0].split('#')[0];
-  location.replace(base + '?v=' + encodeURIComponent(SERVER_VERSION || String(Date.now())));
+  var v = SERVER_VERSION || String(Date.now());
+  rememberTried(v);
+  // 같은 판으로 두 번째 여는 것이면(10분 전에 해 봤는데 옛 화면이 왔던 것) 주소를 조금 바꿔서
+  // 브라우저가 쥐고 있던 것을 또 쓰지 못하게 합니다
+  var again = (function () { try { return new URLSearchParams(location.search).get('v') === v; } catch (e) { return false; } })();
+  location.replace(base + '?v=' + encodeURIComponent(v) + (again ? '&t=' + Date.now() : ''));
 }
 
 document.addEventListener('DOMContentLoaded', function () {

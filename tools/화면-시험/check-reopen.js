@@ -11,6 +11,10 @@ const 보통 = [
   {seq:1,question:'먼저 간단히 자기소개를 해 주세요.',competency:'기타',seconds:30,good_tags:[],bad_tags:[],rating:'보통',memo:''},
   {seq:2,question:'「히트 패치」 탐구는 무엇이 궁금해서 시작했나요?',competency:'학업역량',seconds:60,good_tags:['개념을 정확히 씀'],bad_tags:['말이 빠름'],rating:'우수',memo:'좋았음'},
   {seq:3,question:'마지막으로 하고 싶은 말이 있나요?',competency:'기타',seconds:20,good_tags:[],bad_tags:[],rating:'보통',memo:''}];
+// «자기소개 + 지원동기» 를 골라 둔 질문지 — 다시 열면 그 칩이 켜져 있어야 합니다(2026-10-11 선생님이 발견한 오류)
+const 둘다 = [
+  {seq:1,question:'간단한 자기소개와 함께, 우리 학과에 지원한 동기를 말해 주세요.',competency:'진로역량',seconds:0,good_tags:[],bad_tags:[],rating:null,memo:''},
+  {seq:2,question:'전공을 고른 까닭은?',competency:'진로역량',seconds:0,good_tags:[],bad_tags:[],rating:null,memo:''}];
 const 빈칸 = [{seq:1,question:'질문 하나',competency:null,seconds:10,good_tags:null,bad_tags:null,rating:null,memo:null}];
 const 없음 = [];
 const 인사없이 = [{seq:1,question:'전공을 고른 까닭은?',competency:'진로역량',seconds:40,good_tags:[],bad_tags:[],rating:'보통',memo:''}];
@@ -26,11 +30,14 @@ async function 열기(b) {
   return { ctx, p, errs };
 }
 
+const OPENING_LABEL = { intro: '자기소개', motive: '지원동기', both: '자기소개 + 지원동기' };
+
 (async () => {
   const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
 
   for (const [이름, rows, 기대] of [
-        ['질문 3개(첫인사·끝인사 포함)', 보통,     { 가운데:1, 첫인사:true,  끝인사:true  }],
+        ['질문 3개(첫인사·끝인사 포함)', 보통,     { 가운데:1, 첫인사:true,  끝인사:true,  칩:'intro' }],
+        ['첫인사가 «자기소개 + 지원동기»', 둘다,   { 가운데:1, 첫인사:true,  끝인사:false, 칩:'both'  }],
         ['역량이 비어 있는 리포트',      빈칸,     { 가운데:1, 첫인사:false, 끝인사:false }],
         ['인사말 없이 질문만',           인사없이, { 가운데:1, 첫인사:false, 끝인사:false }],
         ['질문이 하나도 없는 리포트',    없음,     { 가운데:0, 첫인사:false, 끝인사:false }]]) {
@@ -49,7 +56,8 @@ async function 열기(b) {
       } catch (e) { 결과.터짐 = e.message; return 결과; }
       결과.준비화면 = !!document.querySelector('#view-setup:not([hidden])');
       결과.가운데 = midQuestions.length;
-      결과.첫인사 = opening.on; 결과.끝인사 = closing.on;
+      결과.첫인사 = opening.on; 결과.끝인사 = closing.on; 결과.칩 = opening.key;
+      결과.켜진칩 = (document.querySelector('#opening-box .chip[aria-pressed="true"]') || {}).textContent || '';
       // 되돌아갈 때 질문이 늘거나 줄지 않아야 합니다
       결과.다시 = composeQuestions().map(q => q.text);
       결과.원래 = rows.map(a => a.question);
@@ -61,6 +69,10 @@ async function 열기(b) {
     확인('가운데 질문 ' + 기대.가운데 + '개', r.가운데 === 기대.가운데, '가운데 ' + r.가운데);
     확인('첫인사 ' + (기대.첫인사?'켬':'끔'), r.첫인사 === 기대.첫인사);
     확인('끝인사 ' + (기대.끝인사?'켬':'끔'), r.끝인사 === 기대.끝인사);
+    if (기대.칩) {
+      확인('첫인사 칩이 «' + 기대.칩 + '» 인가', r.칩 === 기대.칩, r.칩);
+      확인('화면에도 그 칩이 켜져 있는가', r.켜진칩 === OPENING_LABEL[기대.칩], r.켜진칩);
+    }
     if (rows.length) 확인('되돌아가도 질문이 그대로인가',
          JSON.stringify(r.다시) === JSON.stringify(r.원래),
          (r.다시||[]).length + '개 / 원래 ' + (r.원래||[]).length + '개');
