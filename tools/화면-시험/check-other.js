@@ -130,6 +130,42 @@ async function 준비(b, rows, vw, vh, init) {
   확인('목록을 새로 받아도 접힌 채(브라우저에 기억)', await p.evaluate(() => JSON.parse(localStorage.getItem('otherFold'))['새솔고'] === true && document.querySelector('#other-list .ohead').getAttribute('aria-expanded') === 'false'));
   await p.click('#other-list .ohead:has-text("새솔고")'); await p.waitForTimeout(100);
   확인('다시 누르면 펴짐', (await p.textContent('#other-list')).indexOf('김철수') > -1);
+
+  console.log('\n── «명단 저장» — 질문 없이 학교 · 이름 · 희망 전공만 ──');
+  await p.click('.otheradd'); await p.waitForTimeout(150);
+  await p.fill('#other-school', '다온고'); await p.fill('#other-name', '이영희'); await p.fill('#other-major', '수학과');
+  let n0 = (await 표(p, 'interviews')).length;
+  await p.press('#other-major', 'Enter'); await p.waitForTimeout(400);
+  let yi = (await 표(p, 'interviews')).find(x => x.other_name === '이영희');
+  확인('Enter 로 명단 저장 — 학교 · 이름 · 희망 전공 · 질문 준비', (await 표(p, 'interviews')).length === n0 + 1 && yi && yi.other_school === '다온고' && yi.other_major === '수학과' && yi.status === '준비중', JSON.stringify(yi));
+  확인('첫인사 · 끝인사도 같이 남김(다시 열 때 꺼지지 않게)', (await 표(p, 'interview_answers')).filter(a => a.interview_id === yi.id).length === 2);
+  확인('목록에 바로 뜨고 그 학생이 골라진 채', await p.evaluate((id) => target.ivId === id && !!document.querySelector('#other-list .orow[aria-current="true"]') && document.querySelector('#other-list .orow[aria-current="true"]').textContent.indexOf('이영희') > -1, yi.id));
+  await p.fill('#other-major', '수학교육과'); await p.click('.otheracts .btn.solid'); await p.waitForTimeout(300);
+  확인('이미 있는 학생은 «명단 저장» 이 그 줄만 고침', (await 표(p, 'interviews')).length === n0 + 1 && (await 표(p, 'interviews')).find(x => x.id === yi.id).other_major === '수학교육과');
+  await p.click('.otheradd'); await p.waitForTimeout(150);
+  await p.fill('#other-name', '최민수');
+  await p.click('text=저장하고 다음 학생'); await p.waitForTimeout(400);
+  확인('«저장하고 다음 학생» — 저장되고, 이름은 빈 칸 · 학교는 «다온고» 그대로 · 이름 칸에 커서',
+       (await 표(p, 'interviews')).some(x => x.other_name === '최민수' && x.other_school === '다온고') &&
+       await p.evaluate(() => document.getElementById('other-name').value === '' && document.getElementById('other-school').value === '다온고' && document.activeElement.id === 'other-name' && !target.ivId));
+  p.__dialog = 'dismiss';
+  await p.fill('#other-name', '최민수'); await p.press('#other-name', 'Enter'); await p.waitForTimeout(300);
+  확인('같은 학교에 같은 이름이면 묻고, «아니오» 면 안 넣음',
+       p.__asked.slice(-1)[0].indexOf('이미 명단에') > -1 && (await 표(p, 'interviews')).filter(x => x.other_name === '최민수').length === 1);
+  p.__dialog = 'accept';
+
+  console.log('\n── ★ 담당 학생 ──');
+  await p.click('#other-list .obody .srow:has-text("이영희") .star'); await p.waitForTimeout(300);
+  확인('별을 누르면 계정에 저장', (await 표(p, 'teacher_other_favorites')).some(r => r.interview_id === yi.id && r.teacher_id === 'u1'));
+  확인('맨 위 «★ 담당 학생 1명» 에 학교 · 희망 전공과 함께', await p.evaluate(() => {
+    const b = document.querySelector('#other-list .ofav'); return !!b && b.textContent.indexOf('담당 학생 1명') > -1 && b.textContent.indexOf('다온고 · 수학교육과') > -1; }));
+  await p.evaluate(() => { otherFav = {}; return otherLoad(); }); await p.waitForTimeout(200);
+  확인('목록을 새로 받아도 별이 켜진 채', await p.evaluate(() => document.querySelector('#other-list .obody .srow .star[aria-pressed="true"]') !== null && !!document.querySelector('#other-list .ofav')));
+  await p.click('#other-list .ofav .star'); await p.waitForTimeout(300);
+  확인('다시 누르면 빠지고 담당 학생 칸도 사라짐', !(await 표(p, 'teacher_other_favorites')).length && !(await p.$('#other-list .ofav')));
+  // 뒤 검사를 위해 다온고 두 명은 치웁니다
+  await p.click('#other-list .ohead:has-text("다온고") ~ .obody .odelall'); await p.waitForTimeout(300);
+  확인('다온고 두 명 모두 지우기', !(await 표(p, 'interviews')).some(x => x.other_school === '다온고'));
   await p.click('#other-list .orow:has-text("홍길동")'); await p.waitForTimeout(300);
   확인('홍길동을 누르면 이름·전공·질문이 그대로',
        await p.evaluate(() => document.getElementById('other-name').value === '홍길동' && document.getElementById('other-major').value === '소프트웨어학과' && midQuestions.length === 3 && !document.getElementById('sheet-note').hidden));

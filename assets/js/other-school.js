@@ -65,10 +65,20 @@ async function otherLoad() {
   var box = document.getElementById('other-list');
   if (!box) return;
   if (!otherRows.length) box.innerHTML = '<p class="empty">불러오는 중...</p>';
-  const { data, error } = await sb.from('interviews')
-    .select('id, other_name, other_major, other_school, status, teacher_name, started_at, share_until')
-    .not('other_name', 'is', null);
+  // 목록과 내 즐겨찾기를 같이 받습니다(요청 두 번, 동시에)
+  const [res, fav] = await Promise.all([
+    sb.from('interviews')
+      .select('id, other_name, other_major, other_school, status, teacher_name, started_at, share_until')
+      .not('other_name', 'is', null),
+    sb.from('teacher_other_favorites').select('interview_id').eq('teacher_id', me.id)
+  ]);
+  const { data, error } = res;
   if (error) { box.innerHTML = '<p class="empty">타학교 목록을 못 읽었습니다: ' + esc(error.message) + '</p>'; return; }
+  // 즐겨찾기를 못 읽어도 목록은 씁니다(별만 꺼진 채)
+  if (!fav.error) {
+    otherFav = {};
+    (fav.data || []).forEach(function (r) { otherFav[r.interview_id] = true; });
+  }
   // 학교 가나다 → 이름 가나다 (학교를 안 적은 학생은 맨 아래 묶음)
   otherRows = (data || []).sort(function (a, z) {
     var sa = a.other_school || '\uffff', sz = z.other_school || '\uffff';
@@ -124,6 +134,24 @@ function otherGroups() {
   return out;
 }
 
+// 한 줄 — 고르는 단추 · ★ · 🗑. 담당 학생 칸에서는 희망 전공 앞에 학교도 적습니다
+function otherRowHTML(iv, withSchool) {
+  var on = target && target.other && target.ivId === iv.id;
+  var fav = otherFav[iv.id] === true;
+  var sub = [withSchool ? iv.other_school : '', iv.other_major].filter(function (x) { return x; }).join(' · ');
+  return '<div class="srow">' +
+    '<button class="railrow orow" aria-current="' + !!on + '" onclick="otherOpen(\'' + iv.id + '\')">' +
+      '<span class="who"><span class="nm">' + esc(iv.other_name) + '</span>' +
+        (sub ? '<span class="sub">' + esc(sub) + '</span>' : '') + '</span>' +
+      otherState(iv) +
+    '</button>' +
+    '<button class="star" aria-pressed="' + fav + '" onclick="otherToggleFav(\'' + iv.id + '\')"' +
+      ' title="' + (fav ? '담당 학생에서 빼기' : '담당 학생으로 담기') + '">★</button>' +
+    '<button class="odel" title="이 학생 지우기" aria-label="' + esc(iv.other_name) + ' 지우기"' +
+      ' onclick="otherDelete([\'' + iv.id + '\'])">🗑</button>' +
+  '</div>';
+}
+
 function otherRenderList() {
   var box = document.getElementById('other-list');
   var cnt = document.getElementById('other-count');
@@ -133,8 +161,14 @@ function otherRenderList() {
     box.innerHTML = '<p class="empty">아직 없습니다.<br>위 «＋ 타학교 학생 더하기» 로 학교 · 이름 · 희망 전공 · 질문을 넣어 두세요.</p>';
     return;
   }
+  // ★ 담당 학생 — 학교 묶음과 상관없이 맨 위에 늘 펴 둡니다(우리 학교 명단과 같은 모양)
+  var favs = otherRows.filter(function (iv) { return otherFav[iv.id]; });
+  var favHTML = favs.length
+    ? '<div class="favbox ofav"><p class="sec">★ 담당 학생 ' + favs.length + '명</p>' +
+        '<div class="favlist">' + favs.map(function (iv) { return otherRowHTML(iv, true); }).join('') + '</div></div>'
+    : '';
   var fold = otherFoldNow || (otherFoldNow = otherFoldMap());
-  box.innerHTML = otherGroups().map(function (g, gi) {
+  box.innerHTML = favHTML + otherGroups().map(function (g, gi) {
     var hasOpen = target && target.other && g.rows.some(function (iv) { return iv.id === target.ivId; });
     var shut = !!fold[g.school] && !hasOpen;      // 지금 보고 있는 학생의 학교는 접어도 펴 둡니다
     return '<div class="ogroup">' +
@@ -144,23 +178,80 @@ function otherRenderList() {
         '<span class="n">' + g.rows.length + '명</span>' +
       '</button>' +
       (shut ? '' :
-        '<div class="obody">' + g.rows.map(function (iv) {
-          var on = target && target.other && target.ivId === iv.id;
-          return '<div class="srow">' +
-            '<button class="railrow orow" aria-current="' + !!on + '" onclick="otherOpen(\'' + iv.id + '\')">' +
-              '<span class="who"><span class="nm">' + esc(iv.other_name) + '</span>' +
-                (iv.other_major ? '<span class="sub">' + esc(iv.other_major) + '</span>' : '') + '</span>' +
-              otherState(iv) +
-            '</button>' +
-            '<button class="odel" title="이 학생 지우기" aria-label="' + esc(iv.other_name) + ' 지우기"' +
-              ' onclick="otherDelete([\'' + iv.id + '\'])">🗑</button>' +
-          '</div>';
-        }).join('') +
+        '<div class="obody">' + g.rows.map(function (iv) { return otherRowHTML(iv, false); }).join('') +
         '<button class="linkbtn danger odelall" onclick="otherDeleteGroup(' + gi + ')">' +
           esc(g.school || '학교 안 적은 학생') + ' ' + g.rows.length + '명 모두 지우기</button>' +
         '</div>') +
     '</div>';
   }).join('');
+}
+
+// ── ★ 담당 학생(즐겨찾기) — 2026-10-11 선생님 말씀 «타학교에도 즐겨찾기» ──
+// 우리 학교 별표(teacher_favorites)처럼 계정에 붙여 둡니다(teacher_other_favorites) — 다른 컴퓨터에서 열어도 그대로.
+// 학생 줄이 지워지면(🗑 · 하루 뒤 정리) 별도 같이 지워집니다.
+var otherFav = {};          // { interview_id: true }
+
+async function otherToggleFav(id) {
+  var wasOn = otherFav[id] === true;
+  otherFav[id] = !wasOn;    // 누르자마자 화면부터
+  otherRenderList();
+  var res = wasOn
+    ? await sb.from('teacher_other_favorites').delete().eq('teacher_id', me.id).eq('interview_id', id)
+    : await sb.from('teacher_other_favorites')
+        .upsert({ teacher_id: me.id, interview_id: id }, { onConflict: 'teacher_id,interview_id' });
+  if (res.error) {
+    otherFav[id] = wasOn;   // 서버가 거절하면 되돌립니다
+    otherRenderList();
+    toast('담당 학생을 저장하지 못했습니다: ' + res.error.message, 'bad');
+  }
+}
+
+// ── «명단 저장» — 질문 없이 학교 · 이름 · 희망 전공만 먼저 (2026-10-11 선생님 말씀) ──
+// 예전엔 «질문지 저장» 을 눌러야 목록에 생겼습니다. 이제 맨 위 세 칸 옆 단추로 바로 명단에 넣습니다.
+//   · 새 학생: 줄을 만들고, 지금 화면의 첫인사 · 끝인사(와 적어 둔 질문)도 같이 남깁니다 — 안 남기면 다시 열 때 첫인사가 꺼진 채로 뜹니다
+//   · 이미 있는 학생: 세 칸만 고칩니다(질문은 «질문지 저장» 으로)
+//   · next=true(«저장하고 다음 학생») — 저장한 뒤 빈 칸으로(학교는 그대로) 바로 다음 학생
+//   · 같은 학교에 같은 이름이 이미 있으면 한 번 묻습니다(두 번 눌러 겹치는 것 막기)
+async function otherSaveRoster(next) {
+  if (!target || !target.other) return;
+  if (!otherCheckName()) return;
+  var f = otherFields();
+  var btns = document.querySelectorAll('.otheracts button');
+  function busy(on) { Array.prototype.forEach.call(btns, function (b) { b.disabled = on; }); }
+
+  if (!target.ivId) {
+    var same = otherRows.filter(function (r) { return r.other_name === f.other_name && (r.other_school || '') === f.other_school; });
+    if (same.length && !confirm((f.other_school || '학교 안 적음') + ' ' + f.other_name + ' 학생이 이미 명단에 있습니다.\n그래도 한 명 더 넣을까요?')) return;
+    busy(true);
+    var list = composeQuestions();
+    var ok;
+    if (list.length) ok = await keepSheet(list);
+    else {
+      var ins = await sb.from('interviews').insert(Object.assign({
+        school_id: SCHOOL_ID, student_id: null, teacher_id: me.id, teacher_name: me.name || '', status: '준비중'
+      }, f)).select('id, started_at').single();
+      ok = !ins.error;
+      if (ins.error) toast('명단에 넣지 못했습니다: ' + ins.error.message, 'bad');
+      else { sheetId = ins.data.id; sheetSavedAt = ins.data.started_at; target.ivId = sheetId; paintSheetNote(); otherLoad(); }
+    }
+    busy(false);
+    if (!ok) return;
+  } else {
+    busy(true);
+    const up = await sb.from('interviews').update(f).eq('id', target.ivId);
+    busy(false);
+    if (up.error) { toast('명단을 고치지 못했습니다: ' + up.error.message, 'bad'); return; }
+    otherLoad();
+  }
+  toast(whoLabel(target) + ' — 명단에 저장했습니다.' + (next ? ' 다음 학생을 적으세요.' : ' 질문은 나중에 넣어도 됩니다.'), 'ok');
+  if (next) otherNew();
+}
+
+// 세 칸에서 Enter = «명단 저장» (한글 입력 중의 Enter 는 글자 확정이라 건너뜁니다)
+function otherFormKey(e) {
+  if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+  e.preventDefault();
+  otherSaveRoster(false);
 }
 
 // ── 지우기 — 한 명(🗑) 또는 한 학교 모두 ──
