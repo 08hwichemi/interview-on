@@ -1734,13 +1734,19 @@ function answerRowHTML(i) {
       ? '<div class="anssaid"><span class="cap">학생이 말한 내용 <span class="opt">받아 적은 것이라 틀린 데가 있을 수 있습니다</span></span>' +
           '<p>' + esc(a.transcript) + '</p></div>'
       : '') +
+    // 노트북에서 한 질문이 한 화면에 들어오게(2026-10-11 선생님이 시연 «안 1» 을 고르심):
+    //   왼쪽 — 영역 표(촘촘히) + 이 답변은 / 오른쪽 — 자주 쓰는 단추 / 아래 — 평가·요지 칸을 길게
     '<div class="anseval">' +
-      '<div class="areagrid">' + areasHTML(i) + '</div>' +
-      '<div class="ratingrow">' + RATINGS.map(function (r) {
-        return '<button class="rbtn" aria-pressed="' + (a.rating === r) + '"' +
-               ' onclick="pickRatingAt(' + i + ', \'' + r + '\')">' + r + '</button>';
-      }).join('') + '</div>' +
-      tagPanelHTML(i) +
+      '<div class="evalcols">' +
+        '<div class="evalleft">' +
+          '<div class="areagrid">' + areasHTML(i) + '</div>' +
+          '<div class="ratingrow"><span class="lab">이 답변은</span>' + RATINGS.map(function (r) {
+            return '<button class="rbtn" aria-pressed="' + (a.rating === r) + '"' +
+                   ' onclick="pickRatingAt(' + i + ', \'' + r + '\')">' + r + '</button>';
+          }).join('') + '</div>' +
+        '</div>' +
+        '<div class="evalright">' + tagPanelHTML(i) + '</div>' +
+      '</div>' +
       '<textarea class="ansmemo-in" oninput="setMemoAt(' + i + ', this)" ' +
         'placeholder="평가 · 답변 요지 — 면접 중에 적은 것이 그대로 옵니다. 학생 리포트에 들어갑니다.">' +
         esc(a.memo || '') + '</textarea>' +

@@ -189,7 +189,16 @@ const FAKE_SR = () => {
   확인('마무리 화면에서도 영역을 누를 수 있는가', await p.evaluate(() => answers[1].areas['전공 연결'] === '아쉬움'));
   await p.click('#ansrow-1 .tagrow.quick .chip.bad[data-tag="군더더기(음, 그)"]'); await p.waitForTimeout(100);
   확인('자주 쓰는 것을 누르면 저장되는가', await p.evaluate(() => answers[1].bad.indexOf('군더더기(음, 그)') > -1));
-  await p.click('#ansrow-1 .rbtn:nth-child(3)'); await p.waitForTimeout(50);
+  await p.click('#ansrow-1 .ratingrow .rbtn:nth-of-type(3)'); await p.waitForTimeout(50);
+  확인('노트북 너비에서 영역 표와 단추가 두 칸으로 나란히, 요지 칸은 그 아래 길게', await p.evaluate(() => {
+    var row = document.getElementById('ansrow-1');
+    var l = row.querySelector('.evalleft').getBoundingClientRect(), r = row.querySelector('.evalright').getBoundingClientRect();
+    var m = row.querySelector('.ansmemo-in').getBoundingClientRect();
+    return r.left > l.right && Math.abs(l.top - r.top) < 4 && m.top >= l.bottom && m.top >= r.bottom && m.width > l.width + r.width;
+  }));
+  확인('한 질문의 평가 칸 높이가 400px 아래인가(전엔 약 700px)', await p.evaluate(() => {
+    return document.querySelector('#ansrow-1 .anseval').getBoundingClientRect().height < 400;
+  }), await p.evaluate(() => Math.round(document.querySelector('#ansrow-1 .anseval').getBoundingClientRect().height) + 'px'));
   확인('판정도 여기서', await p.evaluate(() => answers[1].rating === '미흡'));
   await p.fill('#ansrow-1 .ansmemo-in', '원리는 알지만 결론이 늦음'); await p.waitForTimeout(50);
   확인('요지도 여기서', await p.evaluate(() => answers[1].memo === '원리는 알지만 결론이 늦음'));

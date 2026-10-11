@@ -704,7 +704,22 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .ansrow.edit{padding:16px 0}
 /* .anssaid(학생이 말한 내용)는 report.css 에 — 리포트·인쇄·학생 앱도 같이 씁니다 */
 .anseval{margin:12px 0 0 29px}
-.anseval .ratingrow{margin-bottom:12px}
+/* 두 칸 — 왼쪽 영역 표 + 판정, 오른쪽 자주 쓰는 단추. 아래에 요지 칸이 길게(시연 «안 1», 2026-10-11) */
+.evalcols{display:grid;grid-template-columns:minmax(300px,2fr) 3fr;gap:10px 28px;align-items:start}
+.evalcols>*{min-width:0}
+.anseval .areagrid{margin:0;gap:2px}
+.anseval .arearow{padding:3px 0;gap:8px}
+.anseval .arealabel b{font-size:13px;line-height:1.2}
+.anseval .arealabel .desc{font-size:10.5px;line-height:1.3}
+.anseval .areapicks{gap:4px}
+.anseval .abtn{min-width:48px;padding:5px 8px;font-size:12.5px;border-radius:6px}
+.anseval .ratingrow{margin:10px 0 0;gap:6px;flex-wrap:nowrap}
+.anseval .ratingrow .lab{flex:0 0 auto;align-self:center;font-size:12px;font-weight:700;color:var(--ink-3);margin-right:4px}
+.anseval .rbtn{flex:1;padding:7px 10px;font-size:13px}
+.evalright .tagrow.quick .axis{display:none}          /* «자주 씀» 글자 없이 좋았던 점 · 아쉬운 점만 */
+.evalright .tagrow.quick .tagcols{gap:12px}
+.evalright .chip{padding:4px 10px;font-size:12px}
+.evalright .tagmore{margin:6px 0 0}
 .tagpanel .tagrow.quick{border-bottom:0;margin-bottom:6px;padding-bottom:0}
 .tagmore{display:inline-block;margin:0 0 10px;font-size:12.5px;color:var(--ink-2);background:none;border:0;padding:4px 0;cursor:pointer;font-family:inherit}
 .tagmore:hover{color:var(--ink);text-decoration:underline}
@@ -716,4 +731,6 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   .areapicks{width:100%}
   .abtn{flex:1;min-width:0;padding:9px 6px}
   .anseval{margin-left:0}
+  .evalcols{grid-template-columns:1fr}
+  .anseval .rbtn{padding:9px 6px}
 }
