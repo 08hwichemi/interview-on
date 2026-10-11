@@ -180,7 +180,7 @@ const FAKE_SR = () => {
   });
   확인('첫 질문의 받아 적은 글이 보이는가', fin.글0 === '안녕하세요 저는 고다윤입니다 그리고 또', fin.글0);
   확인('두 번째 질문의 글도', fin.글1 === '열을 가하면 패치가');
-  확인('영역 줄마다 단추가 다 보이고 펼치기는 없는가', fin.자주 >= 60 && !fin.펼치기, fin.자주 + '개');
+  확인('영역 줄마다 단추가 다 보이고 펼치기는 없는가', fin.자주 >= 45 && !fin.펼치기, fin.자주 + '개');
   확인('면접 중에 1 키로 매긴 «우수» 가 그대로', fin.판정0 === '우수', fin.판정0);
   확인('면접 중에 누른 영역 판정이 마무리 화면 표에도 눌린 채로',
        await p.evaluate(() => document.querySelector('#ansrow-0 .eg-row:nth-child(2) .abtn.l0').getAttribute('aria-pressed') === 'true'));
@@ -195,7 +195,8 @@ const FAKE_SR = () => {
     var r = row.querySelector('.eg-row:nth-child(4)');
     var kids = [r.querySelector('.arealabel'), r.querySelector('.areapicks'), r.querySelector('.chips.good'), r.querySelector('.chips.bad')].map(k => k.getBoundingClientRect());
     var m = row.querySelector('.ansmemo-in').getBoundingClientRect();
-    return kids.every(k => Math.abs(k.top - kids[0].top) < 3) && kids[3].left > kids[2].left && kids[2].left > kids[1].right && m.top >= kids[3].bottom;
+    var mid = kids.map(k => k.top + k.height / 2);
+    return mid.every(c => Math.abs(c - mid[0]) < 4) && kids[3].left > kids[2].left && kids[2].left > kids[1].right && m.top >= kids[3].bottom;
   }));
   확인('한 질문의 평가 칸 높이가 560px 아래인가(전엔 약 700px)', await p.evaluate(() => {
     return document.querySelector('#ansrow-1 .anseval').getBoundingClientRect().height < 560;

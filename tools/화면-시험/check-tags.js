@@ -54,10 +54,11 @@ function 확인(무엇, ok, 덧){ console.log((ok?'  ✓ ':'  ✗ ')+무엇+(덧
     const 눌린 = Array.from(row.querySelectorAll('.chip[aria-pressed="true"]')).map(c=>c.dataset.tag);
     const 줄이름 = rows.map(r => r.querySelector('.arealabel b').textContent);
     // 줄마다: 이름 칸 · 단추 셋 · 좋았던 점 · 아쉬운 점이 같은 윗선에 있는가
+    // 줄의 칸들이 세로 가운데를 맞추고 있는가(이름·단추·좋았던 점·아쉬운 점의 가운데가 같은 높이)
     const 맞춤 = rows.slice(0,5).every(r => {
       const kids = [r.querySelector('.arealabel'), r.querySelector('.areapicks'), r.querySelector('.chips.good'), r.querySelector('.chips.bad')]
-        .map(k => Math.round(k.getBoundingClientRect().top));
-      return kids.every(t => Math.abs(t - kids[0]) < 3);
+        .map(k => { const b = k.getBoundingClientRect(); return Math.round(b.top + b.height / 2); });
+      return kids.every(t => Math.abs(t - kids[0]) < 4);
     });
     const 전공 = rows[4].querySelectorAll('.chip').length;
     return { 눌린, 줄이름, 맞춤, 전공, 칩수: row.querySelectorAll('.chip').length, 펼치기: !!row.querySelector('.tagmore, .tagfull') };
@@ -67,7 +68,8 @@ function 확인(무엇, ok, 덧){ console.log((ok?'  ✓ ':'  ✗ ')+무엇+(덧
   확인('«전공 연결» 줄에도 단추가 있는가', r.전공 >= 2, r.전공 + '개');
   확인('옛 문구도 «지난 기록» 줄에 눌린 채로', r.눌린.indexOf('숫자·이름까지 말함') > -1 && r.눌린.indexOf('아주 옛날 문구') > -1 && r.눌린.length === 2, r.눌린.join(', '));
   확인('펼치기가 없는가', !r.펼치기);
-  확인('단추가 모두 보이는가(62개 + 전공 2)', r.칩수 >= 60, r.칩수 + '개');
+  확인('단추가 모두 보이는가(줄이면서 49개)', r.칩수 >= 45, r.칩수 + '개');
+  확인('아쉬운 점이 줄마다 6개 이하인가', await p.evaluate(() => Object.keys(TAGS).every(ax => TAGS[ax].bad.length <= 6)));
 
   console.log('\n── 눌렀다 떼기 ──');
   await p.click('#ansrow-0 .eg-row:nth-child(2) .chip.bad[data-tag="질문을 빗나감"]'); await p.waitForTimeout(100);

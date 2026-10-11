@@ -705,12 +705,15 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 /* .anssaid(학생이 말한 내용)는 report.css 에 — 리포트·인쇄·학생 앱도 같이 씁니다 */
 .anseval{margin:12px 0 0 29px}
 /* 영역 다섯 줄 × (이름 · 좋음/보통/아쉬움 · 좋았던 점 · 아쉬운 점) — 2026-10-11 선생님 «왼쪽 줄에 맞춰 상세 단추» */
-.evalgrid{display:grid;grid-template-columns:minmax(118px,auto) auto minmax(0,1fr) minmax(0,1fr);gap:0 14px;align-items:start}
+.evalgrid{display:grid;grid-template-columns:minmax(118px,auto) auto minmax(0,1fr) minmax(0,1fr);gap:0 14px;align-items:center}
 .evalgrid>*{display:contents}
-.eg-head>*{padding-bottom:4px;font-size:11px;font-weight:700;letter-spacing:.04em}
+.eg-head>*{padding-bottom:4px;font-size:11px;font-weight:700;letter-spacing:.04em;align-self:end}
 .eg-head .cap.good{color:#1F4D3A}
 .eg-head .cap.bad{color:var(--rose)}
-.eg-row>*{padding:6px 0;border-top:1px solid var(--line);min-width:0}
+/* 🚨 가로선은 줄의 모든 칸에 — 처음(.6)엔 이름·단추 칸에만 그어져 단추들이 어느 줄 것인지 안 보였습니다.
+   칸마다 위아래 여백을 넉넉히 두고(12px) 세로 가운데에 맞춰 한 줄이 한 덩어리로 읽히게 합니다 */
+.eg-row>*,.eg-row .eg-chips>*{padding:12px 0;border-top:1px solid var(--line);min-width:0;align-self:stretch;display:flex;align-items:center}
+.eg-row .arealabel{display:block;align-self:center}
 .eg-row .arealabel b{font-size:13px;line-height:1.2;display:block}
 .eg-row .arealabel .desc{font-size:10.5px;line-height:1.3;display:block;color:var(--ink-3)}
 .eg-row .areapicks{display:flex;gap:4px}
@@ -719,13 +722,14 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .eg-row .chip{padding:3px 9px;font-size:11.5px}
 .eg-row.old .arealabel b{color:var(--ink-3)}
 .eg-chips{display:contents}                       /* 넓을 때: 좋았던 점 · 아쉬운 점이 각각 칸 */
-.eg-chips .chips{min-width:0}
+.eg-chips .chips{min-width:0;align-content:center}
 /* 좁은 노트북(1300px 아래): 칸 셋 — 좋았던 점 뒤에 아쉬운 점이 이어 흐릅니다(색으로 구분) */
 @media(max-width:1300px){
   .evalgrid{grid-template-columns:minmax(110px,auto) auto minmax(0,1fr)}
-  .eg-chips{display:flex;flex-wrap:wrap;gap:3px;padding:6px 0;border-top:1px solid var(--line);min-width:0}
-  .eg-head .eg-chips{border-top:0;padding-bottom:4px;gap:14px}
+  .eg-chips{display:flex;flex-wrap:wrap;gap:3px;padding:12px 0;border-top:1px solid var(--line);min-width:0;align-self:stretch;align-items:center}
+  .eg-head .eg-chips{border-top:0;padding:0 0 4px;gap:14px}
   .eg-chips .chips{display:contents}
+  .eg-chips .chips>*{border-top:0;padding:0}
   .eg-head .cap.bad::before{content:'·';color:var(--ink-3);margin-right:14px}
 }
 .anseval .ratingrow{margin:12px 0 0;gap:6px;flex-wrap:nowrap;max-width:460px}
@@ -744,7 +748,8 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   .eg-row .arealabel{grid-column:1}
   .eg-row .areapicks{grid-column:2;justify-content:flex-end}
   .eg-row .abtn{min-width:0;padding:5px 7px;white-space:nowrap}
-  .eg-row .eg-chips{grid-column:1/-1;border-top:0;padding-top:0}
+  .eg-row .eg-chips{grid-column:1/-1;border-top:0;padding-top:0;padding-bottom:12px}
+  .eg-row .arealabel,.eg-row .areapicks{padding-bottom:6px}
   .anseval .ratingrow{max-width:none}
   .anseval .rbtn{padding:9px 6px}
 }
