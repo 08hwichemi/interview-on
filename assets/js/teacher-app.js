@@ -265,6 +265,8 @@ function show(view) {
   document.getElementById('rail-students').hidden = inInterview;
   document.getElementById('rail-progress').hidden = !inInterview;
   if (inInterview) renderRailProgress();
+  // 타학교 학생이면 우리 학교에만 있는 칸(톡·답안 연습장·지난 면접·수시·생기부)을 가리고 이름 칸을 띄웁니다
+  if (typeof otherPaint === 'function') otherPaint();
   window.scrollTo(0, 0);
 }
 
@@ -300,6 +302,14 @@ async function loadBrowseOnce() {
 
 // 학번 앞 3자리가 학년+반입니다 (3학년 2반 → 302)
 function classKey(s) { return String(s.student_no).slice(0, 3); }
+
+// 머리에 적을 이름 — 우리 학교는 «30101 고다윤», 타학교는 «타학교 홍길동».
+// 타학교 학생은 명단(students)에 없어서 target 이 { other: true, name, major, ivId } 입니다 (other-school.js)
+function whoLabel(t) {
+  if (!t) return '';
+  if (t.other) return '타학교 ' + (String(t.name || '').trim() || '(이름을 적으세요)');
+  return t.student_no + ' ' + t.name;
+}
 
 // ══════════════ 왼쪽 칸 — 학생 명단 ══════════════
 
@@ -447,7 +457,7 @@ function renderFavorites() {
 
 function renderRailProgress() {
   document.getElementById('progress-who').textContent =
-    target ? target.student_no + ' ' + target.name : '';
+    whoLabel(target);
 
   // 시간을 «건드린 질문만» 보여주니 1번에만 00:00 이 뜨고 나머지는 빈 줄이라
   // 고장난 것처럼 보였습니다. 이제 모든 줄에 똑같이 보여줍니다.
@@ -483,7 +493,7 @@ function paintRailFold() {
   wrap.classList.toggle('folded', railFolded);
   btn.setAttribute('aria-expanded', railFolded ? 'false' : 'true');
   if (label) label.textContent = railFolded ? '펼치기' : '접기';
-  if (who) who.textContent = target ? target.student_no + ' ' + target.name : '';
+  if (who) who.textContent = whoLabel(target);
 }
 function toggleRailFold() {
   railFolded = !railFolded;
@@ -513,6 +523,7 @@ function backToList() {
   paintRailFold();
   show('empty');
   loadUnfinished();   // 접은 면접이 '진행중' 이면 다시 이 목록에 뜹니다
+  if (typeof otherAfterBack === 'function') otherAfterBack();   // 타학교 목록을 보던 중이면 새로 받습니다
 }
 
 // ══════════════ 준비 화면 안의 두 탭 — 면접 준비 / 답안 연습장 ══════════════
@@ -553,12 +564,12 @@ async function pickStudent(id) {
   renderStudents();   // 고른 줄 표시
   railFolded = isNarrowRail();   // 휴대폰에서는 고르자마자 명단을 접습니다
   paintRailFold();
-  document.getElementById('target-name').textContent = target.student_no + ' ' + target.name;
+  document.getElementById('target-name').textContent = whoLabel(target);
   // 이 학생에게 바로 말을 걸 수 있습니다. 계정이 없으면 단추를 숨깁니다.
   var talk = document.getElementById('btn-talk');
   talk.hidden = !target.auth_user_id;
   talk.onclick = function () {
-    openChatRoom(target.auth_user_id, target.student_no + ' ' + target.name);
+    openChatRoom(target.auth_user_id, whoLabel(target));
   };
   midQuestions = [];
   questions = [];
@@ -587,7 +598,7 @@ async function loadUnfinished() {
   box.hidden = true;
 
   const { data, error } = await sb.from('interviews')
-    .select('id, student_id, started_at')
+    .select('id, student_id, other_name, started_at')
     .eq('teacher_id', me.id).eq('status', '진행중')
     .order('started_at', { ascending: false });
   // 못 읽어도 화면은 그냥 써야 하니 조용히 넘어갑니다.
@@ -595,7 +606,8 @@ async function loadUnfinished() {
 
   list.innerHTML = data.map(function (iv) {
     var s = students.filter(function (x) { return x.id === iv.student_id; })[0];
-    var who = s ? (s.student_no + ' ' + s.name) : '(알 수 없는 학생)';
+    var who = iv.other_name ? whoLabel({ other: true, name: iv.other_name })
+            : s ? (s.student_no + ' ' + s.name) : '(알 수 없는 학생)';
     var d = new Date(iv.started_at);
     return '<button class="row pickable" onclick="resumeInterview(\'' + iv.id + '\')">' +
       '<span class="who">' +
@@ -618,15 +630,17 @@ async function resumeInterview(id) {
   if (r.error) { toast('불러오지 못했습니다: ' + r.error, 'bad'); return; }
   var iv = r.interview;
 
-  target = students.filter(function (s) { return s.id === iv.student_id; })[0] ||
-           { id: iv.student_id, student_no: '', name: '(알 수 없음)' };
+  target = iv.other_name
+    ? otherTarget(iv)    // 타학교 학생 (other-school.js)
+    : (students.filter(function (s) { return s.id === iv.student_id; })[0] ||
+       { id: iv.student_id, student_no: '', name: '(알 수 없음)' });
   renderStudents();
   railFolded = isNarrowRail();
   paintRailFold();
-  document.getElementById('target-name').textContent = target.student_no + ' ' + target.name;
+  document.getElementById('target-name').textContent = whoLabel(target);
   var talk = document.getElementById('btn-talk');
   talk.hidden = !target.auth_user_id;
-  talk.onclick = function () { openChatRoom(target.auth_user_id, target.student_no + ' ' + target.name); };
+  talk.onclick = function () { openChatRoom(target.auth_user_id, whoLabel(target)); };
 
   questions = putBackSlots((r.answers || []).map(function (a) {
     return { text: a.question, competency: a.competency };
@@ -699,10 +713,11 @@ async function loadSheet() {
   paintSheetNote();
   if (!target || !me) return;
 
-  const { data, error } = await sb.from('interviews')
-    .select('id, started_at')
-    .eq('student_id', target.id).eq('teacher_id', me.id).eq('status', '준비중')
-    .order('started_at', { ascending: false }).limit(1);
+  // 타학교 학생은 그 학생 줄 자체가 질문지입니다(명단이 없으니 줄 id 로 찾습니다).
+  // 다른 선생님이 만들어 둔 것도 그대로 열립니다 — 면접 날 여러 선생님이 나눠 맡습니다.
+  var q = sb.from('interviews').select('id, started_at').eq('status', '준비중');
+  q = target.other ? q.eq('id', target.ivId || '-') : q.eq('student_id', target.id).eq('teacher_id', me.id);
+  const { data, error } = await q.order('started_at', { ascending: false }).limit(1);
   if (error || !data || !data.length) return;
 
   const rows = await sb.from('interview_answers')
@@ -723,14 +738,22 @@ async function loadSheet() {
 // 질문지 줄('준비중')을 챙기고 질문을 통째로 다시 씁니다.
 // 「질문지 저장」과 「면접 화면으로」가 같이 씁니다. 실패하면 false.
 async function keepSheet(list) {
+  // 타학교 학생은 이름이 있어야 저장됩니다(서버도 이름 없는 줄을 막습니다)
+  if (target.other && !otherCheckName()) return false;
   if (!sheetId) {
-    const ins = await sb.from('interviews').insert({
+    var row = {
       school_id: SCHOOL_ID,
       student_id: target.id,
       teacher_id: me.id,
       teacher_name: me.name || '',
       status: '준비중'
-    }).select('id, started_at').single();
+    };
+    if (target.other) {
+      row.student_id = null;
+      row.other_name = target.name.trim();
+      row.other_major = (target.major || '').trim();
+    }
+    const ins = await sb.from('interviews').insert(row).select('id, started_at').single();
     if (ins.error) {
       // 표가 아직 '준비중' 을 막고 있는 경우입니다. 무엇을 해야 하는지 알려 줍니다.
       if (/status_check/.test(ins.error.message || '')) {
@@ -747,6 +770,12 @@ async function keepSheet(list) {
       return false;
     }
     sheetId = ins.data.id; sheetSavedAt = ins.data.started_at;
+    if (target.other) target.ivId = sheetId;
+  } else if (target.other) {
+    // 이름·희망 전공을 고쳤을 수 있으니 같이 적습니다
+    const up = await sb.from('interviews')
+      .update({ other_name: target.name.trim(), other_major: (target.major || '').trim() }).eq('id', sheetId);
+    if (up.error) { toast('이름을 저장하지 못했습니다: ' + up.error.message, 'bad'); return false; }
   }
 
   // 뺀 질문이 남지 않게 통째로 다시 씁니다.
@@ -761,6 +790,7 @@ async function keepSheet(list) {
   }
   if (res.error) { toast('질문지를 저장하지 못했습니다: ' + res.error.message, 'bad'); return false; }
   paintSheetNote();
+  if (target.other) otherLoad();   // 왼쪽 타학교 목록에 새 학생 · 고친 이름이 바로 뜨게
   return true;
 }
 
@@ -781,7 +811,10 @@ async function saveSheet() {
 //    여기서는 다른 지우기들과 같이 브라우저 confirm 을 씁니다.
 async function deleteSheet() {
   if (!sheetId) return;
-  if (!confirm('저장해 둔 질문지를 지울까요?\n화면에 있는 질문은 그대로 둡니다.')) return;
+  // 타학교 학생은 질문지 줄이 곧 그 학생이라, 지우면 타학교 목록에서도 빠집니다
+  if (target && target.other) {
+    if (!confirm(whoLabel(target) + ' 학생과 질문지를 지울까요?\n타학교 목록에서 빠지고, 되돌릴 수 없습니다.')) return;
+  } else if (!confirm('저장해 둔 질문지를 지울까요?\n화면에 있는 질문은 그대로 둡니다.')) return;
 
   var id = sheetId;
   sheetId = null; sheetSavedAt = null;
@@ -790,9 +823,11 @@ async function deleteSheet() {
   const { error } = await sb.from('interviews').delete().eq('id', id);
   if (error) { toast('질문지를 지우지 못했습니다: ' + error.message, 'bad'); return; }
   toast('질문지를 지웠습니다.');
+  if (target && target.other) backToList();
 }
 
 async function loadHistory() {
+  if (target && target.other) return;   // 타학교 학생은 지난 면접이 없습니다(칸도 가려 둡니다)
   var box = document.getElementById('history');
   box.innerHTML = '<p class="empty">지난 기록 확인 중...</p>';
 
@@ -845,7 +880,7 @@ function susiDate(s) {
 async function loadSusi() {
   var box  = document.getElementById('susi-box');
   var list = document.getElementById('susi');
-  if (!box || !list || !target) return;
+  if (!box || !list || !target || target.other) return;
   box.hidden = true;
 
   // «수시 6장»(area='main') 만 씁니다. 후보·전문대는 면접 준비에 쓰지 않습니다.
@@ -1275,9 +1310,10 @@ async function startInterview() {
 // 진행 화면의 «면접 시작» 을 처음 누른 순간 — 여기서부터가 진짜 면접입니다.
 async function markInterviewStarted() {
   if (!interviewId || !sheetId) return;    // 이미 시작한 면접이거나 지난 회차입니다
-  const { error } = await sb.from('interviews')
-    .update({ status: '진행중', started_at: new Date().toISOString() })
-    .eq('id', interviewId);
+  var patch = { status: '진행중', started_at: new Date().toISOString() };
+  // 타학교 질문지는 다른 선생님이 만들어 두었을 수 있습니다. 면접을 시작한 사람이 평가서의 선생님입니다
+  if (target && target.other) { patch.teacher_id = me.id; patch.teacher_name = me.name || ''; }
+  const { error } = await sb.from('interviews').update(patch).eq('id', interviewId);
   if (error) { toast('면접을 시작하지 못했습니다: ' + error.message, 'bad'); return; }
   sheetId = null;            // 이제 질문지가 아니라 면접입니다
   sheetSavedAt = null;
@@ -1671,7 +1707,7 @@ async function nextQuestion() {
 
 function openFinish() {
   stopTicking();   // 마무리 화면에서는 시계가 멈춥니다
-  document.getElementById('finish-who').textContent = target.student_no + ' ' + target.name;
+  document.getElementById('finish-who').textContent = whoLabel(target);
 
   var spoken = answers.reduce(function (n, a) { return n + a.seconds; }, 0);
   document.getElementById('finish-total').textContent = mmss(totalSeconds);
@@ -1838,8 +1874,12 @@ async function openReport(id) {
   viewing = { interview: r.interview, answers: r.answers, round: keepRound };
   interviewId = id;
 
-  var who = target ? target.student_no + ' ' + target.name : '';
+  var who = whoLabel(target);
   box.innerHTML = reportHTML(r.interview, r.answers, who, viewing.round);
+
+  // 타학교 학생은 «학생에게 전달» 대신 QR 로 줍니다 (other-school.js)
+  if (target && target.other) { otherPaintReport(r.interview); return; }
+  document.getElementById('btn-deliver').hidden = false;
 
   var sent = r.interview.status === '전달됨';
   document.getElementById('report-state').innerHTML = sent
@@ -1856,6 +1896,7 @@ async function openReport(id) {
 
 async function deliverReport() {
   if (!interviewId) return;
+  if (target && target.other) { await otherDeliver(); return; }   // 타학교 — QR 로 (other-school.js)
   var btn = document.getElementById('btn-deliver');
   var label = btn.textContent;
   btn.disabled = true;
@@ -1878,7 +1919,7 @@ async function deliverReport() {
 
 // 종이로 뽑습니다. 인쇄창에서 프린터 대신 «PDF로 저장» 을 고르면 PDF 도 됩니다.
 function printTeacherReport() {
-  var who = target ? target.student_no + ' ' + target.name : '';
+  var who = whoLabel(target);
   printReport('report-body', reportFileName(who, viewing && viewing.round));
 }
 
@@ -1889,7 +1930,7 @@ async function deleteReport() {
   if (!interviewId) return;
 
   var iv = viewing && viewing.interview;
-  var who = target ? target.student_no + ' ' + target.name : '이 학생';
+  var who = target ? whoLabel(target) : '이 학생';
   var msg = who + (iv ? ' · ' + ymd(iv.started_at) : '') + ' 면접 기록을 지웁니다.\n\n' +
             '질문·시간·평가·총평이 모두 함께 지워지고, 되돌릴 수 없습니다.';
   if (iv && iv.status === '전달됨') {
@@ -1908,7 +1949,8 @@ async function deleteReport() {
   toast('리포트를 지웠습니다.', 'ok');
 
   // 지운 뒤에는 그 학생의 준비 화면으로. 지난 기록 목록이 새로 그려집니다.
-  if (back) pickStudent(back.id); else backToList();
+  // 타학교 학생은 그 면접이 곧 그 학생이라 타학교 목록으로 돌아갑니다.
+  if (back && !back.other) pickStudent(back.id); else backToList();
 }
 
 // 리포트에서 다시 고치러 갑니다.

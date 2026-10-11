@@ -22,7 +22,7 @@ window.supabase = {
     function rowsOf(t) { return (window.__T[t] = window.__T[t] || []); }
 
     function builder(table) {
-      const st = { table: table, op: 'select', eq: {}, neq: {}, inn: {} };
+      const st = { table: table, op: 'select', eq: {}, neq: {}, inn: {}, isNull: {}, notNull: {} };
       const b = {
         select(cols, opt) { if (opt && opt.count) st.wantCount = true; return b; },
         insert(v) {
@@ -60,6 +60,9 @@ window.supabase = {
         eq(k, v) { st.eq[k] = v; return b; },
         neq(k, v) { st.neq[k] = v; return b; },
         in(k, vals) { st.inn[k] = vals; return b; },
+        // .is('칸', null) · .not('칸', 'is', null) — 타학교 면접(student_id 가 빈 줄) 찾기에 씁니다
+        is(k, v) { if (v === null) st.isNull[k] = true; return b; },
+        not(k, op, v) { if (op === 'is' && v === null) st.notNull[k] = true; return b; },
         or(expr) { st.or = expr; return b; },
         order(col, opts) { st.orderBy = col; st.orderAsc = !opts || opts.ascending !== false; return b; },
         limit(n) { st.limit = n; return b; },
@@ -84,6 +87,8 @@ window.supabase = {
         Object.keys(st.inn).forEach(function (k) {
           list = list.filter(function (r) { return st.inn[k].indexOf(r[k]) > -1; });
         });
+        Object.keys(st.isNull).forEach(function (k) { list = list.filter(function (r) { return r[k] == null; }); });
+        Object.keys(st.notNull).forEach(function (k) { list = list.filter(function (r) { return r[k] != null; }); });
         if (st.or) {
           const conds = st.or.split(',').map(function (c) {
             const m = c.match(/^(\w+)\.eq\.(.+)$/); return m ? { col: m[1], val: m[2] } : null;
@@ -140,8 +145,8 @@ window.supabase = {
       //    안 걸리고 실제 배포에서만 "catch is not a function" 으로 터집니다
       //    (실제로 한 번 이렇게 겪었습니다 — presence.js 의 하트비트). 그래서 일부러
       //    then() 만 있는 얇은 객체로 감싸 돌려줍니다.
-      rpc(name) {
-        window.__calls.push({ table: '__rpc', op: name });
+      rpc(name, args) {
+        window.__calls.push({ table: '__rpc', op: name, v: args });
         function 결과(data, error) {
           return { then(res, rej) { return Promise.resolve({ data: data, error: error || null }).then(res, rej); } };
         }
@@ -188,6 +193,23 @@ window.supabase = {
             out.offers_new = (T.practice_offers || []).filter(function (o) { return o.status === '새로' && (!o.student_id || o.student_id === meS.id); }).length;
           }
           return 결과(out);
+        }
+        // 타학교 평가서(r.html) — 진짜 서버 함수 public.other_report(k) 를 흉내 냅니다.
+        // 열쇠가 맞고 · 타학교 줄이고 · 전달됨이고 · 하루가 안 지났을 때만. 아니면 null
+        if (name === 'other_report') {
+          const k = (args && args.k) || '';
+          const iv = (window.__T.interviews || []).find(function (i) {
+            return k.length >= 24 && i.share_key === k && i.other_name && i.status === '전달됨' &&
+                   i.share_until && new Date(i.share_until) > new Date();
+          });
+          if (!iv) return 결과(null);
+          const ans = (window.__T.interview_answers || []).filter(function (a) { return a.interview_id === iv.id; })
+            .sort(function (a, z) { return a.seq - z.seq; });
+          return 결과({ interview: {
+              started_at: iv.started_at, teacher_name: iv.teacher_name, total_seconds: iv.total_seconds || 0,
+              grades: iv.grades || {}, overall_note: iv.overall_note || '', edited_at: iv.edited_at || null,
+              other_name: iv.other_name, other_major: iv.other_major || '', share_until: iv.share_until },
+            answers: ans });
         }
         // 학생 접속 표시(presence.js) — 로그인한 학생 본인 줄의 last_seen_at 만 찍습니다
         if (name === 'student_heartbeat') {

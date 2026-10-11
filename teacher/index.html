@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-10-11.10">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-10-11.11">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-11.10">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-11.10">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-11.10">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-11.10">
-  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-11.10">
-  <link rel="stylesheet" href="../assets/css/hugi.css?v=2026-10-11.10">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-11.10">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-11.11">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-11.11">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-11.11">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-11.11">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-11.11">
+  <link rel="stylesheet" href="../assets/css/hugi.css?v=2026-10-11.11">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-11.11">
 </head>
 <body>
 
@@ -75,7 +75,12 @@
           <span class="grow"></span>
           <span class="more" id="rail-fold-label">접기</span>
         </button>
-        <div class="railhead">
+        <!-- 우리 학교 명단 / 타학교 면접(다른 학교 학생 모의면접 — other-school.js) -->
+        <div class="railtabs" id="rail-tabs">
+          <button class="railtab" id="rail-tab-ours" aria-current="true" onclick="railShowOther(false)">우리 학교</button>
+          <button class="railtab" id="rail-tab-other" aria-current="false" onclick="railShowOther(true)">🏫 타학교 면접</button>
+        </div>
+        <div class="railhead" id="ours-head">
           <p class="sec" style="margin:0">학생 <span id="found-count"></span>명</p>
           <input type="text" id="search" placeholder="학번 · 이름" oninput="onSearch(this)">
           <div class="chips tight" id="class-chips" hidden></div>
@@ -88,6 +93,14 @@
           <div class="favlist" id="fav-list"></div>
         </div>
         <div class="raillist" id="student-list"></div>
+
+        <!-- 타학교 — 이름 · 희망 전공만 적고 계정은 안 만듭니다. 평가서는 QR 로 주고 하루 뒤 지워집니다 -->
+        <div class="railhead" id="other-head">
+          <p class="sec" style="margin:0">타학교 학생 <span id="other-count"></span>명</p>
+          <button class="btn solid otheradd" onclick="otherNew()">＋ 타학교 학생 더하기</button>
+          <p class="railnote">이름 · 희망 전공 · 질문만 넣습니다. 평가서는 QR 로 주고, 보여 준 때부터 하루 뒤 서버에서 지워집니다.</p>
+        </div>
+        <div class="raillist" id="other-list"></div>
       </div>
 
       <!-- 면접 중 — 질문 진행 상황 -->
@@ -109,8 +122,13 @@
       <section id="view-empty">
         <div class="panel pad blank">
           <p class="sec">면접 시작하기</p>
-          <p class="hint" style="margin:0">
+          <p class="hint ours-only" style="margin:0">
             왼쪽에서 <b>학생을 고르세요.</b> 반으로 추리거나 학번·이름으로 찾을 수 있습니다.
+          </p>
+          <p class="hint other-only" style="margin:0">
+            <b>타학교 면접</b> — 왼쪽 <b>«＋ 타학교 학생 더하기»</b> 로 이름 · 희망 전공 · 질문을 넣어 두고,
+            면접 날 왼쪽 목록에서 학생을 누르세요. 진행 · 받아 적기 · 평가는 우리 학생과 같고,
+            끝나면 <b>QR 코드</b>를 보여 주면 학생이 폰으로 찍어 평가서를 PDF 로 받습니다.
           </p>
           <!-- 창이 닫혀 끝내지 못한 면접. 없으면 안 뜹니다 -->
           <div class="note warn" id="unfinished" hidden>
@@ -128,12 +146,18 @@
               <p class="sec" style="margin:0">면접 준비</p>
               <h2 id="target-name"></h2>
             </div>
-            <button class="ghost" id="btn-talk" hidden>💬 이 학생에게 톡</button>
+            <button class="ghost ours-only" id="btn-talk" hidden>💬 이 학생에게 톡</button>
           </div>
 
           <!-- 학생을 고르면 늘 «면접 준비» 로 열립니다. 답안 연습장은 읽기만 합니다 —
                쓰는 건 학생 혼자 하는 일입니다 (RLS 가 선생님 쪽 쓰기를 막아 둡니다). -->
-          <div class="prac-tabs" style="margin-top:16px">
+          <!-- 타학교 학생 — 아는 것은 이름 · 희망 전공뿐입니다(other-school.js) -->
+          <div class="otherform other-only">
+            <label>이름 <input type="text" id="other-name" placeholder="예: 홍길동" maxlength="30" oninput="otherSetName(this)"></label>
+            <label>희망 전공 <input type="text" id="other-major" placeholder="예: 컴퓨터공학과" maxlength="60" oninput="otherSetMajor(this)"></label>
+          </div>
+
+          <div class="prac-tabs ours-only" style="margin-top:16px">
             <button class="prac-tab" id="setup-tab-prep" aria-current="true" onclick="setupGoTab('prep')">면접 준비</button>
             <button class="prac-tab" id="setup-tab-practice" onclick="setupGoTab('practice')">✍️ 답안 연습장</button>
             <button class="prac-tab" id="setup-tab-hugi" onclick="setupGoTab('hugi')">🗒️ 면접 후기</button>
@@ -152,7 +176,7 @@
               <button class="linkbtn danger" onclick="deleteSheet()" style="margin-left:6px">질문지 지우기</button>
             </p>
 
-            <div id="history-box" style="margin-top:22px">
+            <div id="history-box" class="ours-only" style="margin-top:22px">
               <div class="histacc">
                 <button class="histhead" id="history-acc-head" onclick="toggleHistoryAcc()"
                         aria-expanded="true" aria-controls="history">
@@ -168,7 +192,7 @@
             <!-- 수시지원계획서 앱에서 받아 온 지원 현황. 자료가 없으면 아예 안 뜹니다.
                  머리줄 전체가 단추입니다 — 어디를 눌러도 접히고 펴집니다.
                  «눌러서 펴는 것» 임을 알 수 있게 네모로 묶고 바닥색을 달리했습니다. -->
-            <div id="susi-box" hidden>
+            <div id="susi-box" class="ours-only" hidden>
               <div class="susiacc">
                 <button class="susihead" id="susi-more" onclick="toggleSusi()"
                         aria-expanded="true" aria-controls="susi">
@@ -204,8 +228,18 @@
                   <button class="btn" onclick="addQuestion('', '기타')">＋ 직접 적기</button>
                   <button class="ghost" onclick="loadCommon('changche', '공동체역량')">창체 질문 3개</button>
                   <button class="ghost" onclick="loadCommon('major', '진로역량')">전공 질문 3개</button>
-                  <button class="ghost" onclick="openSaenggibu()">📄 생기부에서 뽑기</button>
-                  <button class="ghost" onclick="openStudentQs()">✍️ 학생 질문</button>
+                  <button class="ghost ours-only" onclick="openSaenggibu()">📄 생기부에서 뽑기</button>
+                  <button class="ghost ours-only" onclick="openStudentQs()">✍️ 학생 질문</button>
+                  <button class="ghost other-only" onclick="otherTogglePaste()">📋 여러 질문 붙여넣기</button>
+                </div>
+                <!-- 따로 만들어 온 질문을 한 줄에 하나씩 붙여 넣습니다(앞 번호는 떼어 냄) -->
+                <div class="otherpaste other-only" id="other-paste" hidden>
+                  <textarea id="other-paste-text" rows="6"
+                    placeholder="한 줄에 질문 하나씩 붙여 넣으세요.&#10;1. 탐구 주제를 고른 까닭은 무엇인가요?&#10;2. 그 실험에서 가장 어려웠던 점은?"></textarea>
+                  <div class="btnrow">
+                    <button class="ghost" onclick="otherTogglePaste()">닫기</button>
+                    <button class="btn solid" onclick="otherPasteAdd()">«낼 질문» 에 넣기</button>
+                  </div>
                 </div>
 
                 <p class="sec" style="margin-top:22px">첫인사 <span class="opt">(면접을 여는 질문)</span></p>
@@ -389,9 +423,13 @@
           <textarea id="finish-note" style="min-height:70px"
             placeholder="예: 경험은 풍부한데 결론을 먼저 말하는 연습이 필요합니다."></textarea>
 
-          <div class="note info">
+          <div class="note info ours-only">
             <b>면접 끝내기</b>를 누르면 리포트 한 장으로 보여드립니다.
             거기서 확인한 뒤에 <b>학생에게 전달</b>합니다. 그 전까지는 학생에게 안 보입니다.
+          </div>
+          <div class="note info other-only">
+            <b>면접 끝내기</b>를 누르면 평가서 한 장으로 보여드립니다.
+            거기서 확인한 뒤에 <b>QR 로 평가서 주기</b>를 누르면 학생이 폰으로 찍어 받습니다.
           </div>
           <div class="actionbar">
             <!-- 진행 화면으로 돌아가 평가를 다시 매깁니다.
@@ -603,27 +641,45 @@
   </div>
 </div>
 
+<!-- 타학교 평가서 QR (other-school.js) — 책상 건너편 학생이 폰으로 찍을 수 있게 크게 -->
+<div id="qr-overlay" class="qr-overlay" onclick="if (event.target === this) otherCloseQR()">
+  <div class="qr-card" role="dialog" aria-labelledby="qr-title">
+    <p class="sec" id="qr-title" style="margin:0">면접 평가서</p>
+    <h2 id="qr-who"></h2>
+    <div class="qr-box" id="qr-box"></div>
+    <p class="qr-say">휴대폰 카메라로 찍으세요</p>
+    <p class="hint" id="qr-until" style="margin:0"></p>
+    <p class="qr-url" id="qr-url"></p>
+    <div class="btnrow qr-btns">
+      <button class="ghost" onclick="otherCopyUrl()">주소 복사</button>
+      <button class="btn solid" onclick="otherCloseQR()">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="../assets/js/config.js?v=2026-10-11.10"></script>
-<script src="../assets/js/update-bar.js?v=2026-10-11.10"></script>
-<script src="../assets/js/utils.js?v=2026-10-11.10"></script>
-<script src="../assets/js/api.js?v=2026-10-11.10"></script>
-<script src="../assets/js/browse.js?v=2026-10-11.10"></script>
-<script src="../assets/js/reviews.js?v=2026-10-11.10"></script>
-<script src="../assets/js/questions.js?v=2026-10-11.10"></script>
-<script src="../assets/js/report.js?v=2026-10-11.10"></script>
-<script src="../assets/js/chat.js?v=2026-10-11.10"></script>
-<script src="../assets/js/practice.js?v=2026-10-11.10"></script>
-<script src="../assets/js/hugi.js?v=2026-10-11.10"></script>
-<script src="../assets/js/notice.js?v=2026-10-11.10"></script>
-<script src="../assets/js/badges.js?v=2026-10-11.10"></script>
-<script src="../assets/js/admin-notice.js?v=2026-10-11.10"></script>
-<script src="../assets/js/teacher-app.js?v=2026-10-11.10"></script>
-<script src="../assets/js/listen.js?v=2026-10-11.10"></script>
-<script src="../assets/js/saenggibu.js?v=2026-10-11.10"></script>
+<script src="../assets/js/config.js?v=2026-10-11.11"></script>
+<script src="../assets/js/update-bar.js?v=2026-10-11.11"></script>
+<script src="../assets/js/utils.js?v=2026-10-11.11"></script>
+<script src="../assets/js/api.js?v=2026-10-11.11"></script>
+<script src="../assets/js/browse.js?v=2026-10-11.11"></script>
+<script src="../assets/js/reviews.js?v=2026-10-11.11"></script>
+<script src="../assets/js/questions.js?v=2026-10-11.11"></script>
+<script src="../assets/js/report.js?v=2026-10-11.11"></script>
+<script src="../assets/js/chat.js?v=2026-10-11.11"></script>
+<script src="../assets/js/practice.js?v=2026-10-11.11"></script>
+<script src="../assets/js/hugi.js?v=2026-10-11.11"></script>
+<script src="../assets/js/notice.js?v=2026-10-11.11"></script>
+<script src="../assets/js/badges.js?v=2026-10-11.11"></script>
+<script src="../assets/js/admin-notice.js?v=2026-10-11.11"></script>
+<script src="../assets/js/teacher-app.js?v=2026-10-11.11"></script>
+<script src="../assets/js/listen.js?v=2026-10-11.11"></script>
+<script src="../assets/js/saenggibu.js?v=2026-10-11.11"></script>
+<script src="../assets/vendor/qrcode.js?v=2026-10-11.11"></script>
+<script src="../assets/js/other-school.js?v=2026-10-11.11"></script>
 <script>
   function gateFail(msg, detail) {
     clearTimeout(gateTimer);
