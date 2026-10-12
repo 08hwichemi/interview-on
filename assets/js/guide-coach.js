@@ -53,8 +53,30 @@
     sel.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
+  // ── 크롬의 «마이크 사용» 허용 창 흉내 ──
+  // 진짜 창은 브라우저가 띄우는 것이라 테두리를 두를 수 없고, 연습에서 진짜로 허용 · 차단하면 그 컴퓨터 설정이 바뀝니다.
+  // 그래서 모양만 그려 보여 줍니다(주소창 아래 왼쪽 — 크롬이 띄우는 자리). «허용» 을 누르면 받아 적기 흉내가 말하기 시작합니다
+  function showMicAsk() {
+    window.__guideMicOK = false;
+    var old = document.getElementById('gd-mic'); if (old) old.remove();
+    var host = location.hostname || '08hwichemi.github.io';
+    var box = document.createElement('div');
+    box.id = 'gd-mic'; box.className = 'gd-mic';
+    box.innerHTML = '<p class="gd-mic-cap">크롬이 띄우는 창 (연습용 그림)</p>' +
+      '<p class="gd-mic-q"><b>' + esc(host) + '</b>에서 다음 권한을 요청합니다</p>' +
+      '<p class="gd-mic-what">🎤 마이크 사용</p>' +
+      '<div class="gd-mic-btns"><button type="button" class="gd-mic-no">차단</button>' +
+      '<button type="button" id="gd-mic-allow" class="gd-mic-yes">허용</button></div>';
+    document.body.appendChild(box);
+    document.getElementById('gd-mic-allow').addEventListener('click', function () {
+      window.__guideMicOK = true;
+      box.remove();
+    });
+  }
+
   // ── 화면을 처음 상태로 (묻는 창 없이) ──
   function home() {
+    var mic = document.getElementById('gd-mic'); if (mic) mic.remove();
     if (typeof otherCloseQR === 'function') otherCloseQR();
     if (typeof closeStudentQs === 'function') closeStudentQs();
     stopTicking();
@@ -198,7 +220,15 @@
         done: function () { return answering; },
         b: '선생님이 질문을 소리 내어 읽고, 학생이 말을 시작할 때 누릅니다(키보드 ' + kbd('Space') + '). ' +
            '«이 질문 답변» 시계와 <b>받아 적기</b>가 켜집니다. 선생님이 질문 읽는 소리는 안 적힙니다.' +
-           '<p class="gd-more">실제로는 처음 한 번 크롬이 «마이크 사용» 을 묻습니다 → «허용».</p>' },
+           '<p class="gd-more">«면접 시작» 을 깜빡했어도 «답변 시작» 하나로 두 시계가 같이 켜집니다.</p>' },
+      // 마이크 허용 — 실제로는 크롬이 주소창 아래에 띄우는 창입니다. 연습에서는 그 모양을 그려 보여 줍니다(showMicAsk)
+      { at: '#gd-mic-allow', real: true, t: '크롬이 마이크를 물으면 «허용»',
+        enter: showMicAsk,
+        done: function () { return !!window.__guideMicOK; },
+        b: '<b>처음 한 번</b> 크롬이 주소창 아래에 «마이크 사용» 을 묻습니다. <b>«허용»</b> 을 누르세요 ' +
+           '(크롬 판에 따라 «사이트 방문 중 허용» 처럼 보일 수 있습니다 — «허용» 이 든 단추). 한 번 허용하면 그 컴퓨터에서는 다시 안 묻습니다.' +
+           '<p class="gd-more">잘못해서 «차단» 을 눌렀으면: 주소창 왼쪽 자물쇠(설정) 단추 → 마이크 «허용» → 받아 적기를 다시 켭니다. ' +
+           '받아 적기는 <b>크롬 · 엣지</b>에서만 됩니다(파이어폭스 · 삼성 인터넷은 안 됨). 인터넷이 있어야 합니다.</p>' },
       { at: '#livebox', watch: true, t: '학생이 말하면 이렇게 적힙니다',
         done: function () { return !!window.__guideSpoke[qIndex] && !LISTEN.interim; },
         b: '<span class="gd-ex">(예시 학생 답변이 흘러나오는 중 — 잠깐 보세요)</span> 회색 글은 아직 알아듣는 중, 검은 글은 굳은 글입니다.' +
@@ -394,7 +424,8 @@
     tip.classList.remove('gd-nudge'); void tip.offsetWidth; tip.classList.add('gd-nudge');
   }
 
-  function quit() { location.href = 'guide.html'; }
+  // 연습 끝내기 — 실제 면접 화면으로(로그인 안 했으면 로그인 화면이 뜹니다)
+  function quit() { location.href = location.pathname; }
 
   function step() { return S.ch > -1 && CH[S.ch] ? CH[S.ch].steps[S.st] || null : null; }
   function text(v) { return typeof v === 'function' ? v() : (v || ''); }
@@ -454,9 +485,11 @@
   // 가운데 창 — 목차 · 장이 끝났을 때 · 마지막
   function showPanel(html) { panel.innerHTML = html; panel.hidden = false; tip.hidden = true; ring.hidden = true; }
   function menuHTML() {
-    return '<h3 class="gd-t">어디부터 해 볼까요?</h3>' +
-      '<p class="gd-b">실제 면접 화면 그대로입니다. 가짜 학생으로 연습하고, <b>실제 서버에는 아무것도 저장되지 않습니다.</b> ' +
-      '<b>주황 테두리 단추만 누르면</b> 어디를 눌러 무엇이 되는지 순서대로 보입니다. 글자 · 학생 답변(받아 적기)은 예시가 저절로 채워집니다.</p>' +
+    return '<h3 class="gd-t">면접ON 따라 하기</h3>' +
+      '<p class="gd-b">실제 면접 화면 그대로입니다. <b>주황 테두리 단추만 차례로 누르면</b> 면접 한 번이 처음부터 끝까지 흘러가며, ' +
+      '어디를 눌러 무엇이 되는지 보입니다. 글자 · 학생 답변(받아 적기)은 예시가 저절로 채워지고, <b>실제 서버에는 아무것도 저장되지 않습니다.</b></p>' +
+      '<div class="gd-btns" style="justify-content:flex-start"><button class="btn solid" data-act="go" data-ch="0">▶ 처음부터 따라 하기 (5분쯤)</button></div>' +
+      '<p class="gd-b" style="margin-top:12px;font-size:13px">한 부분만 다시 보려면</p>' +
       '<ol class="gd-menu">' + CH.map(function (c, i) {
         return '<li><button data-act="go" data-ch="' + i + '">' +
           '<span class="n">' + i + '</span><span class="nm">' + esc(c.title) + '</span>' +
@@ -501,10 +534,20 @@
     var nx = CH[S.ch + 1];
     paintDock();
     if (!nx) {
-      showPanel('<h3 class="gd-t">✓ 연습을 모두 마쳤습니다</h3>' +
-        '<p class="gd-b">면접 날에는 이 화면 그대로, 실제 학생으로 하시면 됩니다. 궁금한 것은 설명서의 «자주 묻는 것» 을 보세요.</p>' +
+      // 글로 된 설명서를 따로 두지 않기로 해서(2026-10-12 선생님 말씀 «따라하기 하나로 충분»),
+      // 따라 하기에 안 나오는 것만 여기 짧게 모읍니다
+      showPanel('<h3 class="gd-t">✓ 따라 하기를 모두 마쳤습니다</h3>' +
+        '<p class="gd-b">면접 날에는 이 화면 그대로, 실제 학생으로 하시면 됩니다.</p>' +
+        '<ul class="gd-faq">' +
+          '<li><b>면접 날 아침</b> — 크롬 · 엣지로 열기 · 마이크(USB · 블루투스)를 학생 쪽에 · 인터넷</li>' +
+          '<li><b>마이크 시험</b>은 실제 화면에서 아무 학생으로 «답변 시작» 을 누르고 말해 보기 → 끝나면 «이 리포트 지우기»</li>' +
+          '<li><b>받아 적기가 안 되면</b> 면접은 그대로 하고 «평가 · 답변 요지» 칸에 적으면 됩니다</li>' +
+          '<li><b>화면이 옛날 같으면</b> 맨 위 «새 버전이 있습니다» 띠의 «새로고침», 안 되면 ' + kbd('Ctrl') + '+' + kbd('F5') + '</li>' +
+          '<li><b>학생이 리포트가 안 보인대면</b> «학생에게 전달» 을 눌렀는지</li>' +
+          '<li><b>비밀번호를 잊으면</b> 관리자 선생님께 초기화(123456) 부탁 → 로그인하면 새로 정함</li>' +
+        '</ul>' +
         '<div class="gd-btns"><button class="ghost" data-act="menu">목차</button>' +
-        '<button class="btn solid" data-act="quit">설명서로 돌아가기</button></div>');
+        '<button class="btn solid" data-act="quit">연습 끝내기</button></div>');
       return;
     }
     S.busy = true;

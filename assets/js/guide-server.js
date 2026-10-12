@@ -43,6 +43,8 @@
     var qi = typeof window.qIndex === 'number' ? window.qIndex : 0;
     var said = window.__guideSaid || ['안녕하세요 저는 연습 학생입니다'];
     if (window.__guideSpoke[qi]) return;              // 이 질문은 이미 다 말함 — 조용히 듣기만
+    // 마이크 허용 창(연습용 그림, guide-coach.js)에서 «허용» 을 누르기 전에는 말하지 않습니다 — 실제 크롬도 그렇습니다
+    if (!window.__guideMicOK) { me.timer = setTimeout(function () { me.start(); }, 200); return; }
     // 듣기가 끊겼다 다시 켜지면(질문 저장 등) 처음부터가 아니라 말하던 데서 잇습니다 — 끊길 때의 회색 글은 listen.js 가 이미 붙입니다
     window.__guideSpeechAt = window.__guideSpeechAt || {};
     var words = said[qi % said.length].split(' '), at = window.__guideSpeechAt[qi] || 0, chunk = [];

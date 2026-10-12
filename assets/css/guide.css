@@ -97,3 +97,17 @@
 /* 테두리 밖을 눌렀을 때 — 말풍선이 한 번 흔들림 */
 .gd-tip.gd-nudge{animation:gdnudge .45s ease-in-out}
 @keyframes gdnudge{0%,100%{translate:0}20%{translate:-7px}40%{translate:7px}60%{translate:-5px}80%{translate:5px}}
+
+/* 크롬 «마이크 사용» 허용 창 흉내 (showMicAsk) — 크롬이 띄우는 자리(왼쪽 위)에 */
+.gd-mic{position:fixed;z-index:8999;left:12px;top:8px;width:300px;max-width:calc(100vw - 24px);
+  background:#fff;color:#202124;border-radius:10px;box-shadow:0 6px 28px rgba(0,0,0,.28);padding:12px 16px 14px;font-size:14px}
+.gd-mic-cap{margin:0 0 6px;font-size:11px;color:#E8590C;font-weight:700}
+.gd-mic-q{margin:0 0 6px;line-height:1.5}
+.gd-mic-what{margin:0 0 12px}
+.gd-mic-btns{display:flex;justify-content:flex-end;gap:8px}
+.gd-mic-btns button{border:1px solid #dadce0;background:#fff;color:#1a73e8;border-radius:18px;padding:6px 16px;font:inherit;font-weight:600;cursor:pointer}
+.gd-mic-btns .gd-mic-yes{background:#1a73e8;border-color:#1a73e8;color:#fff}
+.gd-faq{margin:8px 0 0;padding-left:18px;color:var(--ink-2);font-size:13.5px}
+.gd-faq li{margin:4px 0}
+.gd-faq b{color:var(--ink)}
+.gd-panel kbd{display:inline-block;min-width:20px;padding:0 5px;border:1px solid var(--line-2);border-bottom-width:2px;border-radius:4px;background:var(--surface-2);font:inherit;font-size:12px;line-height:18px;text-align:center}

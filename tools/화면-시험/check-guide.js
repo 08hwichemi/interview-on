@@ -8,7 +8,8 @@
 //   · 테두리 밖을 누르거나 키보드를 쳐도 화면이 안 바뀌는가
 //   · 칸을 누르면 예시 글자가 저절로 · «답변 시작» 을 누르면 예시 답변이 회색 → 검은 글로 (마이크 안 씀)
 //   · 목차에서 바로(?guide=N) 테두리 친 곳만 눌러 장마다 끝까지 가는가
-//   · 설명서 쪽(guide.html) — 장마다 «따라 눌러 보기» 주소 · 단추 이름이 실제 화면에 있는가 · 400px
+//   · «답변 시작» 뒤 크롬 «마이크 사용» 허용 창(그림) — «허용» 전에는 받아 적지 않음
+//   · 설명서(guide.html)는 따라 하기로 들어가는 한 화면 — 링크 · 400px
 //
 // 이 검사는 진짜 supabase 라이브러리 자리를 빈 파일로 막습니다 — 연습 모드는 그것 없이도 떠야 합니다.
 const { chromium } = require('playwright');
@@ -128,7 +129,12 @@ async function 걸음(p, 글, 테두리도) {
   await p.click('#btn-timer');
   await 걸음(p, '«답변 시작»');
   await p.click('#btn-answer');
+  await 걸음(p, '마이크를 물으면');
+  await p.waitForTimeout(700);
+  확인('  «허용» 을 누르기 전에는 받아 적지 않는가', await p.evaluate(() => !answers[0].transcript && !LISTEN.interim));
+  await p.click('#gd-mic-allow');
   await 걸음(p, '이렇게 적힙니다');
+  확인('  허용 창이 사라졌는가', await p.evaluate(() => !document.getElementById('gd-mic')));
   await p.waitForTimeout(500);
   확인('  예시 답변이 회색(확정 전) 글로 흘러나오는가', await p.evaluate(() => !!document.querySelector('#live-text .interim')));
   await 걸음(p, '우수 · 보통 · 미흡');
@@ -272,27 +278,18 @@ async function 걸음(p, 글, 테두리도) {
   확인('옆으로 안 넘침', await D.p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   await D.ctx.close();
 
-  console.log('\n── 설명서(guide.html) ──');
+  console.log('\n── 설명서(guide.html) — 따라 하기로 들어가는 한 화면 ──');
   const E = await 새창(b, 1280);
   await E.p.goto('http://127.0.0.1:8777/teacher/guide.html');
-  const 링크 = await E.p.evaluate(() => [].map.call(document.querySelectorAll('a.try'), a => a.getAttribute('href')));
-  확인('장마다 «직접 해 보기» 링크(?guide=0~5)', [0, 1, 2, 3, 4, 5].every(n => 링크.indexOf('index.html?guide=' + n) > -1), 링크.join(' '));
-  확인('맨 위 «연습 시작» 링크', await E.p.evaluate(() => !!document.querySelector('a[href="index.html?guide"]')));
-  // 설명서 속 단추 이름(«…»)이 실제 화면에 있는가 — 낡지 않게
-  const 이름들 = await E.p.evaluate(() => [].map.call(document.querySelectorAll('.k:not(.x)'), x => x.textContent.trim()));
-  const 화면 = require('fs').readFileSync(require('path').join(__dirname, '../../teacher/index.html'), 'utf8') +
-               require('fs').readFileSync(require('path').join(__dirname, '../../assets/js/teacher-app.js'), 'utf8') +
-               require('fs').readFileSync(require('path').join(__dirname, '../../assets/js/other-school.js'), 'utf8') +
-               require('fs').readFileSync(require('path').join(__dirname, '../../assets/js/listen.js'), 'utf8') +
-               require('fs').readFileSync(require('path').join(__dirname, '../../assets/js/report.js'), 'utf8') +
-               require('fs').readFileSync(require('path').join(__dirname, '../../r.html'), 'utf8') +
-               require('fs').readFileSync(require('path').join(__dirname, '../../assets/js/other-report-page.js'), 'utf8');
-  const 없음 = 이름들.filter(n => 화면.indexOf(n) === -1);
-  확인('설명서의 단추 이름 ' + 이름들.length + '개가 모두 실제 화면에 있는가', 이름들.length > 20 && !없음.length, 없음.join(' / '));
+  const 링크 = await E.p.evaluate(() => [].map.call(document.querySelectorAll('a[href*="?guide"]'), a => a.getAttribute('href')));
+  확인('«따라 하기 시작»(?guide=0)과 부분 링크(?guide=1~5)', [0, 1, 2, 3, 4, 5].every(n => 링크.indexOf('index.html?guide=' + n) > -1), 링크.join(' '));
+  확인('글로 된 0~7장 설명서는 없는가', await E.p.evaluate(() => !document.querySelector('section#s1, nav.toc')));
   await E.p.setViewportSize({ width: 400, height: 800 });
   확인('400px 에서 옆으로 안 넘침', await E.p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   확인('설명서 오류 없음', E.errs.length === 0, E.errs.join(' | '));
   await E.ctx.close();
+  확인('면접 화면 머리말 «📘 설명서» 가 따라 하기(?guide)로 가는가',
+       /id="guide-link" href="\?guide"/.test(require('fs').readFileSync(require('path').join(__dirname, '../../teacher/index.html'), 'utf8')));
 
   await b.close();
   console.log(실패 ? '\n❌ ' + 실패 + '개 실패' : '\n✅ 모두 통과');
