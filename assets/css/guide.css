@@ -90,3 +90,9 @@
   .gd-dock .gd-where{display:none}
 }
 @media print{ .gd-tip,.gd-ring,.gd-badge,.gd-dock,.gd-panel{display:none!important} }
+
+/* 연습에서 저절로 채워지는 예시라는 표시 */
+.gd-ex{color:#FDBA74;font-size:13px}
+/* 테두리 밖을 눌렀을 때 — 말풍선이 한 번 흔들림 */
+.gd-tip.gd-nudge{animation:gdnudge .45s ease-in-out}
+@keyframes gdnudge{0%,100%{translate:0}20%{translate:-7px}40%{translate:7px}60%{translate:-5px}80%{translate:5px}}

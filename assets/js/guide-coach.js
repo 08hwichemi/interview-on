@@ -1,13 +1,14 @@
 // 연습 모드의 안내 — 설명서(teacher/guide.html)의 «직접 해 보기» 에서만 뜹니다.
 //
-// 실제 면접 화면에서 눌러야 할 단추에 주황 테두리를 두르고, 그 바로 옆에 말풍선으로 무엇을 누를지 적습니다.
-// 선생님이 그 단추를 **실제로 누르면** 다음 걸음으로 넘어갑니다(화면의 상태를 보고 알아챕니다).
-// «다음 →» 같은 안내용 단추는 두지 않습니다 — 2026-10-12 선생님 말씀 «오른쪽 아래 다음 버튼처럼 말고 실제 버튼 누르는 것처럼».
+// **시뮬레이션**입니다 — 실제 면접 화면 위에서, 미리 준비된 내용으로 «어디를 눌러서 어떻게 되는지» 순서를 보여 줍니다.
+// 선생님은 주황 테두리 단추만 누르고, 글자(질문 · 요지 · 총평 · 학교 · 이름)와 학생 답변(받아 적기)은 예시가 저절로 채워집니다.
+// 2026-10-12 선생님 말씀이 두 번 있었습니다 —
+//   ① «오른쪽 아래 다음 버튼처럼 말고 실제 버튼 누르는 것처럼» → 안내용 «다음» 단추 없이, 테두리 친 단추를 눌러야 넘어감
+//   ② «직접 만져서 돌아가는 게 아니라 미리 내용이 있고, 버튼 누르면 내용은 자동으로 예시가 뜨게. 마이크 녹음도 예시로»
+//      → 입력 · 마이크를 쓰지 않음. 칸을 누르면 예시가 쳐지고, 받아 적기는 가짜 음성 인식(guide-server.js)이 예시 답변을 «말함»
 // 저장은 가짜 서버(guide-server.js)에만 됩니다.
 //
-// 걸음 하나 = { t: 무엇을 누를지, b: 설명, at: 테두리를 두를 곳, done: 눌렀는가, auto: 대신 해 주기 }
 //   · done 이 참이 되면 저절로 다음 걸음. 장이 끝나면 잠깐 알리고 다음 장으로
-//   · 막히면 말풍선 안의 작은 «대신 해 주기» — 그 단추를 대신 눌러 다음 걸음이 꼬이지 않게 합니다
 //   · 장(章)마다 setup 이 있어서 목차에서 바로 그 장으로 건너뛰어도 화면을 알맞게 맞춰 둡니다
 //
 // ⚠️ 화면의 단추 이름 · id 를 바꾸면 여기 설명도 같이 고쳐 주세요.
@@ -31,6 +32,27 @@
     '감사합니다 오늘 면접을 준비하면서 제가 한 활동을 다시 정리할 수 있었고 대학에 가서도 궁금한 것을 직접 실험으로 확인하는 학생이 되겠습니다'
   ];
 
+  window.__guideSaid = SAID;   // 받아 적기 흉내(guide-server.js)가 질문 순서대로 이 답을 «말합니다»
+
+  // 예시 글자를 한 자씩 쳐 넣습니다 — 칸의 oninput 이 그대로 불려 화면이 실제처럼 따라옵니다
+  function typeInto(el, str) {
+    return new Promise(function (done) {
+      if (!el) { done(); return; }
+      var i = 0;
+      (function k() {
+        i = Math.min(str.length, i + 2);
+        el.value = str.slice(0, i);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        if (i < str.length) setTimeout(k, 40); else done();
+      })();
+    });
+  }
+  function choose(sel, value) {
+    if (!sel) return;
+    sel.value = value;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
   // ── 화면을 처음 상태로 (묻는 창 없이) ──
   function home() {
     if (typeof otherCloseQR === 'function') otherCloseQR();
@@ -53,6 +75,7 @@
     await loadSheet();
     if (!midQuestions.length) {
       midQuestions.push({ text: '동아리 활동에서 맡은 역할과, 그 역할을 하며 배운 점을 말해 주세요.', competency: '공동체역량' });
+      midQuestions.push({ text: '친구들과 의견이 달랐던 경험이 있다면 어떻게 풀었는지 말해 주세요.', competency: '공동체역량' });
       midQuestions.push({ text: '화학 세특의 반응 속도 탐구에서 가장 어려웠던 점은 무엇인가요?', competency: '학업역량' });
       renderQuestions();
     }
@@ -64,7 +87,8 @@
     if (!on('run') && !on('finish')) return;
     if (!startedOnce) toggleTimer();
     answers.forEach(function (a, i) {
-      if (!a.transcript) a.transcript = SAID[i % SAID.length];
+      // 예시 학생이 아직 다 말하지 않은 질문은 예시 답변을 통째로 넣습니다
+      if (!window.__guideSpoke[i]) { a.transcript = SAID[i % SAID.length]; window.__guideSpoke[i] = true; }
       if (!a.seconds) { a.seconds = 40 + (i * 17) % 50; totalSeconds += a.seconds + 15; }
     });
     stopTicking();
@@ -106,109 +130,103 @@
   function kbd(k) { return '<kbd>' + k + '</kbd>'; }
 
   // ════════════════ 장과 걸음 ════════════════
-  // 걸음마다 «실제 단추» 하나를 누르게 합니다(2026-10-12 선생님 말씀: 오른쪽 아래 «다음» 단추 말고 실제 단추를 누르는 것처럼).
-  // 그래서 읽기만 하는 걸음은 두지 않고, 알아 둘 것은 그다음 누를 단추의 설명에 붙였습니다.
+  // 2026-10-12 선생님 말씀: 직접 입력해 보는 연습이 아니라 «시뮬레이션» — 미리 준비된 내용으로,
+  // 어디 단추를 눌러서 어떻게 되는지 순서를 보여 주는 것. 그래서
+  //   · 선생님은 주황 테두리 단추만 누릅니다. 테두리 밖을 누르거나 키보드를 쳐도 화면은 그대로입니다
+  //   · real: 그 단추를 실제로 누른 것이 그대로 앱에 갑니다(면접 시작 · 저장 · 전달 …)
+  //   · act:  눌렀을 때 예시를 대신 채웁니다(질문 · 요지 · 총평 · 학교 · 이름을 한 자씩 쳐 넣음, 고르기 칸)
+  //   · after: 실제로 누른 뒤에 이어서 예시를 채웁니다(«＋ 직접 적기» → 빈 칸에 예시 질문)
+  //   · watch: 누를 것 없이 보여 주기만 하고, 다 보이면 저절로 다음(예시 학생이 말하는 받아 적기)
+  // 걸음 하나 = { t: 무엇을 누를지, b: 설명, at: 테두리를 두를 곳, done: 다 됐는가, 위의 셋 중 하나 }
+  var EX_Q = '화학 세특의 반응 속도 탐구에서 가장 어려웠던 점은 무엇인가요?';
   var CH = [
     { title: '화면 둘러보기', setup: function () { home(); }, steps: [
-      { at: '#rail-tab-other', t: '«🏫 타학교 면접» 을 눌러 보세요',
-        done: function () { return railOther; }, auto: function () { railShowOther(true); },
+      { at: '#rail-tab-other', real: true, t: '«🏫 타학교 면접» 을 눌러 보세요',
+        done: function () { return railOther; },
         b: '왼쪽 칸은 <b>학생 목록</b>입니다. 이 탭으로 우리 학교 / 다른 학교 학생 목록을 바꿉니다.<br>' +
-           '연습은 이렇게 갑니다 — <b>주황 테두리 단추를 직접 누르면</b> 다음으로 넘어갑니다.' },
-      { at: '#rail-tab-ours', t: '다시 «우리 학교» 를 누르세요',
-        done: function () { return !railOther; }, auto: function () { railShowOther(false); },
+           '이 연습은 <b>주황 테두리 단추만 누르면</b> 됩니다. 글자 · 학생 답변은 예시가 저절로 채워집니다.' },
+      { at: '#rail-tab-ours', real: true, t: '다시 «우리 학교» 를 누르세요',
+        done: function () { return !railOther; },
         b: '오른쪽 칸에는 고른 학생의 <b>준비 → 진행 → 마무리 → 리포트</b>가 차례로 나옵니다.<br>' +
            '머리말 오른쪽 끝 <b>v2026-…</b> 은 판 번호입니다. 맨 위에 «새 버전이 있습니다» 띠가 뜨면 «새로고침».' }
     ] },
 
     { title: '질문지 만들기', setup: function () { home(); }, steps: [
-      { at: '#class-chips', t: '«1반» 을 누르세요', done: function () { return pickedClass === '301'; },
-        auto: function () { pickClass('301'); },
+      { at: function () { return $('#class-chips .chip:nth-child(2)'); }, real: true, t: '«1반» 을 누르세요',
+        done: function () { return pickedClass === '301'; },
         b: '반 단추로 명단을 줄입니다. 위 칸에 학번 · 이름을 쳐서 찾아도 됩니다.' },
-      { at: function () { return rowOf('#student-list', MAIN); }, t: '«30101 김연습» 을 누르세요',
+      { at: function () { var b = rowOf('#student-list', MAIN); return b && b.querySelector('.railrow'); }, real: true, t: '«30101 김연습» 을 누르세요',
         done: function () { return target && target.id === MAIN && on('setup'); },
-        auto: function () { return pickStudent(MAIN); },
         b: '오른쪽에 그 학생의 «면접 준비» 화면이 열립니다.' },
-      { at: function () { var r = rowOf('#student-list', MAIN); return r && r.querySelector('.star'); }, t: '이름 옆 ★ 를 누르세요',
-        done: function () { return favorites[MAIN] === true; }, auto: function () { return toggleFavorite(MAIN); },
+      { at: function () { var r = rowOf('#student-list', MAIN); return r && r.querySelector('.star'); }, real: true, t: '이름 옆 ★ 를 누르세요',
+        done: function () { return favorites[MAIN] === true; },
         b: '맡은 학생은 ★ 로 담아 두면 명단 맨 위 «★ 담당 학생» 에 모입니다(계정에 남아 다른 컴퓨터에서도 같음).' +
            '<p class="gd-more">오른쪽 위에는 이 학생의 <b>지난 면접</b>(회차 — 누르면 그때 리포트)과 <b>수시 지원</b>(대학 · 학과 · 면접 날짜)이 보입니다.</p>' },
-      { at: '#opening-box', t: '첫인사 «자기소개 + 지원동기» 를 누르세요',
-        done: function () { return opening.on && opening.key === 'both'; }, auto: function () { pickOpening('both'); },
+      { at: '#opening-box .chip:nth-child(3)', real: true, t: '첫인사 «자기소개 + 지원동기» 를 누르세요',
+        done: function () { return opening.on && opening.key === 'both'; },
         b: '면접을 여는 질문입니다. 문장은 그 자리에서 고쳐 써도 되고, 고른 것을 다시 누르면 첫인사를 뺍니다.' },
-      { at: 'button[onclick^="loadCommon(\'changche\'"]', t: '«창체 질문 3개» 를 누르세요',
-        done: function () { return midQuestions.length >= 3; }, auto: function () { return loadCommon('changche', '공동체역량'); },
+      { at: 'button[onclick^="loadCommon(\'changche\'"]', real: true, t: '«창체 질문 3개» 를 누르세요',
+        done: function () { return midQuestions.length >= 3; },
         b: '추천 질문 3개가 «낼 질문» 맨 아래에 붙습니다. «전공 질문 3개» 도 같습니다.' },
-      { at: 'button[onclick^="addQuestion(\'\'"]', t: '«＋ 직접 적기» 를 누르고 질문을 적으세요',
-        enter: function () { S.mark = midQuestions.length; },
-        done: function () { var q = midQuestions[midQuestions.length - 1]; return midQuestions.length > S.mark && q && q.text.trim().length >= 4; },
-        auto: function () { addQuestion('화학 세특의 반응 속도 탐구에서 가장 어려웠던 점은 무엇인가요?', '기타'); },
-        b: '빈 칸이 «낼 질문» 맨 아래에 생기고 커서가 갑니다. 질문을 하나 적어 보세요.' },
-      { at: function () { var s = document.querySelectorAll('#q-list .qrow select'); return s[s.length - 1]; }, t: '무엇을 보는 질문인지 고르세요',
-        done: function () { var q = midQuestions[midQuestions.length - 1]; return q && q.competency !== '기타'; },
-        auto: function () { setQComp(midQuestions.length - 1, '학업역량'); renderQuestions(); },
-        b: '방금 적은 질문 오른쪽 칸에서 <b>학업역량 · 진로역량 · 공동체역량</b> 중 하나. 리포트에서 역량별로 모아 보여 줍니다. 필요 없는 질문은 «빼기».' },
-      { at: '#btn-save-sheet', t: '«질문지 저장» 을 누르세요',
-        done: sheetSaved, auto: function () { return saveSheet(); },
+      { at: 'button[onclick^="addQuestion(\'\'"]', real: true, t: '«＋ 직접 적기» 를 누르세요',
+        after: function () { var i = document.querySelectorAll('#q-list .qrow input'); return typeInto(i[i.length - 1], EX_Q); },
+        done: function () { var q = midQuestions[midQuestions.length - 1]; return q && q.text === EX_Q; },
+        b: '빈 칸이 «낼 질문» 맨 아래에 생기고, 거기에 질문을 적습니다. <span class="gd-ex">(연습에서는 예시 질문이 저절로 적힙니다)</span>' },
+      { at: function () { var s = document.querySelectorAll('#q-list .qrow select'); return s[s.length - 1]; }, t: '무엇을 보는 질문인지 고르는 칸을 누르세요',
+        act: function () { var s = document.querySelectorAll('#q-list .qrow select'); choose(s[s.length - 1], '학업역량'); },
+        done: function () { var q = midQuestions[midQuestions.length - 1]; return q && q.competency === '학업역량'; },
+        b: '<b>학업역량 · 진로역량 · 공동체역량 · 기타</b> 중 하나를 고릅니다. 리포트에서 역량별로 모아 보여 줍니다. ' +
+           '<span class="gd-ex">(연습에서는 «학업역량» 이 골라집니다)</span>' },
+      { at: '#btn-save-sheet', real: true, t: '«질문지 저장» 을 누르세요',
+        done: sheetSaved,
         b: '<b>면접은 시작되지 않고</b> 질문만 남겨 둡니다. 면접 날에는 학생만 고르면 이 질문지가 그대로 뜹니다.' +
            '<p class="gd-more">다른 질문 단추 — <b>📄 생기부에서 뽑기</b>(PDF 를 이 브라우저 안에서만 읽어 질문 후보를 뽑음, 서버에 안 올라감) · ' +
-           '<b>✍️ 학생 질문</b>(학생이 답안 연습장에 쓴 질문). 맨 아래 끝인사 «마지막으로 하고 싶은 말» 은 붙박이입니다.</p>' }
+           '<b>✍️ 학생 질문</b>(학생이 답안 연습장에 쓴 질문). 필요 없는 질문은 «빼기».</p>' }
     ] },
 
-    { title: '면접 진행 · 마이크', setup: readySetup, steps: [
-      { at: '#btn-start', t: '«질문 완료 · 면접 화면으로 →» 를 누르세요',
-        done: function () { return on('run'); }, auto: function () { return startInterview(); },
+    { title: '면접 진행 · 받아 적기', setup: readySetup, steps: [
+      { at: '#btn-start', real: true, t: '«질문 완료 · 면접 화면으로 →» 를 누르세요',
+        done: function () { return on('run'); },
         b: '화면만 넘어갑니다 — <b>아직 면접이 시작된 것은 아닙니다.</b>' },
-      { at: '#btn-timer', t: '«면접 시작» 을 누르세요',
-        done: function () { return startedOnce; }, auto: function () { toggleTimer(); },
-        b: function () {
-          return '위가 지금 낼 질문, 왼쪽은 질문 진행 상황입니다. «면접 시작» 을 누르면 «면접 전체» 시계가 흐르고 <b>이때부터 진짜 면접</b>입니다.' +
-            (!listenCtor() ? '<p class="gd-warn">이 브라우저에는 받아 적기가 없습니다. <b>크롬이나 엣지</b>로 열어 주세요(면접은 받아 적기 없이도 됩니다).</p>'
-              : listenWanted() ? '<p class="gd-more">아래 받아 적기 단추가 «🎤 받아 적기 끄기» 로 보이면 켜져 있는 것입니다. 면접 날 이것부터 확인하세요.</p>'
-              : '<p class="gd-warn">받아 적기가 꺼져 있습니다. 아래 «🎤 받아 적기 켜기» 를 눌러 켜 주세요.</p>');
-        } },
-      { at: '#btn-answer', t: '질문을 읽고 «답변 시작» 을 누르세요',
-        done: function () { return answering || (cur() && cur().seconds > 0); }, auto: function () { toggleAnswer(); },
-        b: '질문을 소리 내어 읽은 뒤, 학생이 말을 시작할 때 누릅니다(키보드 ' + kbd('Space') + '). 그때부터 «이 질문 답변» 시계와 받아 적기가 켜집니다. ' +
-           '선생님이 질문 읽는 소리는 안 적힙니다.<p class="gd-more"><b>처음 한 번은 크롬이 «마이크 사용» 을 묻습니다 → «허용».</b></p>' },
-      { at: '#livebox', t: '학생인 셈 치고 말해 보세요', autoLabel: '마이크가 없어요 · 건너뛰기',
-        done: function () { return !!(cur() && cur().transcript); },
-        auto: function () { listenAppend(qIndex, SAID[0]); listenPaint(); },
-        b: function () {
-          // 마이크가 막혀 꺼진 것이면 «왜» 를 먼저(listen.js 의 LISTEN.hint — 자물쇠 → 허용)
-          var warn = !listenCtor() ? '이 브라우저에는 받아 적기가 없습니다 — 크롬 · 엣지에서 해 보세요.'
-                   : LISTEN.hint ? LISTEN.hint + (listenWanted() ? '' : ' 그다음 «🎤 받아 적기 켜기».')
-                   : !listenWanted() ? '받아 적기가 꺼져 있습니다. «🎤 받아 적기 켜기» 를 누르세요.' : '';
-          return (warn ? '<p class="gd-warn">' + warn + '</p>' : '') +
-            '«안녕하세요, 저는 …» 하고 말해 보세요. 이 칸에 글이 뜨면 마이크가 잘 되는 것입니다.' +
-            '<ul><li>노트북 안의 마이크는 책상 건너편 목소리를 잘 못 잡습니다 → <b>USB · 블루투스 마이크를 학생 쪽에</b></li>' +
-            '<li>스피커 소리(영상 등)는 안 적힙니다 · 인터넷이 있어야 합니다</li>' +
-            '<li>받아 적은 글은 틀린 데가 있을 수 있습니다</li></ul>';
-        } },
-      { at: '#rating-area', t: '«우수 · 보통 · 미흡» 중 하나를 누르세요',
-        done: function () { return !!(cur() && cur().rating); }, auto: function () { pickRating('보통'); },
+      { at: '#btn-timer', real: true, t: '«면접 시작» 을 누르세요',
+        done: function () { return startedOnce; },
+        b: '위가 지금 낼 질문, 왼쪽은 질문 진행 상황입니다. «면접 시작» 을 누르면 «면접 전체» 시계가 흐르고 <b>이때부터 진짜 면접</b>입니다.' +
+           '<p class="gd-more">아래 받아 적기 단추가 «🎤 받아 적기 끄기» 로 보이면 켜져 있는 것입니다. 면접 날 이것부터 확인하세요.</p>' },
+      { at: '#btn-answer', real: true, t: '질문을 읽어 준 뒤 «답변 시작» 을 누르세요',
+        done: function () { return answering; },
+        b: '선생님이 질문을 소리 내어 읽고, 학생이 말을 시작할 때 누릅니다(키보드 ' + kbd('Space') + '). ' +
+           '«이 질문 답변» 시계와 <b>받아 적기</b>가 켜집니다. 선생님이 질문 읽는 소리는 안 적힙니다.' +
+           '<p class="gd-more">실제로는 처음 한 번 크롬이 «마이크 사용» 을 묻습니다 → «허용».</p>' },
+      { at: '#livebox', watch: true, t: '학생이 말하면 이렇게 적힙니다',
+        done: function () { return !!window.__guideSpoke[qIndex] && !LISTEN.interim; },
+        b: '<span class="gd-ex">(예시 학생 답변이 흘러나오는 중 — 잠깐 보세요)</span> 회색 글은 아직 알아듣는 중, 검은 글은 굳은 글입니다.' +
+           '<ul><li>노트북 안의 마이크는 책상 건너편 목소리를 잘 못 잡습니다 → <b>USB · 블루투스 마이크를 학생 쪽에</b></li>' +
+           '<li>스피커 소리(영상 등)는 안 적힙니다 · 인터넷이 있어야 합니다</li>' +
+           '<li>받아 적은 글은 틀린 데가 있을 수 있습니다</li></ul>' },
+      { at: '#rating-area', real: true, t: '«우수 · 보통 · 미흡» 중 하나를 누르세요',
+        done: function () { return !!(cur() && cur().rating); },
         b: '들으면서 크게 하나만. 키보드 ' + kbd('1') + ' ' + kbd('2') + ' ' + kbd('3') + ' 도 됩니다. 다시 누르면 지워집니다. ' +
            '<b>안 눌러도 됩니다</b> — 끝난 뒤 받아 적은 글을 보며 매겨도 됩니다.' },
-      { at: '#area-grid', t: '영역 줄에서 «좋음 · 보통 · 아쉬움» 하나를 누르세요',
+      { at: '#area-grid', real: true, t: '영역 줄에서 «좋음 · 보통 · 아쉬움» 하나를 누르세요',
         done: function () { return !!(cur() && Object.keys(cur().areas || {}).length); },
-        auto: function () { pickArea(qIndex, '내용', '좋음'); },
         b: '내용 · 근거 · 말하기 · 태도 · 전공 연결 — 눈에 띈 줄만 눌러도 됩니다.' },
-      { at: '#answer-memo', t: '평가 · 답변 요지를 한 줄 적어 보세요', autoLabel: '안 적고 넘어가기',
-        done: function () { return !!(cur() && cur().memo && cur().memo.trim()); },
-        auto: function () { var m = $('#answer-memo'); m.value = '동기가 또렷함. 결론을 먼저 말하면 더 좋겠음.'; setMemo(m); },
-        b: '<b>학생 리포트에 그대로 들어갑니다.</b> 안 적어도 됩니다.' },
-      { at: '#btn-next', t: '«다음 질문 →» 을 누르세요',
-        done: function () { return qIndex >= 1 || on('finish'); }, auto: function () { return nextQuestion(); },
+      { at: '#answer-memo', t: '«평가 · 답변 요지» 칸을 누르세요',
+        act: function () { return typeInto($('#answer-memo'), '지원 동기가 또렷함. 결론을 먼저 말하면 더 좋겠음.'); },
+        done: function () { return !!(cur() && cur().memo === '지원 동기가 또렷함. 결론을 먼저 말하면 더 좋겠음.'); },
+        b: '한두 줄 적습니다 — <b>학생 리포트에 그대로 들어갑니다.</b> 안 적어도 됩니다. <span class="gd-ex">(연습에서는 예시가 적힙니다)</span>' },
+      { at: '#btn-next', real: true, t: '«다음 질문 →» 을 누르세요',
+        done: function () { return qIndex >= 1 || on('finish'); },
         b: '키보드 ' + kbd('→') + ' 도 됩니다. 답변 시계와 받아 적기가 멈추고 다음 질문으로 갑니다.' },
-      { at: '#btn-answer', t: '새 질문을 읽고 다시 «답변 시작»',
-        done: function () { return qIndex >= 1 && (answering || (cur() && cur().seconds > 0)) || on('finish'); },
-        auto: function () { toggleAnswer(); },
-        b: '«면접 전체» 는 계속 흐르고, «이 질문 답변» 은 멈춘 채 기다립니다.' +
+      { at: '#btn-answer', real: true, t: '새 질문을 읽어 주고 다시 «답변 시작»',
+        done: function () { return qIndex >= 1 && answering || on('finish'); },
+        b: '«면접 전체» 는 계속 흐르고, «이 질문 답변» 은 멈춘 채 기다립니다. 질문마다 이 순서입니다.' +
            '<p class="gd-more">잠깐 멈출 일이 생기면 «일시정지» → «이어서». 면접 도중 질문을 더하거나 고치려면 첫 질문의 «← 질문 고치기» — 매긴 평가는 그대로 남습니다.</p>' },
-      { at: '#btn-next', t: '끝까지 가서 «면접 마무리 →» 를 누르세요', autoLabel: '남은 질문 건너뛰고 마무리로',
-        done: function () { return on('finish'); }, auto: fastFinish,
-        b: '남은 질문도 «답변 시작» → (학생 답변) → «다음 질문 →». 마지막 질문에서는 이 단추가 <b>«면접 마무리 →»</b> 로 바뀝니다.' +
-           '<p class="gd-more">키보드: ' + kbd('1') + kbd('2') + kbd('3') + ' 판정 · ' + kbd('Space') + ' 답변 시작/끝 · ' + kbd('→') + ' 다음 · ' + kbd('←') + ' 이전 ' +
-           '(글자 칸에 커서가 있으면 글자로 들어감)</p>' }
+      { at: '#btn-next', t: '남은 질문도 같은 순서 — «다음 질문 →» 을 누르세요',
+        act: fastFinish,
+        done: function () { return on('finish'); },
+        b: '«답변 시작» → (학생 답변) → «다음 질문 →» 을 되풀이하고, 마지막 질문에서는 이 단추가 <b>«면접 마무리 →»</b> 로 바뀝니다. ' +
+           '<span class="gd-ex">(연습에서는 남은 질문을 예시 답변으로 채우고 마무리 화면으로 갑니다)</span>' +
+           '<p class="gd-more">키보드: ' + kbd('1') + kbd('2') + kbd('3') + ' 판정 · ' + kbd('Space') + ' 답변 시작/끝 · ' + kbd('→') + ' 다음 · ' + kbd('←') + ' 이전</p>' }
     ] },
 
     { title: '마무리 · 리포트 전달', setup: async function () {
@@ -216,107 +234,105 @@
         await readySetup();
         await fastFinish();
       }, steps: [
-      { at: '#answer-summary .ansrow .eg-row', t: '좋았던 점 · 아쉬운 점 단추를 하나 누르세요',
+      { at: '#answer-summary .ansrow .eg-row', real: true, t: '좋았던 점 · 아쉬운 점 단추를 하나 누르세요',
         done: function () { return answers.some(function (a) { return a.good.length || a.bad.length; }); },
-        auto: function () { var c = $('#answer-summary .eg-chips .chip.good'); if (c) c.click(); },
         b: '질문마다 위에 <b>«학생이 말한 내용(받아 적은 것)»</b> 이 있습니다. 그걸 보며 영역 줄마다 해당하는 단추를 누릅니다(다시 누르면 빠짐). ' +
            '면접 중에 누른 것은 그대로 와 있고, 아래 «이 답변은» · 요지 칸도 여기서 고칩니다.' },
-      { at: '#scoresheet', t: '채점표에서 A ~ E 를 하나 누르세요',
+      { at: '#scoresheet', real: true, t: '채점표에서 A ~ E 를 하나 누르세요',
         done: function () { return Object.keys(grades).length > 0; },
-        auto: function () { var g = document.querySelectorAll('#scoresheet .scorerow .gbtn')[1]; if (g) g.click(); },
         b: '평가요소 6줄 — <b>다 안 찍어도 됩니다.</b>' },
-      { at: '#finish-note', t: '한 줄 총평을 적어 보세요', autoLabel: '안 쓰고 넘어가기',
-        done: function () { return !!$('#finish-note').value.trim(); },
-        auto: function () { $('#finish-note').value = '경험은 풍부한데 결론을 먼저 말하는 연습이 필요합니다.'; },
-        b: '학생에게 남길 한마디입니다. 안 써도 됩니다.' },
-      { at: '#btn-finish', t: '«면접 끝내기 · 리포트 보기 →» 를 누르세요',
-        done: function () { return on('report') && !!viewing; }, auto: function () { return finishInterview(); },
+      { at: '#finish-note', t: '«한 줄 총평» 칸을 누르세요',
+        act: function () { return typeInto($('#finish-note'), '경험은 풍부한데 결론을 먼저 말하는 연습이 필요합니다.'); },
+        done: function () { return $('#finish-note').value === '경험은 풍부한데 결론을 먼저 말하는 연습이 필요합니다.'; },
+        b: '학생에게 남길 한마디입니다. 안 써도 됩니다. <span class="gd-ex">(연습에서는 예시가 적힙니다)</span>' },
+      { at: '#btn-finish', real: true, t: '«면접 끝내기 · 리포트 보기 →» 를 누르세요',
+        done: function () { return on('report') && !!viewing; },
         b: '평가를 한꺼번에 저장하고 리포트 한 장으로 보여 줍니다. <b>아직 학생에게 가지 않습니다.</b>' },
-      { at: '#btn-deliver', t: '«학생에게 전달» 을 누르세요',
+      { at: '#btn-deliver', real: true, t: '«학생에게 전달» 을 누르세요',
         done: function () { return !!(viewing && viewing.interview && viewing.interview.status === '전달됨'); },
-        auto: function () { return deliverReport(); },
         b: '위가 학생이 받을 리포트 그대로입니다(맨 위 «인쇄» 로 종이 · PDF, 고칠 것은 «← 채점표 고치기»). ' +
            '<b>전달을 눌러야 학생 폰 «내 면접 리포트» 에 보입니다.</b>' +
            '<p class="gd-more">보낸 뒤에 고치면 리포트에 «고친 날» 이 남습니다. 잘못 시작한 면접은 «이 리포트 지우기».</p>' }
     ] },
 
     { title: '창이 닫혔을 때', setup: async function () { plantUnfinished(); home(); await sleep(200); }, steps: [
-      { at: '#unfinished', t: '«이보기 … 이어서 하기 →» 를 누르세요',
+      { at: '#unfinished-list button[onclick*="guide-resume"]', real: true, t: '«이보기 … 이어서 하기 →» 를 누르세요',
         done: function () { return on('run') && target && target.id === RESUME; },
-        auto: function () { return resumeInterview('guide-resume'); },
         b: '면접 도중 창이 닫히거나 노트북이 꺼져도 괜찮습니다. 면접ON 을 다시 열면 첫 화면에 <b>«끝내지 못한 면접이 있습니다»</b> 가 뜹니다.' },
-      { at: '#btn-timer', t: '«이어서» 를 누르세요',
-        done: function () { return ticking; }, auto: function () { toggleTimer(); },
+      { at: '#btn-timer', real: true, t: '«이어서» 를 누르세요',
+        done: function () { return ticking; },
         b: '매긴 평가 · 받아 적은 글 · 질문은 그대로이고, <b>아직 안 매긴 질문</b>에 가 있습니다. 시계는 멈춰 있어서 «이어서» 를 눌러야 흐릅니다.' }
     ] },
 
     { title: '🏫 타학교 면접', setup: function () { home(); }, steps: [
-      { at: '#rail-tab-other', t: '«🏫 타학교 면접» 을 누르세요',
-        done: function () { return railOther; }, auto: function () { railShowOther(true); },
+      { at: '#rail-tab-other', real: true, t: '«🏫 타학교 면접» 을 누르세요',
+        done: function () { return railOther; },
         b: '다른 학교 학생은 명단 · 계정 없이 <b>학교 · 이름 · 희망 전공</b>만 적고 같은 화면으로 면접합니다.' },
-      { at: '.otheradd', t: '«＋ 타학교 학생 더하기» 를 누르세요',
-        done: function () { return target && target.other && on('setup'); }, auto: function () { otherNew(); },
+      { at: '.otheradd', real: true, t: '«＋ 타학교 학생 더하기» 를 누르세요',
+        done: function () { return target && target.other && on('setup'); },
         b: '목록은 이 학교 선생님 모두가 같이 봅니다 — 면접 날 나눠 맡으시라고.' },
-      { at: '.otherform', t: '학교 · 이름 · 희망 전공을 적으세요',
-        done: function () { return target && target.other && String(target.name).trim() && String(target.school).trim(); },
-        auto: function () {
-          [['other-school', '한빛고', otherSetSchool], ['other-name', '홍길동', otherSetName], ['other-major', '컴퓨터공학과', otherSetMajor]]
-            .forEach(function (f) { var el = document.getElementById(f[0]); if (!el.value.trim()) el.value = f[1]; f[2](el); });
+      { at: '.otherform', t: '학교 · 이름 · 희망 전공 칸을 누르세요',
+        act: async function () {
+          await typeInto($('#other-school'), '한빛고');
+          await typeInto($('#other-name'), '홍길동');
+          await typeInto($('#other-major'), '컴퓨터공학과');
         },
-        b: '예: 한빛고 · 홍길동 · 컴퓨터공학과. 이름은 꼭 있어야 합니다. 다음 학생부터 학교 칸은 마지막에 적은 학교로 채워져 있습니다.' },
-      { at: '.otheracts', t: '«명단 저장» 을 누르세요',
-        done: function () { return target && target.other && !!target.ivId; }, auto: function () { return otherSaveRoster(false); },
-        b: '칸에서 ' + kbd('Enter') + ' 도 됩니다. 여러 명을 넣을 땐 <b>«저장하고 다음 학생 ＋»</b> — 학교는 그대로 두고 이름 칸으로 갑니다.' },
-      { at: '.btnrow button[onclick="otherTogglePaste()"]', t: '«📋 여러 질문 붙여넣기» 를 누르세요',
-        done: function () { return !$('#other-paste').hidden || midQuestions.length >= 2; }, auto: function () { otherTogglePaste(); },
+        done: function () { return target && target.other && target.name === '홍길동' && target.school === '한빛고' && target.major === '컴퓨터공학과'; },
+        b: '세 칸을 적습니다. 이름은 꼭 있어야 합니다. <span class="gd-ex">(연습에서는 예시가 적힙니다)</span>' +
+           '<p class="gd-more">다음 학생부터 학교 칸은 마지막에 적은 학교로 채워져 있습니다.</p>' },
+      { at: '.otheracts .btn.solid', real: true, t: '«명단 저장» 을 누르세요',
+        done: function () { return target && target.other && !!target.ivId; },
+        b: '칸에서 ' + kbd('Enter') + ' 도 됩니다. 여러 명을 넣을 땐 옆의 <b>«저장하고 다음 학생 ＋»</b> — 학교는 그대로 두고 이름 칸으로 갑니다.' },
+      { at: '.btnrow button[onclick="otherTogglePaste()"]', real: true, t: '«📋 여러 질문 붙여넣기» 를 누르세요',
+        done: function () { return !$('#other-paste').hidden; },
         b: '생기부로 따로 만들어 온 질문을 한꺼번에 넣는 단추입니다.' },
-      { at: '#other-paste', t: '질문을 붙여 넣고 ««낼 질문» 에 넣기» 를 누르세요',
-        done: function () { return midQuestions.length >= 2; },
-        extra: { label: '예시 질문 붙여 넣기', fn: function () {
-          $('#other-paste-text').value = '1. 탐구 주제를 고른 까닭은 무엇인가요?\n2) 그 실험에서 가장 어려웠던 점은?\nQ3. 희망 전공과 이어지는 활동을 하나 소개해 주세요.';
-        } },
-        auto: function () {
-          var ta = $('#other-paste-text');
-          if (!ta.value.trim()) ta.value = '1. 탐구 주제를 고른 까닭은 무엇인가요?\n2) 그 실험에서 가장 어려웠던 점은?';
-          if ($('#other-paste').hidden) otherTogglePaste();
-          otherPasteAdd();
-        },
-        b: '한 줄에 질문 하나씩. 앞 번호(1. 2) Q3.)는 저절로 떼어지고, 같은 질문은 건너뜁니다.' },
-      { at: '#btn-save-sheet', t: '«질문지 저장» 을 누르세요',
-        done: sheetSaved, auto: function () { return saveSheet(); },
+      { at: '#other-paste-text', t: '질문을 붙여 넣는 칸을 누르세요',
+        act: function () { return typeInto($('#other-paste-text'), '1. 탐구 주제를 고른 까닭은 무엇인가요?\n2) 그 실험에서 가장 어려웠던 점은?\nQ3. 희망 전공과 이어지는 활동을 하나 소개해 주세요.'); },
+        done: function () { return /Q3\. 희망 전공과 이어지는 활동을 하나 소개해 주세요\.$/.test($('#other-paste-text').value); },
+        b: '따로 만들어 온 질문을 한 줄에 하나씩 붙여 넣습니다(한글 · 메모장에서 복사 → ' + kbd('Ctrl') + '+' + kbd('V') + '). ' +
+           '<span class="gd-ex">(연습에서는 예시 질문 세 줄이 들어갑니다)</span>' },
+      { at: '#other-paste .btn.solid', real: true, t: '««낼 질문» 에 넣기» 를 누르세요',
+        done: function () { return midQuestions.length >= 3; },
+        b: '앞 번호(1. · 2) · Q3.)는 저절로 떼어지고, 같은 질문은 건너뜁니다.' },
+      { at: '#btn-save-sheet', real: true, t: '«질문지 저장» 을 누르세요',
+        done: sheetSaved,
         b: '면접 날 왼쪽 목록에서 학생을 누르기만 하면 이 질문지가 뜹니다.' +
            '<p class="gd-more">왼쪽 목록은 학교별로 묶여 접히고, 줄마다 ★(담당 학생) · 🗑(지우기) · 어디까지 했는지(질문 준비 / 면접 중 / QR 아직 / QR 줌)가 붙습니다.</p>' },
-      { at: '#btn-start', t: '면접은 우리 학교와 똑같습니다', autoLabel: '마무리 화면까지 빨리 넘기기',
-        done: function () { return on('finish'); }, auto: fastFinish,
-        b: '«질문 완료 · 면접 화면으로 →» → «면접 시작» → «답변 시작» … 직접 해 보셔도 되고, 앞 장에서 해 보셨다면 아래로 마무리 화면까지 건너뛰세요.' },
-      { at: '#btn-finish', t: '«면접 끝내기 · 리포트 보기 →» 를 누르세요',
-        done: function () { return on('report') && !!viewing; }, auto: function () { return finishInterview(); },
+      { at: '#btn-start', t: '«질문 완료 · 면접 화면으로 →» 를 누르세요',
+        act: fastFinish,
+        done: function () { return on('finish'); },
+        b: '면접 진행 · 받아 적기 · 마무리는 <b>우리 학교 면접과 똑같습니다</b>(2장 · 3장). ' +
+           '<span class="gd-ex">(연습에서는 면접을 예시 답변으로 채우고 마무리 화면으로 건너뜁니다)</span>' },
+      { at: '#btn-finish', real: true, t: '«면접 끝내기 · 리포트 보기 →» 를 누르세요',
+        done: function () { return on('report') && !!viewing; },
         b: '채점표 · 총평은 우리 학교와 같습니다. 끝내면 평가서 한 장이 나옵니다.' },
-      { at: '#btn-deliver', t: '«📱 QR 로 평가서 주기» 를 누르세요',
-        done: function () { return $('#qr-overlay').style.display === 'flex'; }, auto: function () { return deliverReport(); },
+      { at: '#btn-deliver', real: true, t: '«📱 QR 로 평가서 주기» 를 누르세요',
+        done: function () { return $('#qr-overlay').style.display === 'flex'; },
         b: '«학생에게 전달» 자리에 이 단추가 있습니다. 누르면 큰 QR 이 뜹니다.' },
-      { at: '.qr-btns .btn.solid', t: '학생이 찍었으면 «닫기»', prefer: ['right', 'left', 'below'], tipBeside: '.qr-card',
-        done: function () { return $('#qr-overlay').style.display !== 'flex'; }, auto: function () { otherCloseQR(); },
+      { at: '.qr-btns .btn.solid', real: true, t: '학생이 찍었으면 «닫기»', prefer: ['right', 'left', 'below'], tipBeside: '.qr-card',
+        done: function () { return $('#qr-overlay').style.display !== 'flex'; },
         b: '학생이 휴대폰 <b>기본 카메라</b>로 QR 을 찍으면 로그인 없이 평가서가 열리고 «📄 PDF로 저장» 으로 받습니다 ' +
            '(카톡 · 네이버 앱 안에서는 PDF 저장이 안 될 수 있음 → «인쇄창으로 저장»).<br>' +
            '<b>QR 을 보여 준 때부터 24시간만</b> 열리고 그 뒤엔 서버에서 지워집니다 — 그 자리에서 바로 저장하게 해 주세요.' +
            '<p class="gd-warn">연습 QR 은 찍어도 열리지 않습니다(가짜 서버라서).</p>' },
-      { at: '#btn-deliver', t: '못 찍었으면 — «📱 QR 다시 보기»',
-        done: function () { return $('#qr-overlay').style.display === 'flex'; }, auto: function () { return deliverReport(); },
+      { at: '#btn-deliver', real: true, t: '못 찍었으면 — «📱 QR 다시 보기»',
+        done: function () { return $('#qr-overlay').style.display === 'flex'; },
         b: '같은 QR 이 다시 뜨고, 그때부터 다시 24시간 열립니다.' },
-      { at: '.qr-btns .btn.solid', t: '«닫기» 를 누르세요', prefer: ['right', 'left', 'below'], tipBeside: '.qr-card',
-        done: function () { return $('#qr-overlay').style.display !== 'flex'; }, auto: function () { otherCloseQR(); },
+      { at: '.qr-btns .btn.solid', real: true, t: '«닫기» 를 누르세요', prefer: ['right', 'left', 'below'], tipBeside: '.qr-card',
+        done: function () { return $('#qr-overlay').style.display !== 'flex'; },
         b: '«이 리포트 지우기» 는 <b>평가만</b> 지우고 학생 · 질문은 남깁니다. 학생째 지우려면 목록의 🗑 또는 «○○고 N명 모두 지우기».' }
     ] }
   ];
   window.__guideChapters = CH;   // 화면 시험(check-guide.js)이 걸음마다 확인합니다
 
   // ════════════════ 말풍선 ════════════════
-  // 눌러야 할 단추에 주황 테두리(.gd-ring)를 두르고, 그 바로 옆에 말풍선(.gd-tip)을 붙입니다 — 화살표가 단추를 가리킵니다.
-  // 넘어가는 것은 오직 선생님이 그 단추를 실제로 눌렀을 때(화면 상태가 바뀐 것을 보고 압니다).
-  // 막히면 말풍선 안의 작은 «대신 해 주기». 왼쪽 아래 작은 띠(.gd-dock)에 «목차 · 안내 숨기기».
-  var S = { ch: -1, st: 0, hide: false, busy: false, flash: 0, doneCh: {}, mark: 0, place: '' };
-  window.__guideState = function () { return { ch: S.ch, st: S.st, busy: S.busy, place: S.place }; };   // 화면 시험용
+  // 눌러야 할 곳에 주황 테두리(.gd-ring), 그 바로 옆에 화살표 달린 말풍선(.gd-tip).
+  // 넘어가는 것은 선생님이 테두리 친 곳을 눌렀을 때뿐 — «다음» 같은 안내용 단추는 없습니다.
+  // 테두리 밖을 누르면 아무 일도 안 일어나고 말풍선이 한 번 흔들립니다. 키보드도 막아 둡니다(시뮬레이션이 흐트러지지 않게).
+  // 왼쪽 아래 작은 띠(.gd-dock)에 지금 몇 장 몇 걸음 · «목차».
+  var S = { ch: -1, st: 0, busy: false, flash: 0, doneCh: {}, place: '' };
+  window.__guideState = function () { return { ch: S.ch, st: S.st, busy: S.busy || !!S.doneAt, place: S.place }; };   // 화면 시험용 (busy = 아직 누를 때가 아님)
+  window.__guideTarget = function () { return target_(); };
   var ring, tip, dock, panel;
 
   function build() {
@@ -331,8 +347,49 @@
     var brand = $('.brand');
     if (brand) brand.insertAdjacentHTML('afterend', '<span class="gd-badge">연습 모드 · 저장 안 됨</span>');
     var out = document.querySelector('.top button[onclick="teacherLogout()"]');
-    if (out) { out.textContent = '연습 끝내기'; out.setAttribute('onclick', ''); out.onclick = quit; }
+    if (out) { out.textContent = '연습 끝내기'; out.id = 'gd-quit'; out.setAttribute('onclick', ''); out.onclick = quit; }
     var chat = $('#chat-open'); if (chat) chat.style.display = 'none';
+
+    // ── 화면 만지기 거르기 — 테두리 친 곳만 ──
+    ['pointerdown', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu'].forEach(function (kind) {
+      document.addEventListener(kind, gate, true);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (mine(e.target)) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+    }, true);
+  }
+
+  function mine(node) { return !!(node && node.closest && node.closest('.gd-tip, .gd-dock, .gd-panel, #gd-quit')); }
+  function inTarget(node) { var el = target_(); return !!(el && node && (el === node || el.contains(node))); }
+
+  function gate(e) {
+    if (mine(e.target)) return;
+    var s = step();
+    var ok = s && !S.busy && panel.hidden && !s.watch && inTarget(e.target);
+    if (ok && s.real) {
+      // 실제로 누른 것을 그대로 앱에 보냅니다. 누른 뒤 이어서 채울 예시가 있으면(after) 그다음에
+      if (e.type === 'click' && s.after) {
+        S.busy = true;
+        setTimeout(function () { Promise.resolve(s.after()).catch(console.error).then(function () { S.busy = false; }); }, 60);
+      }
+      return;
+    }
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (e.type !== 'click') return;
+    if (ok && s.act) {
+      // 눌렀으니 예시를 채웁니다(글자 쳐 넣기 · 고르기 칸)
+      S.busy = true;
+      Promise.resolve(s.act()).catch(console.error).then(function () { S.busy = false; });
+      return;
+    }
+    nudge();
+  }
+
+  // 테두리 밖을 눌렀을 때 — 말풍선이 «여기를 누르세요» 하고 한 번 흔들립니다
+  function nudge() {
+    if (tip.hidden) return;
+    tip.classList.remove('gd-nudge'); void tip.offsetWidth; tip.classList.add('gd-nudge');
   }
 
   function quit() { location.href = 'guide.html'; }
@@ -370,18 +427,16 @@
     dock.innerHTML = '<span class="gd-cap">🎓 연습 면접</span>' +
       (s ? '<span class="gd-where">' + S.ch + '. ' + esc(CH[S.ch].title) + ' · ' + (S.st + 1) + ' / ' + CH[S.ch].steps.length + '</span>' : '') +
       '<button class="gd-x" data-act="menu">목차</button>' +
-      (s ? '<button class="gd-x" data-act="hide">' + (S.hide ? '안내 보이기' : '안내 숨기기') + '</button>' : '');
+      (s ? '<button class="gd-x" data-act="go" data-ch="' + S.ch + '">이 장 처음부터</button>' : '');
   }
 
   function paintTip() {
     var s = step();
-    if (!s || S.hide) { tip.hidden = true; return; }
+    if (!s) { tip.hidden = true; return; }
     tip.hidden = false;
     tip.innerHTML = '<span class="gd-arrow"></span>' +
-      '<h3 class="gd-t">👉 ' + esc(s.t) + '</h3>' +
-      '<div class="gd-b">' + text(s.b) + '</div>' +
-      (s.extra ? '<button class="gd-extra" data-act="extra">' + esc(s.extra.label) + '</button>' : '') +
-      '<div class="gd-foot"><button class="gd-auto" data-act="auto">' + esc(s.autoLabel || '잘 안 되면 · 대신 해 주기') + '</button></div>';
+      '<h3 class="gd-t">' + (s.watch ? '👀 ' : '👉 ') + esc(s.t) + '</h3>' +
+      '<div class="gd-b">' + text(s.b) + '</div>';
     tip.dataset.flash = S.flash > Date.now() ? 'yes' : 'no';
   }
 
@@ -390,7 +445,7 @@
   function menuHTML() {
     return '<h3 class="gd-t">어디부터 해 볼까요?</h3>' +
       '<p class="gd-b">실제 면접 화면 그대로입니다. 가짜 학생으로 연습하고, <b>실제 서버에는 아무것도 저장되지 않습니다.</b> ' +
-      '주황 테두리가 둘러진 단추를 직접 누르면 다음으로 넘어갑니다.</p>' +
+      '<b>주황 테두리 단추만 누르면</b> 어디를 눌러 무엇이 되는지 순서대로 보입니다. 글자 · 학생 답변(받아 적기)은 예시가 저절로 채워집니다.</p>' +
       '<ol class="gd-menu">' + CH.map(function (c, i) {
         return '<li><button data-act="go" data-ch="' + i + '">' +
           '<span class="n">' + i + '</span><span class="nm">' + esc(c.title) + '</span>' +
@@ -400,7 +455,7 @@
 
   async function goChapter(i) {
     S.busy = true;
-    S.ch = i; S.st = 0; S.hide = false;
+    S.ch = i; S.st = 0;
     showPanel('<p class="gd-b" style="margin:4px 0">' + i + '. ' + esc(CH[i].title) + ' — 화면을 맞추는 중…</p>');
     try { await CH[i].setup(); } catch (e) { console.error(e); }
     await sleep(150);
@@ -412,6 +467,7 @@
   function enter() {
     var s = step();
     if (!s) return;
+    S.doneAt = 0;
     if (s.enter) s.enter();
     lastDyn = text(s.b);
     paintDock();
@@ -447,22 +503,14 @@
     setTimeout(function () { goChapter(next); }, 1800);
   }
 
-  async function onClick(e) {
+  // 말풍선 · 아래 띠 · 가운데 창의 단추(목차 · 장 고르기 · 설명서로)
+  function onClick(e) {
     var b = e.target.closest('[data-act]');
     if (!b || S.busy) return;
-    var act = b.dataset.act, s = step();
-    if (act === 'hide') { S.hide = !S.hide; paintDock(); paintTip(); place(); return; }
+    var act = b.dataset.act;
     if (act === 'menu') { S.ch = -1; paintDock(); showPanel(menuHTML()); return; }
     if (act === 'quit') { quit(); return; }
     if (act === 'go') { goChapter(Number(b.dataset.ch)); return; }
-    if (act === 'extra' && s && s.extra) { s.extra.fn(); return; }
-    if (act === 'auto' && s) {
-      S.busy = true;
-      try { await s.auto(); } catch (err) { console.error(err); }
-      await sleep(250);
-      S.busy = false;
-      if (isDone(s)) advance();
-    }
   }
 
   // ── 0.25초마다: 선생님이 눌렀으면 넘기고, 테두리 · 말풍선 자리를 맞춥니다 ──
@@ -471,9 +519,16 @@
     if (S.busy) return;
     var s = step();
     if (!s || !panel.hidden) return;
-    if (isDone(s)) { advance(); return; }
+    // 다 됐으면 잠깐 두고 넘깁니다 — 예시가 채워진 걸음(글자 · 받아 적기)은 1초, 단추는 0.3초.
+    // 바로 넘기면 다음 말풍선이 방금 적힌 예시를 덮어 무엇이 됐는지 못 봅니다
+    if (isDone(s)) {
+      if (!S.doneAt) S.doneAt = Date.now();
+      if (Date.now() - S.doneAt >= (s.act || s.after || s.watch ? 1000 : 300)) advance();
+      return;
+    }
+    S.doneAt = 0;
     // 설명이 화면 상태에 따라 바뀌는 걸음(마이크 안내 등)은 바뀌었을 때만 다시 씁니다
-    if (typeof s.b === 'function' && !S.hide) {
+    if (typeof s.b === 'function') {
       var now = text(s.b);
       if (now !== lastDyn) { lastDyn = now; var box = tip.querySelector('.gd-b'); if (box) box.innerHTML = now; }
     }
@@ -483,7 +538,7 @@
   function place() { placeRing(); placeTip(); }
 
   function placeRing() {
-    var el = (S.hide || !panel.hidden) ? null : target_();
+    var el = !panel.hidden ? null : target_();
     if (!el) { ring.hidden = true; return; }
     var r = rectOf(el), pad = 6;
     ring.hidden = false;

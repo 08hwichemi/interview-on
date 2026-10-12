@@ -5,7 +5,7 @@
 //   · 실제 서버(Supabase)에는 아무것도 가지 않습니다 — 요청도, 로그도 없습니다
 //   · 학생은 모두 가짜입니다(김연습 · 이보기 …). 실제 학생 이름이 나오지 않습니다
 //   · 창을 새로 고치면 처음으로 돌아갑니다
-//   · 받아 적기(마이크)는 진짜로 켜집니다 — 면접 전에 마이크를 시험해 보시라고
+//   · 마이크는 쓰지 않습니다. 받아 적기는 «예시 학생 목소리» 가 흘러나오는 흉내입니다(아래 FakeSpeech)
 //
 // 짜임은 화면 시험의 가짜 서버(tools/화면-시험/stub5.js)를 옮겨 온 것입니다.
 // 앱이 새 표나 새 거르기(.gt 같은 것)를 쓰기 시작하면 여기에도 더해 주세요.
@@ -29,6 +29,47 @@
     Object.defineProperty(window, 'localStorage', { value: memoryStorage(), configurable: true });
     Object.defineProperty(window, 'sessionStorage', { value: memoryStorage(), configurable: true });
   } catch (e) { /* 못 바꾸면 그냥 둡니다 — 연습은 그대로 됩니다 */ }
+
+  // ── 받아 적기 흉내 ──
+  // 설명서는 «보여 주는» 시뮬레이션이라(2026-10-12 선생님 말씀 — 마이크 녹음도 예시로 어떻게 되는지 보여 주고 싶다)
+  // 크롬의 음성 인식 자리에 가짜를 끼웁니다. «답변 시작» 을 누르면 예시 답변이 한 낱말씩 회색(확정 전)으로 뜨다가
+  // 몇 낱말마다 검은 글(확정)로 굳습니다 — 실제 받아 적기와 같은 모양. 마이크 허용도 묻지 않습니다.
+  // 무엇을 말할지는 guide-coach.js 가 window.__guideSaid 에 질문 순서대로 넣어 둡니다.
+  // 다 말하면 window.__guideSpoke[질문 번호] = true
+  window.__guideSpoke = {};
+  function FakeSpeech() { this.timer = null; }
+  FakeSpeech.prototype.start = function () {
+    var me = this;
+    var qi = typeof window.qIndex === 'number' ? window.qIndex : 0;
+    var said = window.__guideSaid || ['안녕하세요 저는 연습 학생입니다'];
+    if (window.__guideSpoke[qi]) return;              // 이 질문은 이미 다 말함 — 조용히 듣기만
+    // 듣기가 끊겼다 다시 켜지면(질문 저장 등) 처음부터가 아니라 말하던 데서 잇습니다 — 끊길 때의 회색 글은 listen.js 가 이미 붙입니다
+    window.__guideSpeechAt = window.__guideSpeechAt || {};
+    var words = said[qi % said.length].split(' '), at = window.__guideSpeechAt[qi] || 0, chunk = [];
+    function emit(textNow, fin) {
+      var r = [{ transcript: textNow }]; r.isFinal = fin;
+      if (me.onresult) me.onresult({ resultIndex: 0, results: [r] });
+    }
+    (function next() {
+      if (at >= words.length) {
+        if (chunk.length) emit(chunk.join(' ') + ' ', true);
+        window.__guideSpoke[qi] = true;
+        return;
+      }
+      chunk.push(words[at++]);
+      window.__guideSpeechAt[qi] = at;
+      if (chunk.length >= 5) { emit(chunk.join(' ') + ' ', true); chunk = []; }
+      else emit(chunk.join(' '), false);
+      me.timer = setTimeout(next, 230);
+    })();
+  };
+  FakeSpeech.prototype.stop = FakeSpeech.prototype.abort = function () {
+    var me = this;
+    clearTimeout(me.timer);
+    setTimeout(function () { if (me.onend) me.onend(); }, 0);
+  };
+  window.SpeechRecognition = FakeSpeech;
+  window.webkitSpeechRecognition = FakeSpeech;
 
   var ME = 'guide-teacher';
   var now = Date.now();

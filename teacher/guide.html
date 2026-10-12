@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 선생님 설명서</title>
   <script>
-    // 이 파일을 내려받아(메신저 · 메일) 열었을 때도 «직접 해 보기» 가 실제 사이트로 가게 합니다
+    // 이 파일을 내려받아(메신저 · 메일) 열었을 때도 «따라 눌러 보기» 가 실제 사이트로 가게 합니다
     if (location.protocol === 'file:') document.write('<base href="https://08hwichemi.github.io/interview-on/teacher/">');
   </script>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-10-12.2">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-10-12.3">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <style>
     /* 선생님용 면접 설명서 — 면접 화면(teacher.css)과 같은 먹빛 · 종이빛.
@@ -113,12 +113,12 @@
     처음 쓰시는 선생님도 위에서부터 읽으시면 됩니다.</p>
 
   <div class="hero">
-    <p><b>읽기만 하지 말고 직접 눌러 보세요.</b> 아래 단추를 누르면 <b>실제 면접 화면</b>이 새 창으로 열리고,
-      가짜 학생으로 면접을 처음부터 끝까지 한 걸음씩 해 볼 수 있습니다. 눌러야 할 단추에 주황 테두리가 둘러지고,
-      그 단추를 누르면 다음으로 넘어갑니다.</p>
-    <a class="try" href="index.html?guide" target="_blank" rel="noopener">▶ 연습 면접 해 보기 (10분쯤)</a>
-    <p class="small">연습 화면은 <b>실제 서버에 아무것도 저장하지 않습니다</b> — 마음껏 눌러 보세요.
-      마이크는 진짜로 켜지므로, 면접 전에 마이크 시험도 같이 됩니다. 장마다 있는 «직접 해 보기» 로 그 장만 해 볼 수도 있습니다.</p>
+    <p><b>읽기만 하지 말고 눌러 보세요.</b> 아래 단추를 누르면 <b>실제 면접 화면</b>이 새 창으로 열리고,
+      가짜 학생으로 면접 한 번이 처음부터 끝까지 흘러갑니다. 선생님은 <b>주황 테두리가 둘러진 단추만</b> 차례로 누르시면 됩니다 —
+      어디를 눌러서 무엇이 되는지 순서가 보입니다.</p>
+    <a class="try" href="index.html?guide" target="_blank" rel="noopener">▶ 면접 따라 눌러 보기 (5분쯤)</a>
+    <p class="small">질문 · 요지 같은 <b>글자와 학생 답변(받아 적기)은 예시가 저절로</b> 채워집니다. 마이크도 쓰지 않습니다.
+      <b>실제 서버에는 아무것도 저장되지 않습니다.</b> 장마다 있는 «따라 눌러 보기» 로 그 장만 볼 수도 있습니다.</p>
   </div>
 
   <nav class="toc" aria-label="목차">
@@ -135,7 +135,7 @@
   <!-- ══ 0 ══ -->
   <section id="s0">
     <div class="shead"><h2><span class="no">0</span>한눈에 · 화면 둘러보기</h2><span class="grow"></span>
-      <a class="try" href="index.html?guide=0" target="_blank" rel="noopener">▶ 직접 해 보기</a></div>
+      <a class="try" href="index.html?guide=0" target="_blank" rel="noopener">▶ 따라 눌러 보기</a></div>
     <div class="flow">
       <div class="box"><b>면접 전</b>학생 고르고 질문지 만들기 · 저장</div><span class="arr">→</span>
       <div class="box"><b>면접</b>질문 읽기 · <span class="k">답변 시작</span> · 받아 적기</div><span class="arr">→</span>
@@ -156,15 +156,16 @@
   <!-- ══ 1 ══ -->
   <section id="s1">
     <div class="shead"><h2><span class="no">1</span>준비물 · 마이크</h2><span class="grow"></span>
-      <a class="try" href="index.html?guide=2" target="_blank" rel="noopener">▶ 마이크 시험해 보기</a></div>
+      <a class="try" href="index.html?guide=2" target="_blank" rel="noopener">▶ 받아 적기 보기</a></div>
     <h3 style="margin-top:4px">면접 날 아침 확인표</h3>
     <ul class="check">
       <li>노트북 · 충전기 · <b>인터넷</b>(받아 적기는 인터넷이 있어야 됩니다)</li>
       <li><b>크롬</b> 또는 <b>엣지</b>로 면접ON 열기 — 파이어폭스 · 삼성 인터넷은 받아 적기가 안 됩니다
         (화면에 «크롬(또는 엣지)에서 열면…» 안내만 뜹니다)</li>
       <li><b>마이크를 학생 쪽에</b> — 노트북 안의 마이크는 책상 건너편 학생 목소리를 잘 못 잡습니다. USB · 블루투스 마이크를 학생 앞에 두세요</li>
-      <li>연습 화면(위 «마이크 시험해 보기»)에서 <span class="k">답변 시작</span> 을 누르고 말해 보기 — 말한 것이 글로 뜨면 됩니다</li>
-      <li>크롬이 «마이크 사용» 을 물으면 <b>«허용»</b>(연습 화면에서 한 번 허용하면 실제 면접 화면도 그대로입니다)</li>
+      <li><b>마이크 시험</b> — 면접 전에 아무 학생이나 골라 실제로 <span class="k">답변 시작</span> 을 누르고 말해 봅니다. 말한 것이 글로 뜨면 됩니다.
+        시험한 면접은 <span class="k">면접 마무리 →</span> · <span class="k">면접 끝내기 · 리포트 보기 →</span> 뒤 <span class="k">이 리포트 지우기</span> 로 지웁니다</li>
+      <li>처음 «답변 시작» 때 크롬이 «마이크 사용» 을 물으면 <b>«허용»</b> (한 번 허용하면 그 컴퓨터에서는 다시 안 묻습니다)</li>
       <li>진행 화면의 받아 적기 단추가 <span class="k">🎤 받아 적기 끄기</span> 로 보이면 <b>켜져 있는 것</b>입니다(단추에는 «누르면 할 일» 이 적혀 있습니다)</li>
     </ul>
     <div class="note">
@@ -191,7 +192,7 @@
   <!-- ══ 2 ══ -->
   <section id="s2">
     <div class="shead"><h2><span class="no">2</span>면접 전 — 질문지 만들기</h2><span class="grow"></span>
-      <a class="try" href="index.html?guide=1" target="_blank" rel="noopener">▶ 직접 해 보기</a></div>
+      <a class="try" href="index.html?guide=1" target="_blank" rel="noopener">▶ 따라 눌러 보기</a></div>
     <p class="sub">학생이 오기 전에 미리 만들어 두면, 면접 날에는 학생만 고르면 됩니다.</p>
     <ol class="steps">
       <li><b>왼쪽에서 학생 고르기</b> — 반 단추(<span class="k x">1반</span> …)로 줄이거나 학번 · 이름을 쳐서 찾습니다.
@@ -222,7 +223,7 @@
   <!-- ══ 3 ══ -->
   <section id="s3">
     <div class="shead"><h2><span class="no">3</span>면접 진행</h2><span class="grow"></span>
-      <a class="try" href="index.html?guide=2" target="_blank" rel="noopener">▶ 직접 해 보기</a></div>
+      <a class="try" href="index.html?guide=2" target="_blank" rel="noopener">▶ 따라 눌러 보기</a></div>
     <ol class="steps">
       <li><span class="k solid">질문 완료 · 면접 화면으로 →</span> — 화면만 넘어갑니다. <b>아직 면접이 시작된 것은 아닙니다.</b></li>
       <li><span class="k solid">면접 시작</span> — «면접 전체» 시계가 흐릅니다. <b>이 순간부터 면접</b>입니다(질문 읽는 시간도 면접 시간).</li>
@@ -261,7 +262,7 @@
   <!-- ══ 4 ══ -->
   <section id="s4">
     <div class="shead"><h2><span class="no">4</span>마무리 · 리포트 전달</h2><span class="grow"></span>
-      <a class="try" href="index.html?guide=3" target="_blank" rel="noopener">▶ 직접 해 보기</a></div>
+      <a class="try" href="index.html?guide=3" target="_blank" rel="noopener">▶ 따라 눌러 보기</a></div>
     <ol class="steps">
       <li><b>질문별 평가</b> — 질문마다 «학생이 말한 내용(받아 적은 것)» 을 보면서 매깁니다. 면접 중에 누른 것은 그대로 와 있습니다.
         <ul>
@@ -287,7 +288,7 @@
   <!-- ══ 5 ══ -->
   <section id="s5">
     <div class="shead"><h2><span class="no">5</span>창이 닫혔을 때</h2><span class="grow"></span>
-      <a class="try" href="index.html?guide=4" target="_blank" rel="noopener">▶ 직접 해 보기</a></div>
+      <a class="try" href="index.html?guide=4" target="_blank" rel="noopener">▶ 따라 눌러 보기</a></div>
     <p>면접 도중 창이 닫히거나 노트북이 꺼져도 <b>매긴 것은 남아 있습니다.</b></p>
     <ol class="steps">
       <li>면접ON 을 다시 열면 첫 화면에 <b>«끝내지 못한 면접이 있습니다»</b> 가 뜹니다. 그 줄의 <span class="k">이어서 하기 →</span> 를 누릅니다.</li>
@@ -300,7 +301,7 @@
   <!-- ══ 6 ══ -->
   <section id="s6">
     <div class="shead"><h2><span class="no">6</span>🏫 타학교 면접</h2><span class="grow"></span>
-      <a class="try" href="index.html?guide=5" target="_blank" rel="noopener">▶ 직접 해 보기</a></div>
+      <a class="try" href="index.html?guide=5" target="_blank" rel="noopener">▶ 따라 눌러 보기</a></div>
     <p>다른 학교 학생은 명단 · 계정 없이 <b>학교 · 이름 · 희망 전공</b>만 적고, 우리 학생과 <b>같은 화면</b>으로 면접합니다.
       평가서는 학생 휴대폰으로 <b>QR</b> 을 찍어 받습니다. 휴대폰 번호 같은 것은 받지 않습니다.</p>
     <h3>면접 전 — 명단과 질문</h3>
@@ -358,7 +359,7 @@
       <dt>시계를 깜빡 안 눌렀어요</dt>
       <dd><span class="k">답변 시작</span> 하나로 면접 시계까지 같이 켜집니다.</dd>
       <dt>잘못 시작했어요 · 연습 삼아 해 봤어요</dt>
-      <dd>리포트 맨 아래 <span class="k">이 리포트 지우기</span>. (이 설명서의 «직접 해 보기» 연습은 처음부터 저장되지 않으니 지울 것이 없습니다.)</dd>
+      <dd>리포트 맨 아래 <span class="k">이 리포트 지우기</span>. (이 설명서의 «따라 눌러 보기» 는 처음부터 저장되지 않으니 지울 것이 없습니다.)</dd>
       <dt>비밀번호를 잊었어요</dt>
       <dd>관리자 선생님께 초기화를 부탁하세요. 처음 비밀번호(123456)로 돌아가고, 로그인하면 새로 정합니다.</dd>
     </dl>
