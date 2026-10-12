@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>면접ON 따라 하기</title>
+  <script>
+    // 이 파일을 내려받아(메신저 · 메일) 열었을 때도 «따라 하기» 가 실제 사이트로 가게 합니다
+    if (location.protocol === 'file:') document.write('<base href="https://08hwichemi.github.io/interview-on/teacher/">');
+  </script>
+  <link rel="icon" href="../assets/icon-192.png?v=2026-10-12.7">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <style>
+    /* 선생님 설명서 — 2026-10-12 선생님 말씀 «직접 눌러 보는 것만으로 충분히 알 수 있다, 따라하기 하나로 충분» 에 따라
+       글로 된 0~7장 설명서를 빼고, 따라 하기(teacher/?guide)로 들어가는 한 화면만 남겼습니다.
+       따로 내려받아 열어도 모양이 깨지지 않게 꾸밈은 이 파일 안에만 둡니다. */
+    :root{ --ground:#FAFAF9; --surface:#FFFFFF; --surface-2:#F4F4F2; --line:#E7E5E2; --line-2:#D6D3CE;
+      --ink:#18181B; --ink-2:#52525B; --ink-3:#8A8A93; --hot:#E8590C; }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--ground);color:var(--ink);
+      font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+      font-size:16px;line-height:1.75;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
+    .wrap{max-width:640px;margin:0 auto;padding:40px 16px 60px}
+    .brand{font-weight:800;font-size:20px;letter-spacing:-.03em;margin:0 0 22px}
+    .brand em{font-style:normal;color:var(--ink-3)}
+    h1{font-size:30px;line-height:1.3;letter-spacing:-.035em;margin:0 0 10px}
+    .lead{color:var(--ink-2);margin:0 0 22px}
+    .lead b{color:var(--ink)}
+    a.go{display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;color:#fff;background:var(--hot);
+      border-radius:12px;padding:16px 20px;font-weight:800;font-size:19px}
+    a.go:hover{background:#C94B07}
+    .note{color:var(--ink-3);font-size:13.5px;margin:10px 0 0;text-align:center}
+    .box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:26px 0 0}
+    .box h2{font-size:15px;margin:0 0 6px}
+    .box ul{margin:0;padding-left:20px;color:var(--ink-2);font-size:15px}
+    .box li{margin:3px 0}
+    .box b{color:var(--ink)}
+    .parts{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}
+    .parts a{text-decoration:none;color:var(--ink);border:1px solid var(--line-2);background:var(--surface);border-radius:99px;padding:3px 12px;font-size:14px}
+    .parts a:hover{border-color:var(--ink)}
+    footer{color:var(--ink-3);font-size:12.5px;text-align:center;margin:30px 0 0}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <p class="brand">면접<em>ON</em></p>
+  <h1>선생님 면접 따라 하기</h1>
+  <p class="lead">실제 면접 화면에서 <b>주황 테두리가 둘러진 단추만 차례로 누르시면</b> 됩니다.
+    질문지 만들기 → 면접 진행(마이크 허용 · 받아 적기) → 평가 → 학생에게 전달, 그리고 타학교 면접(QR)까지
+    면접 한 번이 처음부터 끝까지 흘러갑니다. 글자와 학생 답변은 예시가 저절로 채워지고, <b>실제 서버에는 아무것도 저장되지 않습니다.</b></p>
+
+  <a class="go" href="index.html?guide=0" target="_blank" rel="noopener">▶ 따라 하기 시작 (5분쯤)</a>
+  <p class="note">컴퓨터(크롬 · 엣지)로 여는 것이 가장 좋습니다. 휴대폰으로도 됩니다.</p>
+
+  <div class="box">
+    <h2>면접 날 아침</h2>
+    <ul>
+      <li><b>크롬 또는 엣지</b>로 면접ON 열기 — 받아 적기는 이 둘에서만 됩니다</li>
+      <li><b>마이크를 학생 쪽에</b> — 노트북 안의 마이크는 책상 건너편 목소리를 잘 못 잡습니다(USB · 블루투스 마이크)</li>
+      <li><b>인터넷</b> 연결 확인 — 받아 적기는 인터넷이 있어야 됩니다</li>
+    </ul>
+  </div>
+
+  <div class="box">
+    <h2>한 부분만 다시 보려면</h2>
+    <div class="parts">
+      <a href="index.html?guide=1" target="_blank" rel="noopener">질문지 만들기</a>
+      <a href="index.html?guide=2" target="_blank" rel="noopener">면접 진행 · 받아 적기</a>
+      <a href="index.html?guide=3" target="_blank" rel="noopener">마무리 · 리포트 전달</a>
+      <a href="index.html?guide=4" target="_blank" rel="noopener">창이 닫혔을 때</a>
+      <a href="index.html?guide=5" target="_blank" rel="noopener">🏫 타학교 면접</a>
+    </div>
+  </div>
+
+  <footer>면접ON · 면접 화면 머리말의 «📘 설명서» 단추로도 열립니다 <span id="ver"></span></footer>
+</div>
+<script>
+  fetch('../version.txt', { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (v) {
+    v = String(v || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(v)) document.getElementById('ver').textContent = '· 판 ' + v;
+  }).catch(function () { /* 내려받은 파일로 열었을 때 등 */ });
+</script>
+</body>
+</html>

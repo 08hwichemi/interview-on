@@ -24,7 +24,8 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-HTML = ['index.html', 'teacher/index.html', 'admin/index.html', 'r.html']   # r.html = 타학교 평가서(QR)
+HTML = ['index.html', 'teacher/index.html', 'admin/index.html', 'r.html',   # r.html = 타학교 평가서(QR)
+        'teacher/guide.html']                                                # 선생님 설명서
 
 # 우리 파일만 손댑니다. cdn 주소는 그대로 둡니다.
 ASSET = re.compile(r'((?:src|href)=")((?:\.\./)*(?:assets/|manifest\.json)[^"?]*)(\?v=[^"]*)?(")')

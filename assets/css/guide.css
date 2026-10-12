@@ -1,0 +1,124 @@
+/* 연습 모드의 안내 (guide-coach.js) — 설명서의 «직접 해 보기» 에서만 실립니다.
+   눌러야 할 단추에 주황 테두리(.gd-ring), 그 옆에 화살표 달린 말풍선(.gd-tip).
+   앱의 어떤 창(QR 창 포함)보다 위에 두고, 테두리는 클릭을 막지 않습니다. */
+
+.gd-badge{
+  margin-left:10px; padding:3px 9px; border-radius:99px;
+  background:var(--amber-soft); color:var(--amber); border:1px solid #EBD9B4;
+  font-size:12px; font-weight:700; white-space:nowrap;
+}
+
+.gd-ring{
+  position:fixed; z-index:9000; pointer-events:none;
+  border:3px solid #E8590C; border-radius:10px;
+  box-shadow:0 0 0 4px rgba(232,89,12,.18);
+  animation:gdpulse 1.4s ease-in-out infinite;
+}
+@keyframes gdpulse{
+  0%,100%{box-shadow:0 0 0 4px rgba(232,89,12,.18)}
+  50%{box-shadow:0 0 0 10px rgba(232,89,12,.08)}
+}
+
+/* 말풍선 */
+.gd-tip{
+  position:fixed; z-index:9002; left:0; top:0;
+  background:var(--ink); color:#fff;
+  border-radius:12px; padding:13px 15px 10px;
+  box-shadow:0 14px 40px -12px rgba(24,24,27,.55);
+  font-size:14px; line-height:1.6;
+}
+.gd-tip[data-flash="yes"]{animation:gdflash .7s ease-out}
+@keyframes gdflash{0%{box-shadow:0 0 0 6px rgba(43,138,62,.45)}100%{}}
+.gd-arrow{position:absolute;width:16px;height:16px;background:var(--ink);transform:rotate(45deg);border-radius:2px}
+.gd-tip[data-place="below"] .gd-arrow{top:-7px}
+.gd-tip[data-place="above"] .gd-arrow{bottom:-7px}
+.gd-tip[data-place="right"] .gd-arrow{left:-7px}
+.gd-tip[data-place="left"] .gd-arrow{right:-7px}
+.gd-tip[data-place="corner"] .gd-arrow{display:none}
+.gd-tip[data-place="corner"]{overflow:auto}
+.gd-tip .gd-t{margin:0 0 5px;font-size:16px;line-height:1.4;letter-spacing:-.02em;color:#fff}
+.gd-tip .gd-b{color:#D4D4D8}
+.gd-tip .gd-b b{color:#fff}
+.gd-tip .gd-b ul{margin:6px 0 0;padding-left:18px}
+.gd-tip .gd-b li{margin:2px 0}
+.gd-tip .gd-b p{margin:6px 0 0}
+.gd-more{font-size:13px;color:#A1A1AA}
+.gd-tip kbd{display:inline-block;min-width:20px;padding:0 5px;border:1px solid #52525B;border-bottom-width:2px;
+  border-radius:4px;background:#27272A;color:#fff;font:inherit;font-size:12px;line-height:18px;text-align:center}
+.gd-warn{display:block;background:var(--amber-soft);color:var(--amber);border-radius:6px;padding:6px 9px;margin:6px 0}
+.gd-warn b{color:var(--amber)!important}
+.gd-extra{margin:10px 0 0;border:1px solid #fff;background:#fff;color:var(--ink);border-radius:6px;
+  padding:5px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.gd-foot{display:flex;justify-content:flex-end;margin:6px 0 0}
+.gd-auto{border:0;background:none;color:#A1A1AA;font:inherit;font-size:12.5px;text-decoration:underline;cursor:pointer;padding:2px 0}
+.gd-auto:hover{color:#fff}
+
+/* 왼쪽 아래 작은 띠 — 지금 몇 장 몇 걸음 · 목차 · 안내 숨기기 */
+.gd-dock{
+  position:fixed; z-index:9001; left:12px; bottom:12px;
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  background:var(--surface); border:1px solid var(--line-2); border-radius:99px;
+  padding:5px 6px 5px 14px; box-shadow:0 6px 20px -10px rgba(24,24,27,.35); font-size:12.5px;
+}
+.gd-cap{font-weight:700;color:var(--ink)}
+.gd-where{color:var(--ink-3)}
+.gd-x{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);
+  border-radius:99px;padding:2px 10px;font:inherit;font-size:12px;cursor:pointer}
+.gd-x:hover{background:var(--surface-2);color:var(--ink)}
+
+/* 가운데 창 — 목차 · 장 끝 */
+.gd-panel{
+  position:fixed; z-index:9003; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:420px; max-width:calc(100vw - 24px); max-height:calc(100vh - 40px); overflow:auto;
+  background:var(--surface); color:var(--ink); border:2px solid var(--ink); border-radius:14px;
+  box-shadow:0 20px 60px -16px rgba(24,24,27,.5); padding:18px 20px; font-size:14px; line-height:1.65;
+}
+.gd-panel .gd-t{margin:0 0 6px;font-size:18px;letter-spacing:-.02em}
+.gd-panel .gd-b{color:var(--ink-2);margin:0}
+.gd-panel .gd-b b{color:var(--ink)}
+.gd-btns{display:flex;gap:8px;justify-content:flex-end;margin:14px 0 0}
+.gd-menu{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:6px}
+.gd-menu button{width:100%;display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer;
+  border:1px solid var(--line-2);background:var(--surface);border-radius:8px;padding:9px 12px;font:inherit}
+.gd-menu button:hover{border-color:var(--ink);background:var(--surface-2)}
+.gd-menu .n{width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;
+  display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:0 0 auto}
+.gd-menu .nm{flex:1;font-weight:600}
+.gd-menu .ok{font-size:12px;color:var(--ink-3)}
+
+@media (max-width:600px){
+  .gd-badge{display:none}
+  .gd-dock .gd-where{display:none}
+}
+@media print{ .gd-tip,.gd-ring,.gd-badge,.gd-dock,.gd-panel{display:none!important} }
+
+/* 연습에서 저절로 채워지는 예시라는 표시 */
+.gd-ex{color:#FDBA74;font-size:13px}
+/* 테두리 밖을 눌렀을 때 — 말풍선이 한 번 흔들림 */
+.gd-tip.gd-nudge{animation:gdnudge .45s ease-in-out}
+@keyframes gdnudge{0%,100%{translate:0}20%{translate:-7px}40%{translate:7px}60%{translate:-5px}80%{translate:5px}}
+
+/* 크롬 «마이크 사용» 허용 창 흉내 (showMicAsk) — 크롬이 띄우는 자리(왼쪽 위)에 */
+.gd-mic{position:fixed;z-index:8999;left:12px;top:8px;width:300px;max-width:calc(100vw - 24px);
+  background:#fff;color:#202124;border-radius:10px;box-shadow:0 6px 28px rgba(0,0,0,.28);padding:12px 16px 14px;font-size:14px}
+.gd-mic-cap{margin:0 0 6px;font-size:11px;color:#E8590C;font-weight:700}
+.gd-mic-q{margin:0 0 6px;line-height:1.5}
+.gd-mic-what{margin:0 0 12px}
+.gd-mic-btns{display:flex;justify-content:flex-end;gap:8px}
+.gd-mic-btns button{border:1px solid #dadce0;background:#fff;color:#1a73e8;border-radius:18px;padding:6px 16px;font:inherit;font-weight:600;cursor:pointer}
+.gd-mic-btns .gd-mic-yes{background:#1a73e8;border-color:#1a73e8;color:#fff}
+.gd-faq{margin:8px 0 0;padding-left:18px;color:var(--ink-2);font-size:13.5px}
+.gd-faq li{margin:4px 0}
+.gd-faq b{color:var(--ink)}
+.gd-panel kbd{display:inline-block;min-width:20px;padding:0 5px;border:1px solid var(--line-2);border-bottom-width:2px;border-radius:4px;background:var(--surface-2);font:inherit;font-size:12px;line-height:18px;text-align:center}
+
+/* 보여 주기 걸음 — 저절로 넘어가기까지 남은 시간 */
+.gd-wait{height:3px;background:#3F3F46;border-radius:3px;margin:10px 0 4px;overflow:hidden}
+.gd-wait i{display:block;height:100%;width:0;background:#FDBA74;transition:width .25s linear}
+.gd-waitcap{margin:0;font-size:12px;color:#A1A1AA}
+
+/* 누른 결과 보여 주기 — 초록 테두리 · 초록 말풍선 (startShow) */
+.gd-ring[data-kind="show"]{border-color:#2B8A3E;box-shadow:0 0 0 4px rgba(43,138,62,.2);animation:none}
+.gd-tip[data-kind="show"]{background:#1E5F2E}
+.gd-tip[data-kind="show"] .gd-arrow{background:#1E5F2E}
+.gd-tip[data-kind="show"] .gd-b{color:#D3F0DA}
