@@ -180,9 +180,11 @@
       // ★ 를 학생을 고르기 «전에» 누르게 합니다. 휴대폰(900px 아래)에서는 학생을 고르면 명단이 저절로 접혀
       // ★ 가 안 보였습니다 — 2026-10-12 선생님이 휴대폰으로 보시다 여기서 못 넘어가셨습니다
       { at: function () { var r = rowOf('#student-list', MAIN); return r && r.querySelector('.star'); }, real: true, t: '«30101 김연습» 옆 ★ 를 누르세요',
+        show: { at: '#fav-box', t: '명단 맨 위 «★ 담당 학생» 에 담겼습니다' },
         done: function () { return favorites[MAIN] === true; },
         b: '맡은 학생은 ★ 로 담아 두면 명단 맨 위 «★ 담당 학생» 에 모입니다. 매번 찾지 않아도 되고, 계정에 남아 다른 컴퓨터에서도 같습니다.' },
       { at: function () { var b = rowOf('#student-list', MAIN); return b && b.querySelector('.railrow'); }, real: true, t: '«30101 김연습» 을 누르세요',
+        show: { at: '#history-box', t: '이 학생의 지난 면접 · 수시 지원', b: '전에 본 면접(회차 — 누르면 그때 리포트)과, 그 아래 수시 지원 대학 · 학과 · 면접 날짜가 보입니다.' },
         done: function () { return target && target.id === MAIN && on('setup'); },
         b: '그 학생의 «면접 준비» 화면이 열립니다.' +
            '<p class="gd-more">위에는 이 학생의 <b>지난 면접</b>(회차 — 누르면 그때 리포트)과 <b>수시 지원</b>(대학 · 학과 · 면접 날짜)이 보입니다.</p>' },
@@ -190,6 +192,7 @@
         done: function () { return opening.on && opening.key === 'both'; },
         b: '면접을 여는 질문입니다. 문장은 그 자리에서 고쳐 써도 되고, 고른 것을 다시 누르면 첫인사를 뺍니다.' },
       { at: 'button[onclick^="loadCommon(\'changche\'"]', real: true, t: '«창체 질문 3개» 를 누르세요',
+        show: { at: '#q-list', t: '«낼 질문» 에 질문 3개가 붙었습니다', b: '어느 단추로 더해도 여기 맨 아래에 붙습니다. 질문마다 오른쪽 칸에서 무엇을 보는 질문인지 고르고, 필요 없으면 «빼기».' },
         done: function () { return midQuestions.length >= 3; },
         b: '추천 질문 3개가 «낼 질문» 맨 아래에 붙습니다. «전공 질문 3개» 도 같습니다.' },
       { at: 'button[onclick^="addQuestion(\'\'"]', real: true, t: '«＋ 직접 적기» 를 누르세요',
@@ -202,6 +205,7 @@
         b: '<b>학업역량 · 진로역량 · 공동체역량 · 기타</b> 중 하나를 고릅니다. 리포트에서 역량별로 모아 보여 줍니다. ' +
            '<span class="gd-ex">(연습에서는 «학업역량» 이 골라집니다)</span>' },
       { at: '#btn-save-sheet', real: true, t: '«질문지 저장» 을 누르세요',
+        show: { at: '#sheet-note', t: '«미리 만들어 둔 질문지입니다»', b: '면접 날 이 학생을 고르면 이 표시와 함께 질문지가 그대로 뜹니다.' },
         done: sheetSaved,
         b: '<b>면접은 시작되지 않고</b> 질문만 남겨 둡니다. 면접 날에는 학생만 고르면 이 질문지가 그대로 뜹니다.' +
            '<p class="gd-more">다른 질문 단추 — <b>📄 생기부에서 뽑기</b>(PDF 를 이 브라우저 안에서만 읽어 질문 후보를 뽑음, 서버에 안 올라감) · ' +
@@ -278,9 +282,11 @@
         done: function () { return $('#finish-note').value === '경험은 풍부한데 결론을 먼저 말하는 연습이 필요합니다.'; },
         b: '학생에게 남길 한마디입니다. 안 써도 됩니다. <span class="gd-ex">(연습에서는 예시가 적힙니다)</span>' },
       { at: '#btn-finish', real: true, t: '«면접 끝내기 · 리포트 보기 →» 를 누르세요',
+        show: { at: '#report-body', top: true, ms: 4000, t: '학생이 받을 리포트 한 장', b: '질문마다 학생이 말한 내용 · 판정 · 요지, 아래에 채점표와 총평. 위 «인쇄» 로 종이 · PDF 로도 뽑습니다.' },
         done: function () { return on('report') && !!viewing; },
         b: '평가를 한꺼번에 저장하고 리포트 한 장으로 보여 줍니다. <b>아직 학생에게 가지 않습니다.</b>' },
       { at: '#btn-deliver', real: true, t: '«학생에게 전달» 을 누르세요',
+        show: { at: '#report-state', t: '«학생이 보고 있습니다»', b: '이제 학생 휴대폰 «내 면접 리포트» 에 보입니다.' },
         done: function () { return !!(viewing && viewing.interview && viewing.interview.status === '전달됨'); },
         b: '위가 학생이 받을 리포트 그대로입니다(맨 위 «인쇄» 로 종이 · PDF, 고칠 것은 «← 채점표 고치기»). ' +
            '<b>전달을 눌러야 학생 폰 «내 면접 리포트» 에 보입니다.</b>' +
@@ -313,6 +319,7 @@
         b: '세 칸을 적습니다. 이름은 꼭 있어야 합니다. <span class="gd-ex">(연습에서는 예시가 적힙니다)</span>' +
            '<p class="gd-more">다음 학생부터 학교 칸은 마지막에 적은 학교로 채워져 있습니다.</p>' },
       { at: '.otheracts .btn.solid', real: true, t: '«명단 저장» 을 누르세요',
+        show: { at: '#other-list', t: '왼쪽 목록에 «한빛고 홍길동» 이 들어갔습니다', b: '학교별로 묶이고, 머리줄을 누르면 접힙니다. 줄마다 ★ · 🗑.' },
         done: function () { return target && target.other && !!target.ivId; },
         b: '칸에서 ' + kbd('Enter') + ' 도 됩니다. 여러 명을 넣을 땐 옆의 <b>«저장하고 다음 학생 ＋»</b> — 학교는 그대로 두고 이름 칸으로 갑니다.' },
       { at: '.btnrow button[onclick="otherTogglePaste()"]', real: true, t: '«📋 여러 질문 붙여넣기» 를 누르세요',
@@ -324,6 +331,7 @@
         b: '따로 만들어 온 질문을 한 줄에 하나씩 붙여 넣습니다(한글 · 메모장에서 복사 → ' + kbd('Ctrl') + '+' + kbd('V') + '). ' +
            '<span class="gd-ex">(연습에서는 예시 질문 세 줄이 들어갑니다)</span>' },
       { at: '#other-paste .btn.solid', real: true, t: '««낼 질문» 에 넣기» 를 누르세요',
+        show: { at: '#q-list', t: '번호를 뗀 질문 3개가 붙었습니다' },
         done: function () { return midQuestions.length >= 3; },
         b: '앞 번호(1. · 2) · Q3.)는 저절로 떼어지고, 같은 질문은 건너뜁니다.' },
       { at: '#btn-save-sheet', real: true, t: '«질문지 저장» 을 누르세요',
@@ -336,6 +344,7 @@
         b: '면접 진행 · 받아 적기 · 마무리는 <b>우리 학교 면접과 똑같습니다</b>(2장 · 3장). ' +
            '<span class="gd-ex">(연습에서는 면접을 예시 답변으로 채우고 마무리 화면으로 건너뜁니다)</span>' },
       { at: '#btn-finish', real: true, t: '«면접 끝내기 · 리포트 보기 →» 를 누르세요',
+        show: { at: '#report-body', top: true, ms: 3500, t: '학생에게 줄 평가서 한 장', b: '우리 학교 리포트와 같은 종이입니다. 이걸 QR 로 학생 휴대폰에 줍니다.' },
         done: function () { return on('report') && !!viewing; },
         b: '채점표 · 총평은 우리 학교와 같습니다. 끝내면 평가서 한 장이 나옵니다.' },
       { at: '#btn-deliver', real: true, t: '«📱 QR 로 평가서 주기» 를 누르세요',
@@ -363,7 +372,7 @@
   // 테두리 밖을 누르면 아무 일도 안 일어나고 말풍선이 한 번 흔들립니다. 키보드도 막아 둡니다(시뮬레이션이 흐트러지지 않게).
   // 왼쪽 아래 작은 띠(.gd-dock)에 지금 몇 장 몇 걸음 · «목차».
   var S = { ch: -1, st: 0, busy: false, flash: 0, doneCh: {}, place: '' };
-  window.__guideState = function () { return { ch: S.ch, st: S.st, busy: S.busy || !!S.doneAt, place: S.place }; };   // 화면 시험용 (busy = 아직 누를 때가 아님)
+  window.__guideState = function () { return { ch: S.ch, st: S.st, busy: S.busy || !!S.doneAt || !!S.showing, showing: !!S.showing, place: S.place }; };   // 화면 시험용 (busy = 아직 누를 때가 아님)
   window.__guideTarget = function () { return target_(); };
   var ring, tip, dock, panel;
 
@@ -398,7 +407,7 @@
   function gate(e) {
     if (mine(e.target)) return;
     var s = step();
-    var ok = s && !S.busy && panel.hidden && !s.watch && inTarget(e.target);
+    var ok = s && !S.busy && !S.showing && panel.hidden && !s.watch && inTarget(e.target);
     if (ok && s.real) {
       // 실제로 누른 것을 그대로 앱에 보냅니다. 누른 뒤 이어서 채울 예시가 있으면(after) 그다음에
       if (e.type === 'click' && s.after) {
@@ -451,7 +460,7 @@
   }
   function target_() {
     var s = step(); if (!s || !s.at) return null;
-    var el = typeof s.at === 'function' ? s.at() : $(s.at);
+    var el = S.showing && s.show ? $(s.show.at) : typeof s.at === 'function' ? s.at() : $(s.at);
     if (el && !rectOf(el)) { reveal(el); }
     return rectOf(el) ? el : null;
   }
@@ -490,6 +499,7 @@
     var s = step();
     if (!s) { tip.hidden = true; return; }
     tip.hidden = false;
+    tip.dataset.kind = '';
     tip.innerHTML = '<span class="gd-arrow"></span>' +
       '<h3 class="gd-t">' + (s.watch ? '👀 ' : '👉 ') + esc(s.t) + '</h3>' +
       '<div class="gd-b">' + text(s.b) + '</div>' +
@@ -527,6 +537,7 @@
     var s = step();
     if (!s) return;
     S.doneAt = 0;
+    S.showing = false;
     S.enteredAt = Date.now();
     if (s.enter) s.enter();
     lastDyn = text(s.b);
@@ -591,6 +602,11 @@
     if (!s || !panel.hidden) return;
     // 다 됐으면 잠깐 두고 넘깁니다 — 예시가 채워진 걸음(글자 · 받아 적기)은 1초, 단추는 0.3초.
     // 바로 넘기면 다음 말풍선이 방금 적힌 예시를 덮어 무엇이 됐는지 못 봅니다
+    if (S.showing) {
+      // 결과 보여 주기가 끝나면 다음 걸음으로
+      if (Date.now() >= S.showUntil) { S.showing = false; advance(); } else place();
+      return;
+    }
     if (s.watch) paintWait(s);
     if (isDone(s)) {
       if (!S.doneAt) S.doneAt = Date.now();
@@ -598,7 +614,7 @@
       // 보여 주기만 하는 걸음(받아 적기)은 말풍선 글을 다 읽을 시간까지 기다립니다 —
       // 2026-10-12 선생님 말씀: 받아 적기가 끝나자마자 넘어가 버려 설명을 다 못 읽는다
       var read = s.watch ? readMs(s) - (Date.now() - S.enteredAt) : 0;
-      if (Date.now() - S.doneAt >= hold && read <= 0) advance();
+      if (Date.now() - S.doneAt >= hold && read <= 0) { if (s.show) startShow(s); else advance(); }
       return;
     }
     S.doneAt = 0;
@@ -607,6 +623,26 @@
       var now = text(s.b);
       if (now !== lastDyn) { lastDyn = now; var box = tip.querySelector('.gd-b'); if (box) box.innerHTML = now; }
     }
+    place();
+  }
+
+  // ── 누른 결과 보여 주기 ──
+  // 2026-10-12 선생님 말씀: 단추를 누른 결과가 다른 곳에 생기면(«창체 질문 3개» → «낼 질문» 에 3개) 그쪽을 보여 주고
+  // 다시 단추 쪽으로 가야 자연스럽다. 그래서 걸음에 show 가 있으면, 다 된 뒤 결과 자리로 화면을 옮겨
+  // 초록 테두리 + «✓ …» 말풍선으로 잠깐(글 길이에 맞춰 2.5초~, 또는 ms) 보여 준 다음 다음 걸음으로 갑니다. 그동안은 누를 것이 없습니다
+  function startShow(s) {
+    var el = $(s.show.at);
+    if (!el || !rectOf(el)) { if (el) reveal(el); }
+    if (!el || !rectOf(el)) { advance(); return; }
+    S.showing = true;
+    var d = document.createElement('div'); d.innerHTML = s.show.t + ' ' + (s.show.b || '');
+    S.showUntil = Date.now() + (s.show.ms || Math.max(2500, d.textContent.replace(/\s+/g, '').length * 90));
+    var r = rectOf(el);
+    if (s.show.top || r.top < 72 || r.bottom > window.innerHeight - 24) window.scrollBy(0, r.top - 120);
+    tip.hidden = false;
+    tip.innerHTML = '<span class="gd-arrow"></span><h3 class="gd-t">✓ ' + esc(s.show.t) + '</h3>' +
+      (s.show.b ? '<div class="gd-b">' + s.show.b + '</div>' : '');
+    tip.dataset.kind = 'show';
     place();
   }
 
@@ -621,6 +657,7 @@
     ring.style.left = (r.left - pad) + 'px';
     ring.style.width = (r.width + pad * 2) + 'px';
     ring.style.height = (r.height + pad * 2) + 'px';
+    ring.dataset.kind = S.showing ? 'show' : '';
   }
 
   // 말풍선 자리 — 단추 아래 → 위 → 오른쪽 → 왼쪽 가운데 화면 안에 들어가는 곳. 어디에도 안 들어가면(아주 큰 칸) 오른쪽 아래 구석에

@@ -107,6 +107,14 @@ async function 걸음(p, 글, 테두리도) {
   await p.click('#opening-box .chip:nth-child(3)');
   await 걸음(p, '«창체 질문 3개»');
   await p.click('button[onclick^="loadCommon(\'changche\'"]');
+  await 걸음(p, '질문 3개가 붙었습니다', false);
+  확인('  누른 결과 보여 주기 — 초록 테두리가 «낼 질문» 목록에', await p.evaluate(() => {
+    var r = document.querySelector('.gd-ring'), q = document.getElementById('q-list').getBoundingClientRect(), g = r.getBoundingClientRect();
+    return !r.hidden && r.dataset.kind === 'show' && Math.abs(g.top - (q.top - 6)) < 2 && q.top >= 0 && q.top < innerHeight;
+  }));
+  await p.click('#q-list .qrow input', { force: true });
+  await p.waitForTimeout(150);
+  확인('  보여 주는 동안 눌러도 아무 일 없음', await p.evaluate(() => midQuestions.length === 3 && window.__guideState().showing));
   await 걸음(p, '직접 적기');
   await p.click('button[onclick^="addQuestion(\'\'"]');
   await 걸음(p, '무엇을 보는 질문인지');
@@ -171,6 +179,8 @@ async function 걸음(p, 글, 테두리도) {
   await p.click('#finish-note');
   await 걸음(p, '리포트 보기');
   await p.click('#btn-finish');
+  await 걸음(p, '학생이 받을 리포트 한 장', false);
+  확인('  리포트를 위에서부터 보여 주는가', await p.evaluate(() => { var r = document.getElementById('report-body').getBoundingClientRect(); return r.top > 0 && r.top < 200; }));
   await 걸음(p, '«학생에게 전달»');
   await p.click('#btn-deliver');
   await 걸음(p, '3장', false);

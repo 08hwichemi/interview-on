@@ -116,3 +116,9 @@
 .gd-wait{height:3px;background:#3F3F46;border-radius:3px;margin:10px 0 4px;overflow:hidden}
 .gd-wait i{display:block;height:100%;width:0;background:#FDBA74;transition:width .25s linear}
 .gd-waitcap{margin:0;font-size:12px;color:#A1A1AA}
+
+/* 누른 결과 보여 주기 — 초록 테두리 · 초록 말풍선 (startShow) */
+.gd-ring[data-kind="show"]{border-color:#2B8A3E;box-shadow:0 0 0 4px rgba(43,138,62,.2);animation:none}
+.gd-tip[data-kind="show"]{background:#1E5F2E}
+.gd-tip[data-kind="show"] .gd-arrow{background:#1E5F2E}
+.gd-tip[data-kind="show"] .gd-b{color:#D3F0DA}
