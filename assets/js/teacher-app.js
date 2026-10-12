@@ -1004,6 +1004,23 @@ function addQuestion(text, competency) {
   }
 }
 function removeQuestion(i) { midQuestions.splice(i, 1); renderQuestions(); }
+// 질문 순서 바꾸기 — ▲ ▼ 로 한 칸씩 (2026-10-12 선생님 말씀: 질문 적을 때 순서를 바꾸고 싶다).
+// 끌어 옮기기는 노트북 터치패드 · 휴대폰에서 잘 안 잡혀서 단추로 했습니다. 첫인사 · 끝인사는 붙박이라 그대로 맨 앞 · 맨 뒤입니다.
+// 면접 도중 «← 질문 고치기» 로 와서 순서를 바꿔도 매긴 평가는 질문 글자로 짝을 다시 맞추니 그대로 남습니다(resumeWithQuestions)
+function moveQuestion(i, d) {
+  var j = i + d;
+  if (j < 0 || j >= midQuestions.length) return;
+  var q = midQuestions[i]; midQuestions[i] = midQuestions[j]; midQuestions[j] = q;
+  renderQuestions();
+  // 옮긴 줄이 어디로 갔는지 보이게 잠깐 표시하고, 같은 단추를 이어 누를 수 있게 초점을 따라 옮깁니다
+  var row = document.querySelectorAll('#q-list .qrow')[j];
+  if (row) {
+    row.classList.add('moved');
+    setTimeout(function () { row.classList.remove('moved'); }, 600);
+    var again = row.querySelector('.qmove[data-d="' + d + '"]');
+    if (again && !again.disabled) again.focus({ preventScroll: true });
+  }
+}
 function setQText(i, v) { midQuestions[i].text = v; renderGreetings(); }
 function setQComp(i, v) { midQuestions[i].competency = v; }
 
@@ -1024,6 +1041,10 @@ function renderQuestions() {
             return '<option value="' + c + '"' + (c === q.competency ? ' selected' : '') + '>' + c + '</option>';
           }).join('') +
         '</select>' +
+        '<span class="qmoves">' +
+          '<button class="qmove" data-d="-1" onclick="moveQuestion(' + i + ', -1)" title="위로"' + (i === 0 ? ' disabled' : '') + '>▲</button>' +
+          '<button class="qmove" data-d="1" onclick="moveQuestion(' + i + ', 1)" title="아래로"' + (i === midQuestions.length - 1 ? ' disabled' : '') + '>▼</button>' +
+        '</span>' +
         '<button class="linkbtn danger" onclick="removeQuestion(' + i + ')">빼기</button>' +
         '</div>';
     }).join('');
@@ -1470,6 +1491,11 @@ function showQuestion() {
   prev.textContent = (qIndex === 0) ? '← 질문 고치기' : '← 이전';
   document.getElementById('btn-next').textContent =
     (qIndex === questions.length - 1) ? '면접 마무리 →' : '다음 질문 →';
+  // 꼬리 질문은 오늘 하는 면접에서만(지난 회차를 열어 고칠 때는 없음)
+  var fb = document.getElementById('btn-follow');
+  if (fb) fb.hidden = !liveInterview;
+  var fbox = document.getElementById('follow-box');
+  if (fbox && !liveInterview) fbox.hidden = true;
 
   renderRating();
   renderAreas('area-grid', qIndex);
@@ -1687,6 +1713,48 @@ async function prevQuestion() {
   qIndex--;
   showQuestion();
   scrollToQuestion();
+}
+
+// ══════════════ 꼬리 질문 — 면접 도중에 질문 더하기 ══════════════
+//
+// 2026-10-12 선생님 말씀: 면접 중에 추가 질문을 하는 경우가 있다.
+// 진행 화면의 «＋ 꼬리 질문» → 한 줄 칸 → «넣기»(Enter) 하면 **지금 질문 바로 뒤**에 새 질문이 생기고 그리로 넘어갑니다.
+// 질문을 말로 하고 «답변 시작» 을 누르면 받아 적기 · 평가가 다른 질문과 똑같이 붙습니다.
+// 글자를 안 적고 «넣기» 하면 «꼬리 질문 (N번에 이어서)» 로 들어갑니다 — 면접 중엔 타자 칠 틈이 없을 수 있어서.
+// 질문 번호가 뒤로 한 칸씩 밀리므로 표의 줄을 통째로 다시 씁니다(rewriteAnswers — «질문 고치기» 와 같은 길).
+function emptyAnswer() {
+  return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {} };
+}
+function toggleFollow(open) {
+  var box = document.getElementById('follow-box');
+  box.hidden = open === undefined ? !box.hidden : !open;
+  if (!box.hidden) document.getElementById('follow-text').focus();
+}
+function followKey(e) {
+  if (e.key === 'Escape') { toggleFollow(false); return; }
+  if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;   // 한글 입력 중 Enter 는 글자 확정
+  e.preventDefault();
+  addFollowUp();
+}
+async function addFollowUp() {
+  if (!liveInterview || !questions.length) return;
+  var input = document.getElementById('follow-text');
+  var btn = document.getElementById('follow-add');
+  var at = qIndex + 1;
+  var text = input.value.trim() || '꼬리 질문 (' + (qIndex + 1) + '번에 이어서)';
+  btn.disabled = true;
+  await saveAnswer(qIndex);        // 지금 질문에 받아 적던 글 · 평가부터 남깁니다
+  questions.splice(at, 0, { text: text, competency: questions[qIndex].competency, slot: 'mid' });
+  answers.splice(at, 0, emptyAnswer());
+  var ok = await rewriteAnswers();
+  btn.disabled = false;
+  if (!ok) { questions.splice(at, 1); answers.splice(at, 1); return; }   // 저장이 안 되면 넣지 않은 것으로
+  input.value = '';
+  toggleFollow(false);
+  qIndex = at;
+  showQuestion();
+  scrollToQuestion();
+  toast('꼬리 질문을 ' + (at + 1) + '번에 넣었습니다. 질문하고 «답변 시작» 을 누르세요.', 'ok');
 }
 
 async function nextQuestion() {
