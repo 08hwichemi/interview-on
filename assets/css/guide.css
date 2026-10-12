@@ -111,3 +111,8 @@
 .gd-faq li{margin:4px 0}
 .gd-faq b{color:var(--ink)}
 .gd-panel kbd{display:inline-block;min-width:20px;padding:0 5px;border:1px solid var(--line-2);border-bottom-width:2px;border-radius:4px;background:var(--surface-2);font:inherit;font-size:12px;line-height:18px;text-align:center}
+
+/* 보여 주기 걸음 — 저절로 넘어가기까지 남은 시간 */
+.gd-wait{height:3px;background:#3F3F46;border-radius:3px;margin:10px 0 4px;overflow:hidden}
+.gd-wait i{display:block;height:100%;width:0;background:#FDBA74;transition:width .25s linear}
+.gd-waitcap{margin:0;font-size:12px;color:#A1A1AA}

@@ -45,7 +45,7 @@ const 테두리 = p => p.evaluate(() => { var r = document.querySelector('.gd-ri
 
 // 그 글이 든 걸음이 될 때까지 기다립니다. 걸음이면 테두리가 있고, 말풍선이 테두리를 안 가리는지도 봅니다
 async function 걸음(p, 글, 테두리도) {
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < 300; i++) {          // 받아 적기 보여 주기는 읽을 시간까지 기다려서 길게(최대 30초)
     const t = await 제목(p);
     if (t.indexOf(글) > -1) {
       if (테두리도 !== false) {
@@ -134,10 +134,16 @@ async function 걸음(p, 글, 테두리도) {
   확인('  «허용» 을 누르기 전에는 받아 적지 않는가', await p.evaluate(() => !answers[0].transcript && !LISTEN.interim));
   await p.click('#gd-mic-allow');
   await 걸음(p, '이렇게 적힙니다');
+  const 들어감 = Date.now();
   확인('  허용 창이 사라졌는가', await p.evaluate(() => !document.getElementById('gd-mic')));
-  await p.waitForTimeout(500);
-  확인('  예시 답변이 회색(확정 전) 글로 흘러나오는가', await p.evaluate(() => !!document.querySelector('#live-text .interim')));
+  확인('  언제 넘어가는지 막대 · 안내', await p.evaluate(() => !!document.querySelector('.gd-tip .gd-wait i') && /저절로 넘어갑니다/.test(document.querySelector('.gd-tip').textContent)));
+  // 다섯 낱말마다 검은 글로 굳어 회색이 잠깐 비는 때가 있어, 3초 안에 한 번이라도 보이면 됩니다
+  확인('  예시 답변이 회색(확정 전) 글로 흘러나오는가', await p.waitForFunction(() => !!document.querySelector('#live-text .interim'), null, { timeout: 3000 }).then(() => true, () => false));
+  await p.waitForFunction(() => window.__guideSpoke[0], null, { timeout: 30000 });
+  const 말끝 = Date.now();
   await 걸음(p, '우수 · 보통 · 미흡');
+  확인('  받아 적기가 끝나도 바로 안 넘어가고 읽을 시간을 주는가(말풍선 12초 넘게 · 말 끝난 뒤 1초 넘게)',
+       Date.now() - 들어감 >= 12000 && Date.now() - 말끝 >= 1000, ((Date.now() - 들어감) / 1000).toFixed(1) + '초');
   확인('  다 말한 뒤 첫 질문에 예시 답변 전체가 붙었는가', await p.evaluate(() => answers[0].transcript === window.__guideSaid[0]),
        await p.evaluate(() => answers[0].transcript));
   await p.click('#rating-area .rbtn:nth-child(1)');
@@ -241,7 +247,7 @@ async function 걸음(p, 글, 테두리도) {
     await B.p.goto(URL0 + '?guide=' + n);
     await B.p.waitForSelector('.gd-tip:not([hidden]) .gd-t', { timeout: 8000 });
     let 누름 = 0, 막힘 = '';
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 160; i++) {
       await B.p.waitForTimeout(350);
       if (await B.p.evaluate(() => !document.querySelector('.gd-panel').hidden)) break;   // 장 끝 알림
       const st = await B.p.evaluate(() => window.__guideState());
@@ -259,7 +265,7 @@ async function 걸음(p, 글, 테두리도) {
       if (!h.asElement()) continue;
       if (w < 600) await h.asElement().tap(); else await h.asElement().click();
       누름++;
-      if (i === 59) 막힘 = '끝나지 않음: ' + t;
+      if (i === 159) 막힘 = '끝나지 않음: ' + t;
     }
     const 끝 = await B.p.evaluate(() => !document.querySelector('.gd-panel').hidden);
     확인(w + 'px · ' + n + '장 — 테두리 친 곳만 ' + 누름 + '번 눌러 끝까지', !막힘 && 끝, 막힘);

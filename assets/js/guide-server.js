@@ -62,7 +62,7 @@
       window.__guideSpeechAt[qi] = at;
       if (chunk.length >= 5) { emit(chunk.join(' ') + ' ', true); chunk = []; }
       else emit(chunk.join(' '), false);
-      me.timer = setTimeout(next, 230);
+      me.timer = setTimeout(next, 330);   // 한 낱말에 0.33초 — 실제 말하는 빠르기쯤(처음 0.23초는 너무 빨라 따라 읽기 어려웠음)
     })();
   };
   FakeSpeech.prototype.stop = FakeSpeech.prototype.abort = function () {

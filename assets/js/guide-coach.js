@@ -472,13 +472,28 @@
       (s ? '<button class="gd-x" data-act="go" data-ch="' + S.ch + '">이 장 처음부터</button>' : '');
   }
 
+  // 말풍선 글을 읽는 데 드는 시간 — 넉넉히 1초에 10자, 짧아도 8초 · 길어도 30초
+  function readMs(s) {
+    var d = document.createElement('div'); d.innerHTML = text(s.b) + ' ' + s.t;
+    return Math.min(30000, Math.max(8000, d.textContent.replace(/\s+/g, '').length * 100));
+  }
+  // 보여 주기 걸음 — 언제 넘어가는지 얇은 막대로(받아 적기 · 읽는 시간 중 늦은 쪽)
+  function paintWait(s) {
+    var bar = tip.querySelector('.gd-wait i');
+    if (!bar) return;
+    var p = Math.min(1, (Date.now() - S.enteredAt) / readMs(s));
+    if (!isDone(s)) p = Math.min(p, 0.9);
+    bar.style.width = Math.round(p * 100) + '%';
+  }
+
   function paintTip() {
     var s = step();
     if (!s) { tip.hidden = true; return; }
     tip.hidden = false;
     tip.innerHTML = '<span class="gd-arrow"></span>' +
       '<h3 class="gd-t">' + (s.watch ? '👀 ' : '👉 ') + esc(s.t) + '</h3>' +
-      '<div class="gd-b">' + text(s.b) + '</div>';
+      '<div class="gd-b">' + text(s.b) + '</div>' +
+      (s.watch ? '<div class="gd-wait"><i></i></div><p class="gd-waitcap">다 읽으실 시간을 드린 뒤 저절로 넘어갑니다</p>' : '');
     tip.dataset.flash = S.flash > Date.now() ? 'yes' : 'no';
   }
 
@@ -512,6 +527,7 @@
     var s = step();
     if (!s) return;
     S.doneAt = 0;
+    S.enteredAt = Date.now();
     if (s.enter) s.enter();
     lastDyn = text(s.b);
     paintDock();
@@ -575,9 +591,14 @@
     if (!s || !panel.hidden) return;
     // 다 됐으면 잠깐 두고 넘깁니다 — 예시가 채워진 걸음(글자 · 받아 적기)은 1초, 단추는 0.3초.
     // 바로 넘기면 다음 말풍선이 방금 적힌 예시를 덮어 무엇이 됐는지 못 봅니다
+    if (s.watch) paintWait(s);
     if (isDone(s)) {
       if (!S.doneAt) S.doneAt = Date.now();
-      if (Date.now() - S.doneAt >= (s.act || s.after || s.watch ? 1000 : 300)) advance();
+      var hold = s.act || s.after || s.watch ? 1000 : 300;
+      // 보여 주기만 하는 걸음(받아 적기)은 말풍선 글을 다 읽을 시간까지 기다립니다 —
+      // 2026-10-12 선생님 말씀: 받아 적기가 끝나자마자 넘어가 버려 설명을 다 못 읽는다
+      var read = s.watch ? readMs(s) - (Date.now() - S.enteredAt) : 0;
+      if (Date.now() - S.doneAt >= hold && read <= 0) advance();
       return;
     }
     S.doneAt = 0;
