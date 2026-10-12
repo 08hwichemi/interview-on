@@ -17,8 +17,9 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
 
 const URL0 = 'http://127.0.0.1:8777/teacher/';
 
-async function 새창(b, w) {
-  const ctx = await b.newContext({ viewport: { width: w || 1440, height: 900 }, serviceWorkers: 'block' });
+async function 새창(b, w, 폰) {
+  const ctx = await b.newContext(폰 ? { viewport: { width: w, height: 800 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' }
+                                    : { viewport: { width: w || 1440, height: 900 }, serviceWorkers: 'block' });
   const 바깥 = [];
   await ctx.route('**/*', r => {
     const u = r.request().url();
@@ -90,18 +91,18 @@ async function 걸음(p, 글, 테두리도) {
   console.log('\n── 1. 질문지 만들기 — 글자는 하나도 안 침 ──');
   await 걸음(p, '«1반»');
   await p.click('#class-chips .chip:nth-child(2)');
-  await 걸음(p, '김연습» 을 누르세요');
+  await 걸음(p, '옆 ★');
   console.log('  (테두리 밖을 눌러 봄)');
   await p.click('#class-chips .chip:nth-child(3)', { force: true });     // 2반
   await p.waitForTimeout(200);
   확인('  테두리 밖(2반)을 눌러도 화면이 안 바뀌는가 · 말풍선이 흔들리는가', await p.evaluate(() =>
     pickedClass === '301' && document.querySelector('.gd-tip').classList.contains('gd-nudge')));
+  await p.click('#student-list .srow:has(.railrow[onclick*="g01"]) .star');
+  await 걸음(p, '김연습» 을 누르세요');
   await p.click('#student-list .railrow[onclick*="g01"]');
-  await 걸음(p, '★');
+  await 걸음(p, '첫인사');
   확인('  지난 면접 1회차 · 수시 6곳이 보이는가', await p.evaluate(() =>
     document.querySelectorAll('#history .row').length === 1 && document.querySelectorAll('#susi .susirow').length === 6));
-  await p.click('#student-list .srow:has(.railrow[onclick*="g01"]) .star');
-  await 걸음(p, '첫인사');
   await p.click('#opening-box .chip:nth-child(3)');
   await 걸음(p, '«창체 질문 3개»');
   await p.click('button[onclick^="loadCommon(\'changche\'"]');
@@ -227,8 +228,10 @@ async function 걸음(p, 글, 테두리도) {
   await A.ctx.close();
 
   console.log('\n── 목차에서 바로(?guide=N) — 테두리 친 곳만 눌러 장 끝까지 ──');
-  for (const n of [0, 1, 2, 3, 4, 5]) {
-    const B = await 새창(b, 1280);
+  // 노트북(1280)과 휴대폰(390, 손가락으로 톡) 둘 다 — 2026-10-12 휴대폰에서 ★ 단계에 막혔습니다(학생을 고르면 명단이 접힘)
+  for (const [w, n] of [[1280, 0], [1280, 1], [1280, 2], [1280, 3], [1280, 4], [1280, 5],
+                        [390, 0], [390, 1], [390, 2], [390, 3], [390, 4], [390, 5]]) {
+    const B = await 새창(b, w, w < 600);
     await B.p.goto(URL0 + '?guide=' + n);
     await B.p.waitForSelector('.gd-tip:not([hidden]) .gd-t', { timeout: 8000 });
     let 누름 = 0, 막힘 = '';
@@ -248,12 +251,12 @@ async function 걸음(p, 글, 테두리도) {
         return el.querySelector('button.chip') || el.querySelector('button') || el.querySelector('input, textarea, select') || el;
       });
       if (!h.asElement()) continue;
-      await h.asElement().click();
+      if (w < 600) await h.asElement().tap(); else await h.asElement().click();
       누름++;
       if (i === 59) 막힘 = '끝나지 않음: ' + t;
     }
     const 끝 = await B.p.evaluate(() => !document.querySelector('.gd-panel').hidden);
-    확인(n + '장 — 테두리 친 곳만 ' + 누름 + '번 눌러 끝까지', !막힘 && 끝, 막힘);
+    확인(w + 'px · ' + n + '장 — 테두리 친 곳만 ' + 누름 + '번 눌러 끝까지', !막힘 && 끝, 막힘);
     확인('  supabase.co 요청 없음 · 오류 없음', B.바깥.length === 0 && B.errs.length === 0, B.errs.join(' | '));
     await B.ctx.close();
   }

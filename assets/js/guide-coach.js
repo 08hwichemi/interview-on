@@ -155,13 +155,15 @@
       { at: function () { return $('#class-chips .chip:nth-child(2)'); }, real: true, t: '«1반» 을 누르세요',
         done: function () { return pickedClass === '301'; },
         b: '반 단추로 명단을 줄입니다. 위 칸에 학번 · 이름을 쳐서 찾아도 됩니다.' },
+      // ★ 를 학생을 고르기 «전에» 누르게 합니다. 휴대폰(900px 아래)에서는 학생을 고르면 명단이 저절로 접혀
+      // ★ 가 안 보였습니다 — 2026-10-12 선생님이 휴대폰으로 보시다 여기서 못 넘어가셨습니다
+      { at: function () { var r = rowOf('#student-list', MAIN); return r && r.querySelector('.star'); }, real: true, t: '«30101 김연습» 옆 ★ 를 누르세요',
+        done: function () { return favorites[MAIN] === true; },
+        b: '맡은 학생은 ★ 로 담아 두면 명단 맨 위 «★ 담당 학생» 에 모입니다. 매번 찾지 않아도 되고, 계정에 남아 다른 컴퓨터에서도 같습니다.' },
       { at: function () { var b = rowOf('#student-list', MAIN); return b && b.querySelector('.railrow'); }, real: true, t: '«30101 김연습» 을 누르세요',
         done: function () { return target && target.id === MAIN && on('setup'); },
-        b: '오른쪽에 그 학생의 «면접 준비» 화면이 열립니다.' },
-      { at: function () { var r = rowOf('#student-list', MAIN); return r && r.querySelector('.star'); }, real: true, t: '이름 옆 ★ 를 누르세요',
-        done: function () { return favorites[MAIN] === true; },
-        b: '맡은 학생은 ★ 로 담아 두면 명단 맨 위 «★ 담당 학생» 에 모입니다(계정에 남아 다른 컴퓨터에서도 같음).' +
-           '<p class="gd-more">오른쪽 위에는 이 학생의 <b>지난 면접</b>(회차 — 누르면 그때 리포트)과 <b>수시 지원</b>(대학 · 학과 · 면접 날짜)이 보입니다.</p>' },
+        b: '그 학생의 «면접 준비» 화면이 열립니다.' +
+           '<p class="gd-more">위에는 이 학생의 <b>지난 면접</b>(회차 — 누르면 그때 리포트)과 <b>수시 지원</b>(대학 · 학과 · 면접 날짜)이 보입니다.</p>' },
       { at: '#opening-box .chip:nth-child(3)', real: true, t: '첫인사 «자기소개 + 지원동기» 를 누르세요',
         done: function () { return opening.on && opening.key === 'both'; },
         b: '면접을 여는 질문입니다. 문장은 그 자리에서 고쳐 써도 되고, 고른 것을 다시 누르면 첫인사를 뺍니다.' },
@@ -419,7 +421,16 @@
   function target_() {
     var s = step(); if (!s || !s.at) return null;
     var el = typeof s.at === 'function' ? s.at() : $(s.at);
+    if (el && !rectOf(el)) { reveal(el); }
     return rectOf(el) ? el : null;
+  }
+  // 누를 곳이 접힌 칸 안에 숨어 있으면 그 칸을 폅니다. 휴대폰에서는 학생 명단 · 질문지 만들기 · 지난 면접이
+  // 처음부터 접혀 있거나 학생을 고르면 접히는데, 연습에서는 테두리 밖(«펼치기»)을 누를 수 없어 막혔습니다
+  function reveal(el) {
+    if (el.closest('#rail-students') && railFolded) { railFolded = false; paintRailFold(); }
+    if (el.closest('#qsect-body') && !qsectOpen) toggleQsect();
+    if (el.closest('#history') && !historyAccOpen) toggleHistoryAcc();
+    if (el.closest('#susi') && !susiOpen) toggleSusi();
   }
 
   function paintDock() {
@@ -554,6 +565,7 @@
     var el = target_(), vw = window.innerWidth, vh = window.innerHeight, gap = 14, TOP = 72;
     var w = Math.min(340, vw - 24);
     tip.style.width = w + 'px';
+    tip.style.maxHeight = '';
     var h = tip.offsetHeight, arrow = tip.querySelector('.gd-arrow');
     function put(where, left, top, ax, ay) {
       S.place = where;
@@ -566,25 +578,35 @@
     }
     function clamp(v, a, z) { return Math.max(a, Math.min(z, v)); }
     if (!el) { put('corner', vw - w - 16, vh - h - 56); return; }
-    var r = rectOf(el);
+    var r0 = rectOf(el);
     // tipBeside — 말풍선은 그 창 옆에 두고(테두리 · 화살표는 단추에). QR 창 가운데 아래 «닫기» 가 그렇습니다
     var side = step() && step().tipBeside ? rectOf($(step().tipBeside)) : null;
-    if (side) r = { left: side.left, right: side.right, width: side.width, top: r.top, bottom: r.bottom, height: r.height };
-    var anchorX = r.width > w ? r.left + 48 : r.left + r.width / 2;
-    var left = clamp(anchorX - w / 2, 8, vw - 8 - w);
-    var ax = clamp(anchorX - left - 8, 14, w - 30);
-    var top = clamp(r.top + r.height / 2 - h / 2, TOP, vh - 8 - h);
-    var ay = clamp(r.top + r.height / 2 - top - 8, 14, h - 30);
-    var ways = {
-      below: function () { return r.bottom + gap + h <= vh - 8 && (put('below', left, r.bottom + gap, ax, null), true); },
-      above: function () { return r.top - gap - h >= TOP && (put('above', left, r.top - gap - h, ax, null), true); },
-      right: function () { return r.right + gap + w <= vw - 8 && (put('right', r.right + gap, top, null, ay), true); },
-      left:  function () { return r.left - gap - w >= 8 && (put('left', r.left - gap - w, top, null, ay), true); }
-    };
+    function tryAt(r, order) {
+      var anchorX = r.width > w ? r.left + 48 : r.left + r.width / 2;
+      var left = clamp(anchorX - w / 2, 8, vw - 8 - w);
+      var ax = clamp(anchorX - left - 8, 14, w - 30);
+      var top = clamp(r.top + r.height / 2 - h / 2, TOP, vh - 8 - h);
+      var ay = clamp(r.top + r.height / 2 - top - 8, 14, h - 30);
+      var ways = {
+        below: function () { return r.bottom + gap + h <= vh - 8 && (put('below', left, r.bottom + gap, ax, null), true); },
+        above: function () { return r.top - gap - h >= TOP && (put('above', left, r.top - gap - h, ax, null), true); },
+        right: function () { return r.right + gap + w <= vw - 8 && (put('right', r.right + gap, top, null, ay), true); },
+        left:  function () { return r.left - gap - w >= 8 && (put('left', r.left - gap - w, top, null, ay), true); }
+      };
+      for (var i = 0; i < order.length; i++) if (ways[order[i]]()) return true;
+      return false;
+    }
+    var normal = ['below', 'above', 'right', 'left'];
     // 걸음마다 먼저 볼 쪽을 정할 수 있습니다(QR 창의 «닫기» 는 옆으로 — 위로 붙이면 QR 그림을 가립니다)
-    var order = (step() && step().prefer) || ['below', 'above', 'right', 'left'];
-    for (var i = 0; i < order.length; i++) if (ways[order[i]]()) return;
-    put('corner', vw - w - 16, vh - h - 56);
+    if (side && tryAt({ left: side.left, right: side.right, width: side.width, top: r0.top, bottom: r0.bottom, height: r0.height },
+                      step().prefer || normal)) return;
+    if (tryAt(r0, side ? normal : (step() && step().prefer) || normal)) return;
+    // 어디에도 다 안 들어가면(휴대폰의 QR 창처럼) 누를 곳의 반대쪽 화면 끝에 — 누를 곳만은 가리지 않게
+    var lowHalf = r0.top + r0.height / 2 > vh / 2;
+    var room = lowHalf ? r0.top - TOP - 10 : vh - r0.bottom - 18;
+    var hh = Math.min(h, Math.max(120, room));
+    tip.style.maxHeight = hh + 'px';
+    put('corner', 8, lowHalf ? TOP : vh - hh - 8);
   }
 
   function start() {
