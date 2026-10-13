@@ -8,6 +8,7 @@
 - 실제 서비스는 GitHub Pages 의 **`main`** 입니다. 작업 branch → PR → 사용자가 «올려줘» 하면 합칩니다
 - 판 번호는 `python3 tools/판올리기.py <판>` 으로 한꺼번에 (`version.txt` · `BUILD_ID` · 파일 주소)
 - 고친 뒤 `tools/화면-시험/` 의 검사를 돌립니다 (README 참고)
+- 선생님 화면의 단추 · id 를 바꾸면 **«따라 하기»(설명서, `assets/js/guide-coach.js`)도 같이** 고치고 `check-guide.js` 를 돌립니다
 - Supabase 무료 요금제: **톡만 실시간**, 1분 같은 짧은 주기 확인은 만들지 않습니다.
   로그 조회(`query_logs`)도 사용량에 잡히니 먼저 묻고 기간을 좁게
 - 주석 · 커밋 글 · 화면 문구는 **한국어, 쉬운 말**로 (선생님이 읽으십니다)
