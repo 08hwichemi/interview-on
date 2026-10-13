@@ -4,6 +4,18 @@ var secondsElapsed = 0;
 var isTimerRunning = false;
 var interviewResults = []; // 결과 기록용 배열
 
+// ── 받아 적기(«말한 것을 글로 받아 적을게요») ──
+// 녹음(MediaRecorder)과 받아 적기(크롬 음성 인식)는 **둘 중 하나만** 켭니다.
+// ⚠️ 2026-10-13 선생님 폰(안드로이드 크롬)으로 세 번 시험 — 녹음 먼저 · 받아 적기 먼저 · 마이크 선 넘기기
+//    셋 다 받아 적기가 안 됐습니다. 안드로이드의 받아 적기는 크롬이 아니라 안드로이드(구글 앱)의 인식기를 빌려 쓰는 것이라
+//    크롬이 녹음으로 마이크를 쥐면 그쪽이 못 잡습니다. 그래서 «동시에» 는 접고 학생이 고르게 했습니다.
+// 받아 적기는 선생님 화면의 listen.js 와 같은 방식(ko-KR · 계속 듣기 · 조용해서 스스로 멈추면 다시 켬)이지만,
+// listen.js 는 선생님 화면의 변수(answers · qIndex …)에 붙어 있어 여기서는 따로 작게 둡니다.
+var isTextOptedIn = false;   // 학생이 «글로 받아 적기» 를 골랐는가
+var textResults = [];        // 질문마다 받아 적은 글
+var MOCK_LISTEN = { rec: null, on: false, interim: '', hint: '', restartId: null, fails: 0 };
+function mockListenCtor() { return window.SpeechRecognition || window.webkitSpeechRecognition || null; }
+
 // 설정 화면 초기화 및 로컬 스토리지 불러오기
 function initCustomInterviewSetup() {
   document.getElementById('changche-inputs').innerHTML = '';
@@ -222,9 +234,30 @@ function startCustomInterview() {
   currentMockIndex = 0;
   interviewResults = [];
   audioUrls = []; // ✨ [추가] 새 훈련 시작 시 이전 녹음 기록을 깨끗이 비웁니다!
+  textResults = [];
   
   // [수정] 바로 넘어가지 않고 팝업창을 띄웁니다.
+  paintRecordOptions();
   document.getElementById('recording-modal').style.display = 'flex';
+}
+
+// 고르기 창의 «내 답변을 어떻게 남길까요» — 고른 것에 맞는 설명을 아래 줄에 적고,
+// 받아 적기가 없는 브라우저(삼성 인터넷 · 카톡 안 브라우저 · 파이어폭스)에서는 그 선택지를 막습니다.
+function paintRecordOptions() {
+  var sel = document.getElementById('modal-record-select');
+  var hint = document.getElementById('modal-record-hint');
+  if (!sel || !hint) return;
+  var textOpt = sel.querySelector('option[value="text"]');
+  var can = !!mockListenCtor();
+  if (textOpt) {
+    textOpt.disabled = !can;
+    textOpt.textContent = can ? '📝 말한 것을 글로 받아 적을게요' : '📝 글로 받아 적기 (이 브라우저에는 없음)';
+    if (!can && sel.value === 'text') sel.value = 'yes';
+  }
+  var v = sel.value;
+  if (v === 'yes') hint.textContent = '답변을 녹음해 두고 결과 화면에서 다시 들을 수 있습니다. 녹음과 받아 적기는 둘 중 하나만 됩니다(휴대폰이 마이크를 나눠 쓰지 못합니다).';
+  else if (v === 'text') hint.textContent = '말하는 동안 글로 받아 적혀 결과 화면에서 읽어 볼 수 있습니다. 소리는 남지 않습니다. 인터넷이 있어야 하고, 크롬에서 가장 잘 됩니다.';
+  else hint.textContent = can ? '' : '이 브라우저에는 받아 적기가 없습니다. 크롬으로 열면 «글로 받아 적을게요» 를 고를 수 있습니다.';
 }
 
 // --- [신규] 팝업창 설정 완료 로직 ---
@@ -235,7 +268,9 @@ async function confirmSettings() {
   document.getElementById('recording-modal').style.display = 'none';
 
   isRecordOptedIn = (recordVal === 'yes');
+  isTextOptedIn = (recordVal === 'text') && !!mockListenCtor();   // 받아 적기 — 녹음과 동시에는 켜지 않음
   isAutoStart = (modeVal === 'auto'); // 실전 모드인지 연습 모드인지 저장
+  MOCK_LISTEN.hint = '';
 
   if (isRecordOptedIn) {
     try {
@@ -261,6 +296,7 @@ function showCurrentQuestion() {
   var btn = document.getElementById('mock-timer-btn');
   document.getElementById('mock-next-btn').style.display = "none";
   resetStopwatch();
+  mockListenPaint();   // 받아 적기 칸 — 골랐을 때만 보이고, 새 질문이면 비어 있음
 
   if (isAutoStart) {
     // 1. 실전 모드: 바로 5초 카운트다운 시작
@@ -306,6 +342,9 @@ async function startActualInterview() {
   btn.disabled = false;
   
   audioUrls[currentMockIndex] = null; 
+  textResults[currentMockIndex] = '';
+
+  if (isTextOptedIn) mockListenStart();   // 받아 적기 — 녹음 대신(둘 중 하나만)
 
   if (isRecordOptedIn) {
     try {
@@ -349,6 +388,7 @@ function handleTimerClick() {
       }
     }
     stopStopwatch();
+    if (isTextOptedIn) mockListenStop();   // 아직 확정 안 된 글까지 붙이고 끕니다 (시계를 먼저 멈춰야 «다시 켜는 중» 이 아니라 «받아 적은 답변» 으로 그려짐)
     btn.innerText = "다시 답변하기 (초기화)";
     btn.style.backgroundColor = "var(--ink-3)";
     document.getElementById('mock-next-btn').style.display = "block";
@@ -418,6 +458,12 @@ function showInterviewResult() {
             <div style="font-size:11px; color:var(--ink); font-weight:bold; margin-bottom:4px;">[질문 내용]</div>
             <div style="font-size:14px; color:var(--ink-2); line-height:1.5; word-break:keep-all;">${currentMockQuestions[idx].text}</div>
           </div>
+          ${isTextOptedIn ? `
+            <div class="mock-said" style="border-top:1px dashed var(--line); padding-top:12px; margin-top:12px;" onclick="event.stopPropagation()">
+              <div style="font-size:11px; color:var(--ink); font-weight:bold; margin-bottom:4px;">[받아 적은 답변]</div>
+              <div style="font-size:14px; color:var(--ink-2); line-height:1.6; word-break:keep-all; white-space:pre-wrap;">${(textResults[idx] || '').trim() ? escapeMockText(textResults[idx]) : '<span style="color:var(--ink-3);">받아 적힌 말이 없습니다.</span>'}</div>
+            </div>
+          ` : ''}
           ${audioUrls[idx] ? `
             <div style="border-top:1px dashed var(--line); padding-top:12px; margin-top:12px;" onclick="event.stopPropagation()">
               <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -478,4 +524,115 @@ function playGlobalAudio(idx, stageNum) {
   
   // 3. 바로 재생 (화면 위로 강제 이동하는 명령어 삭제됨!)
   player.play().catch(function(e) { console.log("재생 대기:", e); });
+}
+
+// ── 훈련 중단 — 켜 둔 마이크 · 받아 적기를 끄고 홈으로 ──
+function abortMockInterview() {
+  try { if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); } catch (e) { /* 이미 멈춤 */ }
+  if (mediaStream) { try { mediaStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { /* */ } mediaStream = null; }
+  mockListenStop();
+  stopStopwatch();
+  navigateTo('home');
+}
+
+// ── 받아 적기(학생 면접 연습) ──
+function mockListenStart() {
+  var C = mockListenCtor();
+  if (!C) return;
+  if (MOCK_LISTEN.restartId) { clearTimeout(MOCK_LISTEN.restartId); MOCK_LISTEN.restartId = null; }
+  var rec;
+  try { rec = new C(); } catch (e) { MOCK_LISTEN.hint = '음성 인식을 켜지 못했습니다.'; mockListenPaint(); return; }
+  rec.lang = 'ko-KR';
+  rec.continuous = true;       // 한 마디마다 멈추지 않고 계속
+  rec.interimResults = true;   // 확정 전 글도 받아 회색으로 보여 줌
+  rec.maxAlternatives = 1;
+  var qi = currentMockIndex;   // 어느 질문에 적는 중인가
+
+  rec.onresult = function (ev) {
+    var fin = '', tmp = '';
+    for (var i = ev.resultIndex; i < ev.results.length; i++) {
+      var r = ev.results[i];
+      var t = (r[0] && r[0].transcript) || '';
+      if (r.isFinal) fin += t; else tmp += t;
+    }
+    if (fin.trim()) mockListenAppend(qi, fin);
+    MOCK_LISTEN.interim = tmp;
+    MOCK_LISTEN.fails = 0;
+    mockListenPaint();
+  };
+  rec.onerror = function (ev) {
+    var kind = (ev && ev.error) || '';
+    if (kind === 'not-allowed' || kind === 'service-not-allowed') {
+      // 마이크를 막았을 때 — 다시 켜 봐야 소용없으니 끕니다. 시간 재기는 그대로 이어집니다
+      MOCK_LISTEN.hint = '마이크 사용이 막혀 받아 적지 못합니다. 주소창의 자물쇠 → 마이크 «허용» 뒤 다시 해 보세요. (아이폰은 설정 → Siri 및 받아쓰기도 켜야 합니다)';
+      MOCK_LISTEN.stopped = true;   // onend 에서 다시 켜지 않게
+      return;
+    }
+    if (kind === 'audio-capture') { MOCK_LISTEN.hint = '마이크를 잡지 못했습니다. 다른 앱이 마이크를 쓰고 있지 않은지 봐 주세요.'; MOCK_LISTEN.fails++; return; }
+    if (kind === 'network') { MOCK_LISTEN.hint = '인터넷이 끊겨 받아 적지 못하고 있습니다. 이어지면 저절로 다시 적습니다.'; MOCK_LISTEN.fails++; return; }
+    // no-speech · aborted 는 흔한 일 — onend 에서 다시 켭니다
+  };
+  rec.onend = function () {
+    // ⚠️ 다른 것으로 갈아 끼운 뒤에 옛것의 onend 가 오면 아무것도 건드리지 않습니다(listen.js 에서 한 번 틀렸던 자리)
+    if (MOCK_LISTEN.rec !== rec) return;
+    MOCK_LISTEN.on = false;
+    MOCK_LISTEN.rec = null;
+    if (MOCK_LISTEN.interim.trim()) { mockListenAppend(qi, MOCK_LISTEN.interim); MOCK_LISTEN.interim = ''; }
+    // 답변 중이면(시계가 흐르면) 다시 켭니다 — 크롬은 조용하면 몇 초 만에 스스로 멈추기 때문. 잇달아 실패하면 조금 기다렸다가
+    if (isTimerRunning && isTextOptedIn && !MOCK_LISTEN.stopped) {
+      var wait = MOCK_LISTEN.fails > 2 ? 3000 : 150;
+      MOCK_LISTEN.restartId = setTimeout(function () { MOCK_LISTEN.restartId = null; if (isTimerRunning && !MOCK_LISTEN.on) mockListenStart(); }, wait);
+    }
+    mockListenPaint();
+  };
+  try {
+    rec.start();
+    MOCK_LISTEN.rec = rec;
+    MOCK_LISTEN.on = true;
+    MOCK_LISTEN.stopped = false;
+    if (MOCK_LISTEN.hint.indexOf('인터넷') === -1) MOCK_LISTEN.hint = '';
+  } catch (e) {
+    // 이미 도는 중에 또 start 하면 터집니다 — 그냥 둡니다
+  }
+  mockListenPaint();
+}
+
+function mockListenStop() {
+  if (MOCK_LISTEN.restartId) { clearTimeout(MOCK_LISTEN.restartId); MOCK_LISTEN.restartId = null; }
+  var rec = MOCK_LISTEN.rec;
+  MOCK_LISTEN.rec = null;
+  MOCK_LISTEN.on = false;
+  if (MOCK_LISTEN.interim.trim()) { mockListenAppend(currentMockIndex, MOCK_LISTEN.interim); MOCK_LISTEN.interim = ''; }
+  if (rec) { try { rec.abort(); } catch (e) { /* */ } }   // abort — 남은 결과를 또 보내지 않게(위에서 이미 붙였음)
+  mockListenPaint();
+}
+
+function mockListenAppend(qi, text) {
+  var t = String(text || '').trim();
+  if (!t) return;
+  var cur = textResults[qi] || '';
+  textResults[qi] = cur ? (cur + ' ' + t) : t;
+}
+
+function escapeMockText(t) {
+  return String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// 받아 적기 칸 그리기 — 받아 적기를 골랐을 때만 보입니다
+function mockListenPaint() {
+  var box = document.getElementById('mock-live');
+  if (!box) return;
+  box.hidden = !isTextOptedIn;
+  if (!isTextOptedIn) return;
+  var state = document.getElementById('mock-live-state');
+  var text = document.getElementById('mock-live-text');
+  var said = textResults[currentMockIndex] || '';
+  if (MOCK_LISTEN.hint) state.textContent = '⚠️ ' + MOCK_LISTEN.hint;
+  else if (MOCK_LISTEN.on) state.textContent = '🎙️ 받아 적는 중… (말하면 글이 나타납니다)';
+  else if (isTimerRunning) state.textContent = '받아 적기를 다시 켜는 중…';
+  else if (said) state.textContent = '📝 받아 적은 답변';
+  else state.textContent = '📝 «답변 시작» 을 누르고 말하면 여기에 받아 적힙니다';
+  var html = escapeMockText(said);
+  if (MOCK_LISTEN.interim.trim()) html += (html ? ' ' : '') + '<span class="interim">' + escapeMockText(MOCK_LISTEN.interim) + '</span>';
+  text.innerHTML = html || (MOCK_LISTEN.on ? '<span class="empty">…</span>' : '');
 }
