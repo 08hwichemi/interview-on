@@ -861,16 +861,18 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 /* 타학교 줄은 ★ · 🗑 두 단추가 붙습니다 */
 .ofav{margin:0 -6px 6px;border-radius:0}
 
-/* 미리 만들어 둔 질문지 여러 벌 — 안내 칸 안의 알약 단추와 단추 줄의 이름 칸 (2026-10-13) */
-.sheetlist{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
-#sheet-current:not([hidden])+.sheetlist{border-top:1px dashed var(--line-2);padding-top:8px}
-.sheetlist .lbl{font-size:12.5px;color:var(--ink-3);margin-right:4px}
+/* 미리 만들어 둔 질문지 여러 벌 — «질문지 만들기» 맨 위의 이름 칸과 저장해 둔 질문지 알약 단추 (2026-10-13) */
+.sheethead{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:0 0 16px;padding:10px 12px;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:8px}
+.sheethead .lbl{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap}
+.sheetname{flex:1 1 200px;min-width:0;max-width:320px;padding:9px 11px;border:1px solid var(--line-2);border-radius:6px;
+  font-family:inherit;font-size:13.5px;background:var(--surface);color:var(--ink)}
+.sheetname:focus{outline:none;border-color:var(--ink)}
+.sheetlist{display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex-basis:100%}
+.sheetlist .lbl{font-size:12.5px;font-weight:500;color:var(--ink-3);margin-right:2px}
 .sheetchip{padding:5px 11px;border:1px solid var(--line-2);border-radius:999px;background:var(--surface);
   color:var(--ink-2);font-family:inherit;font-size:12.5px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sheetchip:hover{border-color:var(--ink);color:var(--ink)}
 .sheetchip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
 .sheetchip.new{border-style:dashed;color:var(--ink-3)}
-.sheetname{flex:1 1 150px;min-width:0;max-width:240px;padding:11px 12px;border:1px solid var(--line-2);border-radius:6px;
-  font-family:inherit;font-size:13px;background:var(--surface);color:var(--ink)}
-.sheetname:focus{outline:none;border-color:var(--ink)}
 @media (max-width:900px){.sheetname{max-width:none}}

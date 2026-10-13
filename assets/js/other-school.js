@@ -68,7 +68,7 @@ async function otherLoad() {
   // 목록과 내 즐겨찾기를 같이 받습니다(요청 두 번, 동시에)
   const [res, fav] = await Promise.all([
     sb.from('interviews')
-      .select('id, other_name, other_major, other_school, status, teacher_name, started_at, share_until')
+      .select('id, other_name, other_major, other_school, status, teacher_name, started_at, share_until, sheet_name')
       .not('other_name', 'is', null),
     sb.from('teacher_other_favorites').select('interview_id').eq('teacher_id', me.id)
   ]);
@@ -138,7 +138,9 @@ function otherGroups() {
 function otherRowHTML(iv, withSchool) {
   var on = target && target.other && target.ivId === iv.id;
   var fav = otherFav[iv.id] === true;
-  var sub = [withSchool ? iv.other_school : '', iv.other_major].filter(function (x) { return x; }).join(' · ');
+  // 질문지가 여러 벌이면 같은 학생이 여러 줄 — 질문지 이름을 꼬리표로 붙여 가릅니다 (2026-10-13)
+  var sub = [withSchool ? iv.other_school : '', iv.other_major, iv.sheet_name ? '«' + iv.sheet_name + '»' : '']
+    .filter(function (x) { return x; }).join(' · ');
   return '<div class="srow">' +
     '<button class="railrow orow" aria-current="' + !!on + '" onclick="otherOpen(\'' + iv.id + '\')">' +
       '<span class="who"><span class="nm">' + esc(iv.other_name) + '</span>' +
@@ -232,13 +234,15 @@ async function otherSaveRoster(next) {
       }, f)).select('id, started_at').single();
       ok = !ins.error;
       if (ins.error) toast('명단에 넣지 못했습니다: ' + ins.error.message, 'bad');
-      else { sheetId = ins.data.id; sheetSavedAt = ins.data.started_at; target.ivId = sheetId; paintSheetNote(); otherLoad(); }
+      else { sheetId = ins.data.id; sheetSavedAt = ins.data.started_at; sheetName = ''; target.ivId = sheetId; sheets.unshift({ id: sheetId, started_at: sheetSavedAt, sheet_name: '' }); paintSheetNote(); otherLoad(); }
     }
     busy(false);
     if (!ok) return;
   } else {
     busy(true);
-    const up = await sb.from('interviews').update(f).eq('id', target.ivId);
+    // 질문지가 여러 벌이면 그 줄들 모두 같은 학생이니 함께 고칩니다
+    var ids = sheets.length > 1 ? sheets.map(function (s) { return s.id; }) : [target.ivId];
+    const up = await sb.from('interviews').update(f).in('id', ids);
     busy(false);
     if (up.error) { toast('명단을 고치지 못했습니다: ' + up.error.message, 'bad'); return; }
     otherLoad();
@@ -326,7 +330,7 @@ function otherSetup(t) {
   midQuestions = [];
   questions = [];
   interviewId = null;
-  sheetId = null; sheetSavedAt = null;
+  sheetId = null; sheetSavedAt = null; sheetName = ''; sheets = [];
   resetGreetings();
   renderGreetings();
   renderQuestions();

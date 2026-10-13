@@ -143,7 +143,7 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
 
   await p.click('#sheet-list .sheetchip.new'); await p.waitForTimeout(200);   // «비울까요?» 는 confirm — 위에서 accept
   확인('«＋ 새 질문지» 를 누르면 화면이 비고 열어 둔 질문지가 없는가(목록은 그대로)',
-       await p.evaluate(() => midQuestions.length === 0 && sheetId === null && document.getElementById('sheet-current').hidden && !document.getElementById('sheet-list').hidden));
+       await p.evaluate(() => midQuestions.length === 0 && sheetId === null && document.getElementById('sheet-note').hidden && !document.getElementById('sheet-list').hidden));
   확인('이름 칸도 비는가', await p.evaluate(() => document.getElementById('sheet-name').value === ''));
   await p.evaluate(() => { addQuestion('서울대용 질문 하나', '진로역량'); addQuestion('서울대용 질문 둘', '학업역량'); });
   await p.waitForTimeout(100);
