@@ -303,6 +303,17 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .qrow select{flex:0 0 108px;width:auto}
 /* 첫인사·끝인사는 «빼기» 도 «역량 고르기» 도 없는 붙박이 줄입니다.
    번호를 진하게 해서 면접의 처음과 끝임을 눈에 띄게 합니다. */
+/* 순서 바꾸기 ▲ ▼ (moveQuestion) */
+.qmoves{display:inline-flex;gap:2px;flex:0 0 auto}
+.qmove{width:28px;height:28px;padding:0;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);
+  border-radius:5px;font-size:10px;line-height:1;cursor:pointer}
+.qmove:hover:not([disabled]){border-color:var(--ink);color:var(--ink)}
+.qmove[disabled]{opacity:.3;cursor:default}
+.qrow.moved{animation:qmoved .6s ease-out}
+@keyframes qmoved{0%{background:var(--amber-soft)}100%{background:transparent}}
+/* 꼬리 질문 한 줄 칸 (addFollowUp) */
+.followbox{display:flex;gap:8px;align-items:center;margin:16px 0 0}
+.followbox input{flex:1;min-width:0}
 .qrow.fixed{margin-top:8px}
 .qrow.fixed .qno{background:var(--ink);color:#fff}
 
@@ -314,6 +325,8 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   display:flex;align-items:center;justify-content:center;
 }
 .step-no{font-size:12.5px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.runstep{display:inline-flex;align-items:center;gap:12px}
+.runstep .linkbtn{font-size:12.5px}
 
 /* 시간 두 개를 나란히 크게. 면접 중에 흘깃 봐야 하는 숫자라 작으면 못 읽습니다.
    «면접 전체» 는 저 혼자 흐르는 것이라 조금 연하게, «이 질문» 은 선생님이
@@ -362,6 +375,8 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   .qrow input[type=text]{flex:1 1 100%;order:1}
   .qrow .qno{order:0}
   .qrow select{flex:1 1 auto;order:2}
+  .qrow .qmoves{order:2}
+  .qrow .linkbtn{order:3}
   .tagrow{flex-direction:column;gap:8px}
   .tagrow .axis{padding-top:0}
   .tagcols{grid-template-columns:1fr;gap:10px;width:100%}

@@ -120,8 +120,11 @@ async function 걸음(p, 글, 테두리도) {
   await 걸음(p, '무엇을 보는 질문인지');
   확인('  예시 질문이 저절로 적혔는가', await p.evaluate(() => midQuestions[midQuestions.length - 1].text.indexOf('반응 속도') > -1));
   await p.click('#q-list .qrow:last-child select');
-  await 걸음(p, '«질문지 저장»');
+  await 걸음(p, '순서를 바꿔');
   확인('  «학업역량» 이 골라졌는가', await p.evaluate(() => midQuestions[midQuestions.length - 1].competency === '학업역량'));
+  await p.click('#q-list .qrow:last-child .qmove[data-d="-1"]');
+  await 걸음(p, '«질문지 저장»');
+  확인('  예시 질문이 한 칸 위로', await p.evaluate(() => midQuestions[midQuestions.length - 2].text.indexOf('반응 속도') > -1));
   await p.click('#btn-save-sheet');
   await 걸음(p, '1장', false);
   확인('  가짜 서버에 질문지가 저장됐는가(질문 6개)', await p.evaluate(() =>
@@ -152,18 +155,29 @@ async function 걸음(p, 글, 테두리도) {
   await 걸음(p, '우수 · 보통 · 미흡');
   확인('  받아 적기가 끝나도 바로 안 넘어가고 읽을 시간을 주는가(말풍선 12초 넘게 · 말 끝난 뒤 1초 넘게)',
        Date.now() - 들어감 >= 12000 && Date.now() - 말끝 >= 1000, ((Date.now() - 들어감) / 1000).toFixed(1) + '초');
-  확인('  다 말한 뒤 첫 질문에 예시 답변 전체가 붙었는가', await p.evaluate(() => answers[0].transcript === window.__guideSaid[0]),
+  확인('  다 말한 뒤 첫 질문에 예시 답변 전체가 붙었는가', await p.evaluate(() => answers[0].transcript === window.__guideSaid(0)),
        await p.evaluate(() => answers[0].transcript));
   await p.click('#rating-area .rbtn:nth-child(1)');
   await 걸음(p, '영역 줄');
   await p.click('#area-grid .arearow:nth-child(2) .abtn.l0');
   await 걸음(p, '요지');
   await p.click('#answer-memo');
-  await 걸음(p, '«다음 질문 →»');
+  await 걸음(p, '«＋ 꼬리 질문»');
   확인('  요지 예시가 저절로 적혔는가', await p.evaluate(() => answers[0].memo.indexOf('지원 동기') === 0));
-  await p.click('#btn-next');
-  await 걸음(p, '다시 «답변 시작»');
+  await p.click('#btn-follow');
+  await 걸음(p, '꼬리 질문 칸');
+  await p.click('#follow-text');
+  await 걸음(p, '«넣기»');
+  await p.click('#follow-add');
+  await 걸음(p, '2번에 꼬리 질문이', false);
+  확인('  꼬리 질문이 2번에 · 왼쪽 진행 상황에 초록 테두리', await p.evaluate(() =>
+    questions[1].text.indexOf('틀을 만들') > -1 && qIndex === 1 && document.querySelector('.gd-ring').dataset.kind === 'show'));
+  await 걸음(p, '꼬리 질문을 말하고');
   await p.click('#btn-answer');
+  await 걸음(p, '«다음 질문 →»');
+  await p.waitForFunction(() => window.__guideSpoke[1], null, { timeout: 30000 });
+  확인('  꼬리 질문에는 그에 맞는 예시 답이 받아 적히는가', await p.evaluate(() => answers[1].transcript.indexOf('온도계 위치') > -1), await p.evaluate(() => answers[1].transcript));
+  await p.click('#btn-next');
   await 걸음(p, '남은 질문도 같은 순서');
   await p.click('#btn-next');
   await 걸음(p, '2장', false);

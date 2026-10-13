@@ -32,7 +32,22 @@
     '감사합니다 오늘 면접을 준비하면서 제가 한 활동을 다시 정리할 수 있었고 대학에 가서도 궁금한 것을 직접 실험으로 확인하는 학생이 되겠습니다'
   ];
 
-  window.__guideSaid = SAID;   // 받아 적기 흉내(guide-server.js)가 질문 순서대로 이 답을 «말합니다»
+  // 꼬리 질문 예시와 그 답
+  var FOLLOW_Q = '그 틀을 만들 생각은 어떻게 하게 됐나요?';
+  var FOLLOW_A = '같은 실험을 세 번 했는데 값이 다 달라서 원인을 찾다가 온도계 위치가 매번 다르다는 걸 알았습니다 그래서 집게로 고정해 보자고 생각했습니다';
+  // 받아 적기 흉내(guide-server.js)가 «몇 번째 질문의 답» 을 물으면, 질문 글자를 보고 알맞은 예시 답을 고릅니다.
+  // 번호로만 고르면 꼬리 질문을 끼워 넣었을 때 답이 한 칸씩 어긋납니다
+  function saidFor(i) {
+    var q = (typeof questions !== 'undefined' && questions[i] && questions[i].text) || '';
+    if (q === FOLLOW_Q || /꼬리 질문/.test(q)) return FOLLOW_A;
+    if (/자기소개/.test(q)) return SAID[0];
+    if (/동아리/.test(q)) return SAID[1];
+    if (/의견/.test(q)) return SAID[2];
+    if (/반응 속도|실험|탐구/.test(q)) return SAID[3];
+    if (/마지막/.test(q)) return SAID[4];
+    return SAID[i % SAID.length];
+  }
+  window.__guideSaid = saidFor;
 
   // 예시 글자를 한 자씩 쳐 넣습니다 — 칸의 oninput 이 그대로 불려 화면이 실제처럼 따라옵니다
   function typeInto(el, str) {
@@ -110,7 +125,7 @@
     if (!startedOnce) toggleTimer();
     answers.forEach(function (a, i) {
       // 예시 학생이 아직 다 말하지 않은 질문은 예시 답변을 통째로 넣습니다
-      if (!window.__guideSpoke[i]) { a.transcript = SAID[i % SAID.length]; window.__guideSpoke[i] = true; }
+      if (!window.__guideSpoke[i]) { a.transcript = saidFor(i); window.__guideSpoke[i] = true; }
       if (!a.seconds) { a.seconds = 40 + (i * 17) % 50; totalSeconds += a.seconds + 15; }
     });
     stopTicking();
@@ -192,7 +207,7 @@
         done: function () { return opening.on && opening.key === 'both'; },
         b: '면접을 여는 질문입니다. 문장은 그 자리에서 고쳐 써도 되고, 고른 것을 다시 누르면 첫인사를 뺍니다.' },
       { at: 'button[onclick^="loadCommon(\'changche\'"]', real: true, t: '«창체 질문 3개» 를 누르세요',
-        show: { at: '#q-list', t: '«낼 질문» 에 질문 3개가 붙었습니다', b: '어느 단추로 더해도 여기 맨 아래에 붙습니다. 질문마다 오른쪽 칸에서 무엇을 보는 질문인지 고르고, 필요 없으면 «빼기».' },
+        show: { at: '#q-list', t: '«낼 질문» 에 질문 3개가 붙었습니다', b: '어느 단추로 더해도 여기 맨 아래에 붙습니다. 질문마다 오른쪽 칸에서 무엇을 보는 질문인지 고르고, 필요 없으면 «삭제».' },
         done: function () { return midQuestions.length >= 3; },
         b: '추천 질문 3개가 «낼 질문» 맨 아래에 붙습니다. «전공 질문 3개» 도 같습니다.' },
       { at: 'button[onclick^="addQuestion(\'\'"]', real: true, t: '«＋ 직접 적기» 를 누르세요',
@@ -204,12 +219,21 @@
         done: function () { var q = midQuestions[midQuestions.length - 1]; return q && q.competency === '학업역량'; },
         b: '<b>학업역량 · 진로역량 · 공동체역량 · 기타</b> 중 하나를 고릅니다. 리포트에서 역량별로 모아 보여 줍니다. ' +
            '<span class="gd-ex">(연습에서는 «학업역량» 이 골라집니다)</span>' },
+      // 순서 바꾸기 ▲ ▼ (2026-10-12 더함)
+      { at: function () {
+          var rows = document.querySelectorAll('#q-list .qrow');
+          for (var k = 0; k < rows.length; k++) if (rows[k].querySelector('input').value === EX_Q) return rows[k].querySelector('.qmove[data-d="-1"]');
+          return null;
+        }, real: true, t: '▲ 를 눌러 순서를 바꿔 보세요',
+        done: function () { var k = midQuestions.map(function (q) { return q.text; }).indexOf(EX_Q); return k > -1 && k < midQuestions.length - 1; },
+        b: '줄마다 <b>▲ ▼</b> 로 한 칸씩 옮깁니다. 첫인사 · 끝인사는 늘 맨 앞 · 맨 뒤입니다.' +
+           '<p class="gd-more">면접 도중 «← 질문 고치기» 로 와서 순서를 바꿔도 매긴 평가는 그대로 남습니다.</p>' },
       { at: '#btn-save-sheet', real: true, t: '«질문지 저장» 을 누르세요',
         show: { at: '#sheet-note', t: '«미리 만들어 둔 질문지입니다»', b: '면접 날 이 학생을 고르면 이 표시와 함께 질문지가 그대로 뜹니다.' },
         done: sheetSaved,
         b: '<b>면접은 시작되지 않고</b> 질문만 남겨 둡니다. 면접 날에는 학생만 고르면 이 질문지가 그대로 뜹니다.' +
            '<p class="gd-more">다른 질문 단추 — <b>📄 생기부에서 뽑기</b>(PDF 를 이 브라우저 안에서만 읽어 질문 후보를 뽑음, 서버에 안 올라감) · ' +
-           '<b>✍️ 학생 질문</b>(학생이 답안 연습장에 쓴 질문). 필요 없는 질문은 «빼기».</p>' }
+           '<b>✍️ 학생 질문</b>(학생이 답안 연습장에 쓴 질문). 필요 없는 질문은 «삭제».</p>' }
     ] },
 
     { title: '면접 진행 · 받아 적기', setup: readySetup, steps: [
@@ -250,13 +274,26 @@
         act: function () { return typeInto($('#answer-memo'), '지원 동기가 또렷함. 결론을 먼저 말하면 더 좋겠음.'); },
         done: function () { return !!(cur() && cur().memo === '지원 동기가 또렷함. 결론을 먼저 말하면 더 좋겠음.'); },
         b: '한두 줄 적습니다 — <b>학생 리포트에 그대로 들어갑니다.</b> 안 적어도 됩니다. <span class="gd-ex">(연습에서는 예시가 적힙니다)</span>' },
-      { at: '#btn-next', real: true, t: '«다음 질문 →» 을 누르세요',
-        done: function () { return qIndex >= 1 || on('finish'); },
-        b: '키보드 ' + kbd('→') + ' 도 됩니다. 답변 시계와 받아 적기가 멈추고 다음 질문으로 갑니다.' },
-      { at: '#btn-answer', real: true, t: '새 질문을 읽어 주고 다시 «답변 시작»',
+      // 꼬리 질문 (2026-10-12 더함)
+      { at: '#btn-follow', real: true, t: '더 묻고 싶으면 «＋ 꼬리 질문»',
+        done: function () { return !$('#follow-box').hidden; },
+        b: '학생 답을 듣고 이어서 묻고 싶을 때 누릅니다. <b>지금 질문 바로 뒤</b>에 새 질문이 생깁니다.' },
+      { at: '#follow-text', t: '꼬리 질문 칸을 누르세요',
+        act: function () { return typeInto($('#follow-text'), FOLLOW_Q); },
+        done: function () { return $('#follow-text').value === FOLLOW_Q; },
+        b: '한 줄로 적습니다. 바쁘면 안 적고 «넣기» 만 눌러도 «꼬리 질문 (1번에 이어서)» 로 들어갑니다. <span class="gd-ex">(연습에서는 예시가 적힙니다)</span>' },
+      { at: '#follow-add', real: true, t: '«넣기» 를 누르세요',
+        show: { at: '#progress-list', t: '2번에 꼬리 질문이 들어갔습니다', b: '뒤 질문은 한 칸씩 밀리고, 위 질문 카드도 꼬리 질문으로 바뀌었습니다.' },
+        done: function () { return qIndex === 1 && questions[1] && questions[1].text === FOLLOW_Q; },
+        b: '칸에서 ' + kbd('Enter') + ' 도 됩니다. 앞 질문에 받아 적은 글 · 평가는 그대로 남습니다.' +
+           '<p class="gd-more">잘못 넣었거나 건너뛸 질문은 질문 번호 옆 «이 질문 삭제» 로 지웁니다.</p>' },
+      { at: '#btn-answer', real: true, t: '꼬리 질문을 말하고 «답변 시작»',
         done: function () { return qIndex >= 1 && answering || on('finish'); },
-        b: '«면접 전체» 는 계속 흐르고, «이 질문 답변» 은 멈춘 채 기다립니다. 질문마다 이 순서입니다.' +
-           '<p class="gd-more">잠깐 멈출 일이 생기면 «일시정지» → «이어서». 면접 도중 질문을 더하거나 고치려면 첫 질문의 «← 질문 고치기» — 매긴 평가는 그대로 남습니다.</p>' },
+        b: '받아 적기 · 평가는 다른 질문과 똑같이 붙습니다. «면접 전체» 는 계속 흐르고, «이 질문 답변» 은 질문마다 새로 잽니다.' +
+           '<p class="gd-more">잠깐 멈출 일이 생기면 «일시정지» → «이어서». 질문을 고치려면 첫 질문의 «← 질문 고치기» — 매긴 평가는 그대로 남습니다.</p>' },
+      { at: '#btn-next', real: true, t: '«다음 질문 →» 을 누르세요',
+        done: function () { return qIndex >= 2 || on('finish'); },
+        b: '키보드 ' + kbd('→') + ' 도 됩니다. 답변 시계와 받아 적기가 멈추고 다음 질문으로 갑니다.' },
       { at: '#btn-next', t: '남은 질문도 같은 순서 — «다음 질문 →» 을 누르세요',
         act: fastFinish,
         done: function () { return on('finish'); },
