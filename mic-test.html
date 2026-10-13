@@ -57,6 +57,7 @@
   <div class="order" role="radiogroup" aria-label="켜는 순서">
     <label><input type="radio" name="order" value="rec" checked> 녹음 먼저 켜기 <span class="state">— 학생 앱과 같은 순서</span></label>
     <label><input type="radio" name="order" value="sr"> 받아 적기 먼저 켜기</label>
+    <label><input type="radio" name="order" value="only"> 받아 적기만 (녹음 끔) <span class="state">— 이 폰에서 받아 적기가 되기는 하는지</span></label>
   </div>
 
   <button class="go" id="go" onclick="toggle()">▶ 시작</button>
@@ -109,7 +110,8 @@
     var go = document.getElementById('go');
     go.disabled = true;
     paintSaid();
-    if (R.order === 'sr') { startSR(); await startRec(); } else { await startRec(); startSR(); }
+    if (R.order === 'only') startSR();
+    else if (R.order === 'sr') { startSR(); await startRec(); } else { await startRec(); startSR(); }
     go.disabled = false;
     go.textContent = '■ 멈춤';
     go.classList.add('stop');
@@ -195,23 +197,34 @@
     var hasSR = !!srCtor();
     var srOk = R.text.trim().length >= 2;
     var recOk = !!blob && blob.size > 1000 && (!L || L.peak > 0.02);
-    var recNote = R.recError ? '안 됨 — ' + R.recError
+    var recNote = R.order === 'only' ? '켜지 않음(받아 적기만 시험)'
+      : R.recError ? '안 됨 — ' + R.recError
       : !blob ? '안 됨 — 녹음 파일이 비었습니다'
       : L && L.peak <= 0.02 ? '파일은 있지만 소리가 거의 없음(무음) · ' + (L.secs || R.seconds) + '초'
       : '됨 · ' + ((L && L.secs) || R.seconds) + '초 · ' + Math.round(blob.size / 1024) + 'KB' + (L ? ' · 소리 크기 ' + Math.round(L.peak * 100) : '') + ' — 아래 ▶ 로 들어 보세요';
     var srNote = !hasSR ? '이 브라우저에는 없음'
       : srOk ? '됨 · ' + R.text.replace(/\s/g, '').length + '자'
       : '안 됨' + (R.srErrors.length ? ' — 오류: ' + countErrors(R.srErrors) : ' — 글이 하나도 안 나옴');
-    R.verdict = recOk && srOk ? '✅ 동시에 됩니다' : recOk ? '🎙️ 녹음만 됩니다' : srOk ? '📝 받아 적기만 됩니다' : '❌ 둘 다 안 됩니다';
+    R.verdict = R.order === 'only'
+      ? (srOk ? '📝 이 폰에서 받아 적기는 됩니다(녹음 없이)' : !hasSR ? '❌ 이 브라우저에는 받아 적기가 없습니다' : '❌ 녹음 없이도 받아 적기가 안 됩니다')
+      : recOk && srOk ? '✅ 동시에 됩니다' : recOk ? '🎙️ 녹음만 됩니다' : srOk ? '📝 받아 적기만 됩니다' : '❌ 둘 다 안 됩니다';
     R.lines = [
       ['기기', device()],
-      ['켠 순서', R.order === 'sr' ? '받아 적기 먼저' : '녹음 먼저'],
+      ['켠 순서', R.order === 'only' ? '받아 적기만' : R.order === 'sr' ? '받아 적기 먼저' : '녹음 먼저'],
       ['녹음', recNote],
       ['받아 적기', srNote]
     ];
+    // 흔한 오류를 쉬운 말로 — 결과 복사에도 들어갑니다
+    var why = { 'audio-capture': '마이크를 받아 적기가 못 잡음(녹음 등 다른 쪽이 쥐고 있을 때 흔함)',
+                'not-allowed': '마이크 허용이 막힘 — 주소창 자물쇠 → 마이크 허용',
+                'service-not-allowed': '이 브라우저 · 폰 설정에서 음성 인식을 막아 둠(아이폰은 설정 → Siri · 받아쓰기)',
+                'network': '인터넷이 끊김 · 느림(소리를 구글 · 애플 서버로 보내야 함)',
+                'language-not-supported': '한국어 받아 적기를 못 함' };
+    var whys = Object.keys(why).filter(function (k) { return R.srErrors.indexOf(k) > -1; }).map(function (k) { return why[k]; });
+    if (whys.length) R.lines.push(['까닭(짐작)', whys.join(' · ')]);
     document.getElementById('verdict').textContent = R.verdict;
     document.getElementById('rows').innerHTML = R.lines.map(function (l, i) {
-      var cls = i === 2 ? (recOk ? 'ok' : 'bad') : i === 3 ? (srOk ? 'ok' : hasSR ? 'bad' : 'mid') : '';
+      var cls = i === 2 ? (R.order === 'only' ? '' : recOk ? 'ok' : 'bad') : i === 3 ? (srOk ? 'ok' : hasSR ? 'bad' : 'mid') : '';
       var v = cls ? '<span class="tag ' + cls + '">' + (i === 2 ? (recOk ? '됨' : '안 됨') : (srOk ? '됨' : hasSR ? '안 됨' : '없음')) + '</span> ' : '';
       return '<li><b>' + l[0] + '</b><span>' + v + esc(cls ? l[1].replace(/^(됨|안 됨) ?(· |— )?/, '') : l[1]) + '</span></li>';
     }).join('');
