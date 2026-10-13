@@ -207,7 +207,7 @@
         done: function () { return opening.on && opening.key === 'both'; },
         b: '면접을 여는 질문입니다. 문장은 그 자리에서 고쳐 써도 되고, 고른 것을 다시 누르면 첫인사를 뺍니다.' },
       { at: 'button[onclick^="loadCommon(\'changche\'"]', real: true, t: '«창체 질문 3개» 를 누르세요',
-        show: { at: '#q-list', t: '«낼 질문» 에 질문 3개가 붙었습니다', b: '어느 단추로 더해도 여기 맨 아래에 붙습니다. 질문마다 오른쪽 칸에서 무엇을 보는 질문인지 고르고, 필요 없으면 «빼기».' },
+        show: { at: '#q-list', t: '«낼 질문» 에 질문 3개가 붙었습니다', b: '어느 단추로 더해도 여기 맨 아래에 붙습니다. 질문마다 오른쪽 칸에서 무엇을 보는 질문인지 고르고, 필요 없으면 «삭제».' },
         done: function () { return midQuestions.length >= 3; },
         b: '추천 질문 3개가 «낼 질문» 맨 아래에 붙습니다. «전공 질문 3개» 도 같습니다.' },
       { at: 'button[onclick^="addQuestion(\'\'"]', real: true, t: '«＋ 직접 적기» 를 누르세요',
@@ -233,7 +233,7 @@
         done: sheetSaved,
         b: '<b>면접은 시작되지 않고</b> 질문만 남겨 둡니다. 면접 날에는 학생만 고르면 이 질문지가 그대로 뜹니다.' +
            '<p class="gd-more">다른 질문 단추 — <b>📄 생기부에서 뽑기</b>(PDF 를 이 브라우저 안에서만 읽어 질문 후보를 뽑음, 서버에 안 올라감) · ' +
-           '<b>✍️ 학생 질문</b>(학생이 답안 연습장에 쓴 질문). 필요 없는 질문은 «빼기».</p>' }
+           '<b>✍️ 학생 질문</b>(학생이 답안 연습장에 쓴 질문). 필요 없는 질문은 «삭제».</p>' }
     ] },
 
     { title: '면접 진행 · 받아 적기', setup: readySetup, steps: [
@@ -286,7 +286,7 @@
         show: { at: '#progress-list', t: '2번에 꼬리 질문이 들어갔습니다', b: '뒤 질문은 한 칸씩 밀리고, 위 질문 카드도 꼬리 질문으로 바뀌었습니다.' },
         done: function () { return qIndex === 1 && questions[1] && questions[1].text === FOLLOW_Q; },
         b: '칸에서 ' + kbd('Enter') + ' 도 됩니다. 앞 질문에 받아 적은 글 · 평가는 그대로 남습니다.' +
-           '<p class="gd-more">잘못 넣었거나 건너뛸 질문은 질문 번호 옆 «이 질문 빼기» 로 뺍니다.</p>' },
+           '<p class="gd-more">잘못 넣었거나 건너뛸 질문은 질문 번호 옆 «이 질문 삭제» 로 지웁니다.</p>' },
       { at: '#btn-answer', real: true, t: '꼬리 질문을 말하고 «답변 시작»',
         done: function () { return qIndex >= 1 && answering || on('finish'); },
         b: '받아 적기 · 평가는 다른 질문과 똑같이 붙습니다. «면접 전체» 는 계속 흐르고, «이 질문 답변» 은 질문마다 새로 잽니다.' +

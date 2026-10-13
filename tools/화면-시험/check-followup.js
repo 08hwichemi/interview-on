@@ -5,7 +5,7 @@
 //   · 진행 화면 «＋ 꼬리 질문» → 한 줄 칸 → «넣기»(Enter) — 지금 질문 바로 뒤에 들어가고 그리로 넘어감
 //   · 지금 질문에 받아 적은 글 · 평가는 그대로 · 표의 질문 순서도 맞게 다시 써짐
 //   · 글자를 안 적으면 «꼬리 질문 (N번에 이어서)» · Esc 로 닫힘 · 지난 회차를 열었을 때는 단추가 없음
-//   · «이 질문 빼기» — 받아 적은 글이 있으면 «같이 지워집니다» 를 묻고 · 표도 다시 씀 · 마지막을 빼면 앞 질문으로 · 하나 남으면 숨음
+//   · «이 질문 삭제» — 받아 적은 글이 있으면 «같이 지워집니다» 를 묻고 · 표도 다시 씀 · 마지막을 빼면 앞 질문으로 · 하나 남으면 숨음
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const SB = fs.readFileSync(path.join(__dirname, 'stub5.js'), 'utf8');
@@ -139,11 +139,11 @@ const 줄 = p => p.evaluate(() => [].map.call(document.querySelectorAll('#q-list
   await p.click('#btn-start'); await p.waitForTimeout(400);
   확인('돌아와도 꼬리 질문의 받아 적은 글이 그대로', await p.evaluate(() => answers[questions.findIndex(q => q.text === '그 경험에서 가장 크게 배운 점은?')].transcript === '협업의 중요성을 배웠습니다'));
 
-  console.log('\n── 면접 도중 질문 빼기 ──');
+  console.log('\n── 면접 도중 질문 삭제 ──');
   // 지금: 질문 4개(자기소개 · 꼬리 · 꼬리(빈) · 탐구) — «꼬리 질문 (2번에 이어서)» 로 가서 뺍니다
   const 빈꼬리 = await p.evaluate(() => questions.findIndex(q => q.text === '꼬리 질문 (2번에 이어서)'));
   await p.evaluate(i => { qIndex = i; showQuestion(); }, 빈꼬리);
-  확인('질문 번호 옆에 «이 질문 빼기»', await p.evaluate(() => { var b = document.getElementById('btn-delq'); return !b.hidden && b.offsetWidth > 0; }));
+  확인('질문 번호 옆에 «이 질문 삭제»', await p.evaluate(() => { var b = document.getElementById('btn-delq'); return !b.hidden && b.offsetWidth > 0; }));
   B.묻기 = [];
   p.removeAllListeners('dialog');
   p.on('dialog', d => { B.묻기.push(d.message()); d.accept(); });
@@ -169,7 +169,7 @@ const 줄 = p => p.evaluate(() => [].map.call(document.querySelectorAll('#q-list
     questions.length === 2 && qIndex === 1 && document.getElementById('btn-next').textContent === '면접 마무리 →'));
   확인('남은 질문의 받아 적은 글은 그대로', await p.evaluate(() => answers[0].transcript === '저는 고다윤입니다' && answers[1].transcript === '협업의 중요성을 배웠습니다'));
   await p.click('#btn-delq'); await p.waitForTimeout(400);
-  확인('질문이 하나 남으면 «이 질문 빼기» 가 숨는가', await p.evaluate(() => questions.length === 1 && document.getElementById('btn-delq').hidden));
+  확인('질문이 하나 남으면 «이 질문 삭제» 가 숨는가', await p.evaluate(() => questions.length === 1 && document.getElementById('btn-delq').hidden));
 
   await p.setViewportSize({ width: 400, height: 900 }); await p.waitForTimeout(200);
   확인('400px — 단추 줄이 옆으로 안 넘침', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
@@ -182,7 +182,7 @@ const 줄 = p => p.evaluate(() => [].map.call(document.querySelectorAll('#q-list
   await p.evaluate(async () => { target = students[1]; await openPast('iv0', 1); });
   await p.waitForTimeout(300);
   await p.evaluate(() => { backToFinish(); backToRun(); }); await p.waitForTimeout(200);
-  확인('지난 회차를 고칠 때는 «＋ 꼬리 질문» · «이 질문 빼기» 가 없음', await p.evaluate(() =>
+  확인('지난 회차를 고칠 때는 «＋ 꼬리 질문» · «이 질문 삭제» 가 없음', await p.evaluate(() =>
     !document.getElementById('view-run').hidden && document.getElementById('btn-follow').hidden && document.getElementById('btn-delq').hidden));
   await C.ctx.close();
 
