@@ -325,6 +325,8 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
   display:flex;align-items:center;justify-content:center;
 }
 .step-no{font-size:12.5px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.runstep{display:inline-flex;align-items:center;gap:12px}
+.runstep .linkbtn{font-size:12.5px}
 
 /* 시간 두 개를 나란히 크게. 면접 중에 흘깃 봐야 하는 숫자라 작으면 못 읽습니다.
    «면접 전체» 는 저 혼자 흐르는 것이라 조금 연하게, «이 질문» 은 선생님이

@@ -285,7 +285,8 @@
       { at: '#follow-add', real: true, t: '«넣기» 를 누르세요',
         show: { at: '#progress-list', t: '2번에 꼬리 질문이 들어갔습니다', b: '뒤 질문은 한 칸씩 밀리고, 위 질문 카드도 꼬리 질문으로 바뀌었습니다.' },
         done: function () { return qIndex === 1 && questions[1] && questions[1].text === FOLLOW_Q; },
-        b: '칸에서 ' + kbd('Enter') + ' 도 됩니다. 앞 질문에 받아 적은 글 · 평가는 그대로 남습니다.' },
+        b: '칸에서 ' + kbd('Enter') + ' 도 됩니다. 앞 질문에 받아 적은 글 · 평가는 그대로 남습니다.' +
+           '<p class="gd-more">잘못 넣었거나 건너뛸 질문은 질문 번호 옆 «이 질문 빼기» 로 뺍니다.</p>' },
       { at: '#btn-answer', real: true, t: '꼬리 질문을 말하고 «답변 시작»',
         done: function () { return qIndex >= 1 && answering || on('finish'); },
         b: '받아 적기 · 평가는 다른 질문과 똑같이 붙습니다. «면접 전체» 는 계속 흐르고, «이 질문 답변» 은 질문마다 새로 잽니다.' +

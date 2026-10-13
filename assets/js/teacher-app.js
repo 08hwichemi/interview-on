@@ -1494,6 +1494,8 @@ function showQuestion() {
   // 꼬리 질문은 오늘 하는 면접에서만(지난 회차를 열어 고칠 때는 없음)
   var fb = document.getElementById('btn-follow');
   if (fb) fb.hidden = !liveInterview;
+  var dq = document.getElementById('btn-delq');
+  if (dq) dq.hidden = !liveInterview || questions.length <= 1;
   var fbox = document.getElementById('follow-box');
   if (fbox && !liveInterview) fbox.hidden = true;
 
@@ -1755,6 +1757,25 @@ async function addFollowUp() {
   showQuestion();
   scrollToQuestion();
   toast('꼬리 질문을 ' + (at + 1) + '번에 넣었습니다. 질문하고 «답변 시작» 을 누르세요.', 'ok');
+}
+
+// 면접 도중 지금 질문 빼기 (2026-10-12 선생님 말씀: 넣은 질문을 지울 수도 있으면 좋겠다).
+// 잘못 넣은 꼬리 질문 · 시간이 없어 건너뛸 질문을 그 자리에서 뺍니다. 받아 적은 글이나 평가가 있으면 같이 지워진다고 한 번 묻습니다.
+// 번호가 당겨지니 표의 줄을 통째로 다시 씁니다(rewriteAnswers). 질문이 하나뿐이면 못 뺍니다(진행 화면에 보여 줄 것이 없어짐)
+async function removeCurrentQuestion() {
+  if (!liveInterview || questions.length <= 1) return;
+  var q = questions[qIndex], a = answers[qIndex];
+  var has = a.seconds > 0 || a.transcript || a.rating || a.memo || a.good.length || a.bad.length || Object.keys(a.areas || {}).length;
+  if (!confirm('«' + q.text + '» — 이 질문을 뺄까요?' + (has ? '\n\n이 질문에 받아 적은 글 · 평가도 같이 지워집니다.' : ''))) return;
+  if (answering) { answering = false; paintTimerButton(); }   // 이 질문 받아 적기부터 멈춥니다
+  var at = qIndex;
+  var gone = { q: questions.splice(at, 1)[0], a: answers.splice(at, 1)[0] };
+  var ok = await rewriteAnswers();
+  if (!ok) { questions.splice(at, 0, gone.q); answers.splice(at, 0, gone.a); showQuestion(); return; }
+  if (qIndex >= questions.length) qIndex = questions.length - 1;   // 마지막 질문을 뺐으면 그 앞 질문으로
+  showQuestion();
+  scrollToQuestion();
+  toast('질문을 뺐습니다. 지금은 ' + (qIndex + 1) + '번입니다.', 'ok');
 }
 
 async function nextQuestion() {
