@@ -653,7 +653,7 @@ async function resumeInterview(id) {
   grades = iv.grades || {};
 
   interviewId = id;
-  sheetId = null; sheetSavedAt = null;
+  sheetId = null; sheetSavedAt = null; sheetName = ''; sheets = [];
   editingMid = false;
   liveInterview = true;
   startedOnce = true;      // 이미 «면접 시작» 을 한 번 눌렀던 면접이라, 다음엔 «이어서» 로 뜹니다
@@ -694,39 +694,91 @@ async function resumeInterview(id) {
 //   · 지난 면접 목록에서는 빼 둡니다 — 회차가 아니니까요
 //
 // ⚠️ 표에 '준비중' 을 허락해 두어야 합니다 (docs/할-일.md 의 SQL 한 줄).
-var sheetId = null;        // 지금 학생의 «준비중» 줄 id
+//
+// 2026-10-13 선생님 말씀: «질문지 저장이 1개밖에 안 되는데 이름 지정해서 여러 개 미리 저장해 두게».
+//   · 한 학생에게 «준비중» 줄을 여러 개 둘 수 있고, 줄마다 이름(sheet_name 칸 — 2026-10-13 에 더함)을 붙입니다
+//   · 학생을 고르면 가장 최근 것이 펴지고, 안내 칸의 알약 단추로 다른 질문지를 골라 엽니다. «＋ 새 질문지» 는 빈 칸에서 새로
+//   · «질문지 저장» 은 지금 열어 둔 질문지를 덮어씁니다(이름 칸을 고쳤으면 이름도). 열어 둔 것이 없으면 새 줄
+//   · 타학교 학생도 같습니다 — 줄 하나가 «학생 + 질문지 한 벌» 이라, 여러 벌이면 같은 학교 · 이름의 «준비중» 줄이 여러 개
+//     (왼쪽 타학교 목록에 같은 이름이 여러 줄, «이름» 꼬리표로 가름). 알약을 누르면 target.ivId 도 그 줄로 바뀝니다
+//   · 2026-10-13 저녁: 처음엔 이름 칸을 «질문지 저장» 옆에 두고 타학교는 가렸는데, 선생님이 타학교 학생으로 보시다가
+//     «이름 정하는 게 어디 있어?» → «맨 위쪽이 맞다» 하셔서 «질문지 만들기» 맨 위로 옮기고 타학교에도 보이게 했습니다
+var sheetId = null;        // 지금 열어 둔 «준비중» 줄 id
 var sheetSavedAt = null;
+var sheetName = '';        // 열어 둔 질문지의 이름
+var sheets = [];           // 이 학생에게 내가 저장해 둔 질문지 목록 [{ id, started_at, sheet_name }] — 최근 것이 앞
+
+function sheetEsc(t) { return String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function sheetLabel(s) {
+  if (s.sheet_name) return s.sheet_name;
+  var d = s.started_at ? new Date(s.started_at) : null;
+  return d ? (d.getMonth() + 1) + '월 ' + d.getDate() + '일 질문지' : '질문지';
+}
 
 function paintSheetNote() {
   var box = document.getElementById('sheet-note');
   if (!box) return;
   box.hidden = !sheetId;
-  if (!sheetId) return;
-  var when = sheetSavedAt ? new Date(sheetSavedAt) : null;
-  document.getElementById('sheet-when').textContent = when
-    ? (when.getMonth() + 1) + '월 ' + when.getDate() + '일에 저장' : '';
+  if (sheetId) {
+    var when = sheetSavedAt ? new Date(sheetSavedAt) : null;
+    document.getElementById('sheet-title').textContent = sheetName ? '«' + sheetName + '» ' : '';
+    document.getElementById('sheet-when').textContent = when
+      ? (when.getMonth() + 1) + '월 ' + when.getDate() + '일에 저장' : '';
+  }
+  var hasList = !!(target && sheets.length);
+  var list = document.getElementById('sheet-list');
+  if (list) {
+    list.hidden = !hasList;
+    list.innerHTML = !hasList ? '' :
+      '<span class="lbl">저장해 둔 질문지</span>' +
+      sheets.map(function (s) {
+        return '<button type="button" class="sheetchip" aria-pressed="' + (s.id === sheetId) + '" ' +
+               'onclick="openSheet(\'' + sheetEsc(s.id) + '\')" title="이 질문지 열기">' + sheetEsc(sheetLabel(s)) + '</button>';
+      }).join('') +
+      '<button type="button" class="sheetchip new" onclick="newSheet()">＋ 새 질문지</button>';
+  }
+  // 이름 칸은 열어 둔 질문지의 이름을 보여 줍니다(치는 중이면 건드리지 않음)
+  var nameIn = document.getElementById('sheet-name');
+  if (nameIn && document.activeElement !== nameIn) nameIn.value = sheetName || '';
 }
 
-// 학생을 고르면 저장해 둔 질문지를 그대로 펴 놓습니다.
+// 학생을 고르면 저장해 둔 질문지를 그대로 펴 놓습니다 — 여러 벌이면 가장 최근 것.
 async function loadSheet() {
-  sheetId = null; sheetSavedAt = null;
+  sheetId = null; sheetSavedAt = null; sheetName = ''; sheets = [];
   paintSheetNote();
   if (!target || !me) return;
 
-  // 타학교 학생은 그 학생 줄 자체가 질문지입니다(명단이 없으니 줄 id 로 찾습니다).
+  // 타학교 학생은 줄 자체가 질문지입니다(명단이 없으니 같은 학교 · 이름의 «준비중» 줄이 그 학생의 질문지들).
   // 다른 선생님이 만들어 둔 것도 그대로 열립니다 — 면접 날 여러 선생님이 나눠 맡습니다.
-  var q = sb.from('interviews').select('id, started_at').eq('status', '준비중');
-  q = target.other ? q.eq('id', target.ivId || '-') : q.eq('student_id', target.id).eq('teacher_id', me.id);
-  const { data, error } = await q.order('started_at', { ascending: false }).limit(1);
+  var q = sb.from('interviews').select('id, started_at, sheet_name').eq('status', '준비중');
+  if (target.other) {
+    if (!target.ivId) return;   // 아직 명단에 안 넣은 새 학생
+    q = q.eq('other_name', String(target.name || '').trim()).eq('other_school', String(target.school || '').trim());
+  } else {
+    q = q.eq('student_id', target.id).eq('teacher_id', me.id);
+  }
+  const { data, error } = await q.order('started_at', { ascending: false });
   if (error || !data || !data.length) return;
+  sheets = data;
+  // 타학교는 목록에서 누른 바로 그 줄을, 우리 학교는 가장 최근 것을 폅니다
+  var first = (target.other && data.filter(function (s) { return s.id === target.ivId; })[0]) || data[0];
+  await openSheet(first.id, first);
+}
 
+// 저장해 둔 질문지 하나를 펴 놓습니다(알약 단추 · 학생을 고를 때).
+async function openSheet(id, row) {
+  row = row || sheets.filter(function (s) { return s.id === id; })[0];
+  if (!row) return;
   const rows = await sb.from('interview_answers')
     .select('seq, question, competency')
-    .eq('interview_id', data[0].id).order('seq', { ascending: true });
-  if (rows.error) return;
+    .eq('interview_id', id).order('seq', { ascending: true });
+  if (rows.error) { toast('질문지를 불러오지 못했습니다: ' + rows.error.message, 'bad'); return; }
+  if (!target || !sheets.some(function (s) { return s.id === id; })) return;   // 그새 다른 학생으로 갔음
+  if (target.other) { target.ivId = id; if (typeof otherRenderList === 'function') otherRenderList(); }   // 타학교는 줄 = 질문지
 
-  sheetId = data[0].id;
-  sheetSavedAt = data[0].started_at;
+  sheetId = id;
+  sheetSavedAt = row.started_at;
+  sheetName = row.sheet_name || '';
   decomposeQuestions(putBackSlots((rows.data || []).map(function (a) {
     return { text: a.question, competency: a.competency || '기타' };
   })));
@@ -735,18 +787,37 @@ async function loadSheet() {
   paintSheetNote();
 }
 
+// «＋ 새 질문지» — 화면을 비우고, 다음 «질문지 저장» 이 새 줄을 만들게 합니다. 저장해 둔 것은 그대로.
+function newSheet() {
+  if (!sheetId && !midQuestions.length) { paintSheetNote(); return; }
+  if (midQuestions.length && !confirm('화면의 질문을 비우고 새 질문지를 시작할까요?\n저장해 둔 질문지는 그대로 남아 있습니다.')) return;
+  sheetId = null; sheetSavedAt = null; sheetName = '';
+  if (target.other) { target.ivId = null; if (typeof otherRenderList === 'function') otherRenderList(); }   // 다음 저장이 새 줄(같은 학생)을 만듭니다
+  midQuestions = [];
+  resetGreetings();
+  renderGreetings();
+  renderQuestions();
+  paintSheetNote();
+  var nameIn = document.getElementById('sheet-name');
+  if (nameIn) { nameIn.value = ''; try { nameIn.focus(); } catch (e) { /* */ } }
+}
+
 // 질문지 줄('준비중')을 챙기고 질문을 통째로 다시 씁니다.
 // 「질문지 저장」과 「면접 화면으로」가 같이 씁니다. 실패하면 false.
 async function keepSheet(list) {
   // 타학교 학생은 이름이 있어야 저장됩니다(서버도 이름 없는 줄을 막습니다)
   if (target.other && !otherCheckName()) return false;
+  var nameIn = document.getElementById('sheet-name');
+  var wantName = nameIn ? nameIn.value.trim().slice(0, 40) : '';
   if (!sheetId) {
     var row = {
       school_id: SCHOOL_ID,
       student_id: target.id,
       teacher_id: me.id,
       teacher_name: me.name || '',
-      status: '준비중'
+      status: '준비중',
+      // 이름을 안 적었는데 벌써 다른 질문지가 있으면 «질문지 2 · 3 …» 로 — 알약 단추에서 가릴 수 있게. 첫 벌은 이름 없이
+      sheet_name: wantName || (sheets.length ? '질문지 ' + (sheets.length + 1) : '')
     };
     if (target.other) {
       row.student_id = null;
@@ -768,12 +839,28 @@ async function keepSheet(list) {
       toast('질문지를 저장하지 못했습니다: ' + ins.error.message, 'bad');
       return false;
     }
-    sheetId = ins.data.id; sheetSavedAt = ins.data.started_at;
+    sheetId = ins.data.id; sheetSavedAt = ins.data.started_at; sheetName = row.sheet_name;
     if (target.other) target.ivId = sheetId;
-  } else if (target.other) {
-    // 이름 · 희망 전공 · 학교를 고쳤을 수 있으니 같이 적습니다
-    const up = await sb.from('interviews').update(otherFields()).eq('id', sheetId);
-    if (up.error) { toast('이름을 저장하지 못했습니다: ' + up.error.message, 'bad'); return false; }
+    sheets.unshift({ id: sheetId, started_at: sheetSavedAt, sheet_name: sheetName });
+  } else {
+    var patch = {};
+    if (wantName && wantName !== sheetName) patch.sheet_name = wantName;   // 이름 칸을 고쳤으면 질문지 이름도
+    if (target.other) {
+      // 이름 · 희망 전공 · 학교를 고쳤을 수 있으니 같이 적습니다 — 이 학생의 다른 질문지 줄에도(같은 학생이니까)
+      var f = otherFields();
+      if (sheets.length > 1) {
+        const upAll = await sb.from('interviews').update(f).in('id', sheets.map(function (s) { return s.id; }));
+        if (upAll.error) { toast('이름을 저장하지 못했습니다: ' + upAll.error.message, 'bad'); return false; }
+      } else Object.assign(patch, f);
+    }
+    if (Object.keys(patch).length) {
+      const up = await sb.from('interviews').update(patch).eq('id', sheetId);
+      if (up.error) { toast('질문지를 저장하지 못했습니다: ' + up.error.message, 'bad'); return false; }
+    }
+    if (patch.sheet_name) {
+      sheetName = wantName;
+      sheets.forEach(function (s) { if (s.id === sheetId) s.sheet_name = wantName; });
+    }
   }
 
   // 뺀 질문이 남지 않게 통째로 다시 씁니다.
@@ -801,7 +888,7 @@ async function saveSheet() {
   btn.disabled = true; btn.textContent = '저장하는 중...';
   var ok = await keepSheet(list);
   btn.disabled = false; btn.textContent = '질문지 저장';
-  if (ok) toast('질문지를 저장했습니다. 면접 날 이 학생을 고르면 그대로 뜹니다.');
+  if (ok) toast('질문지' + (sheetName ? ' «' + sheetName + '»' : '') + ' 를 저장했습니다. 면접 날 이 학생을 고르면 그대로 뜹니다.');
 }
 
 // 저장해 둔 질문지를 버립니다 (화면의 질문은 그대로 둡니다).
@@ -809,19 +896,27 @@ async function saveSheet() {
 //    여기서는 다른 지우기들과 같이 브라우저 confirm 을 씁니다.
 async function deleteSheet() {
   if (!sheetId) return;
-  // 타학교 학생은 질문지 줄이 곧 그 학생이라, 지우면 타학교 목록에서도 빠집니다
-  if (target && target.other) {
+  var others = sheets.filter(function (s) { return s.id !== sheetId; });
+  // 타학교 학생은 질문지 줄이 곧 그 학생이라, 마지막 질문지를 지우면 타학교 목록에서도 빠집니다
+  if (target && target.other && !others.length) {
     if (!confirm(whoLabel(target) + ' 학생과 질문지를 지울까요?\n타학교 목록에서 빠지고, 되돌릴 수 없습니다.')) return;
-  } else if (!confirm('저장해 둔 질문지를 지울까요?\n화면에 있는 질문은 그대로 둡니다.')) return;
+  } else if (!confirm('저장해 둔 질문지' + (sheetName ? ' «' + sheetName + '»' : '') + ' 를 지울까요?\n화면에 있는 질문은 그대로 둡니다.')) return;
 
   var id = sheetId;
-  sheetId = null; sheetSavedAt = null;
+  sheetId = null; sheetSavedAt = null; sheetName = '';
+  sheets = sheets.filter(function (s) { return s.id !== id; });   // 다른 질문지는 알약 단추에 그대로
   paintSheetNote();
   await sb.from('interview_answers').delete().eq('interview_id', id);
   const { error } = await sb.from('interviews').delete().eq('id', id);
   if (error) { toast('질문지를 지우지 못했습니다: ' + error.message, 'bad'); return; }
   toast('질문지를 지웠습니다.');
-  if (target && target.other) backToList();
+  if (target && target.other) {
+    if (!others.length) { backToList(); return; }
+    // 같은 학생의 다른 질문지가 남아 있으면 그중 최근 것을 폅니다(목록의 줄도 그쪽으로)
+    target.ivId = null;
+    await openSheet(others[0].id, others[0]);
+    if (typeof otherLoad === 'function') otherLoad();
+  }
 }
 
 async function loadHistory() {
@@ -1334,8 +1429,9 @@ async function markInterviewStarted() {
   if (target && target.other) { patch.teacher_id = me.id; patch.teacher_name = me.name || ''; }
   const { error } = await sb.from('interviews').update(patch).eq('id', interviewId);
   if (error) { toast('면접을 시작하지 못했습니다: ' + error.message, 'bad'); return; }
+  sheets = sheets.filter(function (s) { return s.id !== interviewId; });   // 이 줄은 이제 면접 — 다른 질문지는 남습니다
   sheetId = null;            // 이제 질문지가 아니라 면접입니다
-  sheetSavedAt = null;
+  sheetSavedAt = null; sheetName = '';
   paintSheetNote();
 }
 
@@ -1939,7 +2035,7 @@ async function finishInterview() {
   btn.disabled = false;
   btn.textContent = label;
   // 마무리했으면 더는 «질문지» 가 아닙니다.
-  if (!error) { sheetId = null; sheetSavedAt = null; paintSheetNote(); }
+  if (!error) { sheets = sheets.filter(function (s) { return s.id !== interviewId; }); sheetId = null; sheetSavedAt = null; sheetName = ''; paintSheetNote(); }
 
   if (error) { toast('저장하지 못했습니다: ' + error.message, 'bad'); return; }
   liveInterview = false;   // 시간은 여기서 멈춥니다. 뒤에 고쳐도 더 흐르지 않습니다
