@@ -21,8 +21,12 @@
 //   ⚠️ 받아 적기(크롬 → 구글)는 여기서 고른 마이크가 아니라 **윈도우 기본 마이크**를 씁니다 — 크롬의 음성 인식은 마이크를 고르는 길이 없습니다.
 //     꽂은 마이크를 받아 적기에도 쓰려면 윈도우 소리 설정에서 입력 장치를 그 마이크로 바꿔야 합니다(화면에 안내)
 
+// 2026-10-14 밤 선생님: «마이크가 꽂혀 있는데 면접 시작을 해도 목록이 안 뜨고 뺐다 꽂아야 뜬다 · 면접 시작을 눌러도 녹음이 안 되고 단추를 눌러야 된다»
+//   ① 목록은 녹음이 켜진 뒤에만 읽었음 → 진행 화면을 열 때 바로 읽습니다(허용이 이미 돼 있으면 이름까지 보임)
+//   ② 단추 «🎙 녹음 켜짐» 이 상태처럼 보이는데 누르면 꺼지는 스위치였음 → 「☑ 면접 시작하면 녹음」 체크 칸 + «⏺ 지금부터 녹음 / ■ 멈추고 저장» 단추로
+
 var REC = { rec: null, stream: null, on: false, startedAt: 0, who: '', hint: '', tickId: null,
-            mics: [], micLabel: '', audio: null, analyser: null, rafId: null };
+            mics: [], micLabel: '', audio: null, analyser: null, rafId: null, listed: false };
 
 function recMicId() { try { return localStorage.getItem('micId') || ''; } catch (e) { return ''; } }
 
@@ -89,14 +93,23 @@ function recSupported() {
   if (/[?&]guide(=|&|$)/.test(location.search)) return false;   // 연습 모드 — 마이크 안 씀
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
 }
-function toggleRec() {
-  var next = !recWanted();
-  try { localStorage.setItem('recOn', next ? '1' : '0'); } catch (e) { /* 못 적어도 이번만은 됨 */ }
+// 「☑ 면접 시작하면 녹음」 체크 칸
+function recSetAuto(on) {
+  try { localStorage.setItem('recOn', on ? '1' : '0'); } catch (e) { /* 못 적어도 이번만은 됨 */ }
   REC.hint = '';
-  if (!next && REC.on) recStop();                                     // 끄면 지금까지 것을 파일로
-  else if (next && typeof ticking !== 'undefined' && ticking) recStart();   // 면접 중에 켜면 바로
+  if (!on && REC.on) recStop();                                       // 끄면 지금까지 것을 파일로
+  else if (on && typeof ticking !== 'undefined' && ticking) recStart();   // 면접 중에 켜면 바로
   recPaint();
 }
+// «⏺ 지금부터 녹음» / «■ 멈추고 저장» 단추
+function recButton() {
+  if (REC.on) { recStop(); return; }
+  try { localStorage.setItem('recOn', '1'); } catch (e) { /* */ }   // 체크도 켬
+  REC.hint = '';
+  recStart();   // (recSetAuto 를 거치면 두 번 켜려 들어 마이크를 두 번 잡았음)
+  recPaint();
+}
+function toggleRec() { recButton(); }   // 옛 이름 — 혹시 어디서 부르면
 
 function recMime() {
   var tries = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', ''];
@@ -108,8 +121,12 @@ function recMime() {
 
 // «면접 시작»(시계)을 누를 때 teacher-app.js 가 부릅니다. 이미 켜져 있으면 그대로.
 async function recStart() {
-  if (REC.on || !recWanted() || !recSupported()) return;
+  if (REC.on || REC.starting || !recWanted() || !recSupported()) return;
   if (typeof liveInterview !== 'undefined' && !liveInterview) return;   // 지난 회차를 고치는 중
+  REC.starting = true;   // 마이크를 잡는 사이 또 부르면 두 번 잡지 않게
+  try { await recStartInner(); } finally { REC.starting = false; recPaint(); }
+}
+async function recStartInner() {
   var stream;
   var micId = recMicId();
   try {
@@ -192,13 +209,20 @@ function recPaint() {
   var hint = document.getElementById('rec-hint');
   if (!btn) return;
   var ok = recSupported();
-  btn.hidden = !ok;
   var wanted = recWanted();
-  btn.setAttribute('aria-pressed', wanted);
+  var live = typeof liveInterview === 'undefined' || liveInterview;
+  var tick = typeof ticking !== 'undefined' && ticking;
+  // 진행 화면을 열면 마이크 목록부터(허용이 돼 있으면 이름까지) — 전엔 녹음이 켜진 뒤에만 읽어 «뺐다 꽂아야 뜬다» 하셨음
+  if (ok && !REC.listed) { REC.listed = true; recListMics(); }
+  var auto = document.getElementById('rec-auto');
+  if (auto) { auto.checked = wanted; auto.disabled = !ok; }
+  var autoWrap = document.getElementById('rec-auto-wrap');
+  if (autoWrap) autoWrap.hidden = !ok;
+  // 단추: 녹음 중이면 «■ 멈추고 저장», 면접 중인데 안 돌면 «⏺ 지금부터 녹음», 그 밖엔 숨김
+  btn.hidden = !ok || !live || !(REC.on || tick);
   btn.classList.toggle('rec-on', REC.on);
-  btn.textContent = REC.on ? '녹음 중 · 끄기' : (wanted ? '🎙 녹음 켜짐' : '🎙 녹음 꺼짐');   // 녹음 중엔 CSS 의 깜빡이는 빨간 점이 앞에 붙음
-  btn.title = REC.on ? '끄면 지금까지 녹음을 파일로 내려받습니다'
-    : wanted ? '«면접 시작» 을 누르면 노트북에서 녹음하고, 끝내면 파일로 내려받습니다' : '녹음하지 않습니다';
+  btn.textContent = REC.on ? '녹음 중 · 멈추고 저장' : '⏺ 지금부터 녹음';   // 녹음 중엔 CSS 의 깜빡이는 빨간 점이 앞에 붙음
+  btn.title = REC.on ? '멈추면 지금까지 녹음을 파일로 내려받습니다' : '지금부터 녹음합니다. 끝내면 파일로 내려받습니다';
   if (st) {
     var secs = REC.on ? Math.round((Date.now() - REC.startedAt) / 1000) : 0;
     st.textContent = REC.on ? (typeof mmss === 'function' ? mmss(secs) : secs + '초') : '';

@@ -106,7 +106,11 @@ function listenStart() {
       return;
     }
     if (kind === 'audio-capture') {
-      if (LISTEN.viaTrack) { LISTEN.trackBad = true; LISTEN.hint = '이 크롬은 고른 마이크를 받아 적기에 못 넘깁니다 — 기본 마이크로 받아 적습니다.'; return; }   // onend 에서 기본 마이크로 다시 켬
+      if (LISTEN.viaTrack) {   // onend 에서 기본 마이크로 다시 켬
+        LISTEN.trackBad = true; LISTEN.hint = '이 크롬은 고른 마이크를 받아 적기에 못 넘깁니다 — 기본 마이크로 받아 적습니다.';
+        if (typeof recPaint === 'function') recPaint();   // 마이크 줄 안내도 바로
+        return;
+      }
       LISTEN.hint = '마이크를 찾지 못했습니다. 노트북 마이크가 켜져 있는지 봐 주세요.'; return;
     }
     if (kind === 'network') { LISTEN.hint = '인터넷이 끊겨 받아 적지 못하고 있습니다. 이어지면 저절로 다시 적습니다.'; LISTEN.fails++; return; }
@@ -142,6 +146,7 @@ function listenStart() {
     LISTEN.rec = rec;
     LISTEN.on = true;
     if (LISTEN.hint.indexOf('인터넷') === -1 && LISTEN.hint.indexOf('못 넘깁니다') === -1) LISTEN.hint = '';
+    if (typeof recPaint === 'function') recPaint();   // 마이크 줄 안내(«받아 적기도 이 마이크로») 바로
   }
 }
 

@@ -52,6 +52,7 @@ const FAKE_MIC = () => {
     return { getTracks: function () { return [t]; }, getAudioTracks: function () { return [t]; }, __t: t };
   };
   navigator.mediaDevices.enumerateDevices = async function () {
+    window.__micListed = true;
     var ok = window.__allowed;   // 허용 전엔 이름이 비어 옵니다(진짜 크롬과 같게)
     return [{ kind: 'audioinput', deviceId: 'default', label: ok ? '노트북 내장 마이크' : '' },
             { kind: 'audioinput', deviceId: 'usb1', label: ok ? 'USB 마이크 (외장)' : '' },
@@ -96,6 +97,8 @@ const FAKE_MIC = () => {
        (await p.evaluate(() => document.getElementById('btn-stt').textContent)).indexOf('끄기') > -1);
   확인('아직 듣지 않는다 — «답변 시작을 누르면»', (await p.evaluate(() => document.getElementById('live-state').textContent)).indexOf('답변 시작') > -1);
   확인('음성 인식을 아직 안 만들었는가', await p.evaluate(() => window.__recs.length === 0));
+  확인('진행 화면을 열 때 마이크 목록을 읽었는가(허용 전엔 «허용하면 이름이 보입니다»)', await p.evaluate(() => {
+    var o = [...document.querySelectorAll('#mic-pick option')]; return window.__micListed && o.some(x => x.disabled && x.textContent.indexOf('허용') > -1); }));
   확인('진행 화면에 태그는 없고, 쓰는 칸(평가·요지)은 있는가',
        await p.evaluate(() => !document.getElementById('tag-area') && !!document.getElementById('answer-memo')));
   확인('영역 다섯 줄 × 좋음·보통·아쉬움 표가 있는가',
@@ -107,24 +110,33 @@ const FAKE_MIC = () => {
        await p.evaluate(() => ticking && !answering && seconds === 0 && totalSeconds >= 1), await p.evaluate(() => seconds + ' / ' + totalSeconds));
   확인('«면접 시작» 만으로는 듣지 않는가', await p.evaluate(() => !LISTEN.on && window.__recs.length === 0));
   console.log('\n── 녹음 (record.js, 2026-10-14) ──');
+  확인('「☑ 면접 시작하면 녹음」 체크가 켜져 있는가(처음)', await p.evaluate(() => document.getElementById('rec-auto').checked && !document.getElementById('rec-auto-wrap').hidden));
   확인('«면접 시작» 을 누르면 녹음이 켜지는가(처음은 켜 둠)', await p.evaluate(() => REC.on && window.__mics === 1 && window.__recorders.length === 1 && window.__recorders[0].state === 'recording'));
   확인('목소리용 32kbps · webm · 10초 조각', await p.evaluate(() => { var r = window.__recorders[0]; return r.opt.audioBitsPerSecond === 32000 && /webm/.test(r.opt.mimeType) && r.slice === 10000; }));
-  확인('단추가 «⏺ 녹음 중 · 끄기» 이고 시간이 흐르는가', await p.evaluate(() => document.getElementById('btn-rec').textContent.indexOf('녹음 중') > -1 && !document.getElementById('rec-state').hidden));
+  확인('단추가 «녹음 중 · 멈추고 저장» 이고 시간이 흐르는가', await p.evaluate(() => document.getElementById('btn-rec').textContent.indexOf('멈추고 저장') > -1 && !document.getElementById('btn-rec').hidden && !document.getElementById('rec-state').hidden));
   await p.click('#btn-timer'); await p.waitForTimeout(200);   // 일시정지
   확인('«일시정지» 해도 녹음은 이어지는가', await p.evaluate(() => REC.on && window.__recorders[0].state === 'recording'));
   await p.click('#btn-timer'); await p.waitForTimeout(200);   // 이어서
   확인('«이어서» 눌러도 녹음기를 새로 만들지 않는가', await p.evaluate(() => window.__recorders.length === 1));
+  await p.waitForTimeout(1600);
+  const dl0 = p.waitForEvent('download', { timeout: 3000 }).catch(() => null);
+  await p.click('#btn-rec'); await p.waitForTimeout(300);   // «■ 멈추고 저장»
+  확인('«멈추고 저장» 을 누르면 파일로 떨어지고 «⏺ 지금부터 녹음» 으로 바뀌는가', !!(await dl0) && await p.evaluate(() => !REC.on && document.getElementById('btn-rec').textContent.indexOf('지금부터 녹음') > -1 && !document.getElementById('btn-rec').hidden));
+  await p.click('#rec-auto'); await p.waitForTimeout(100);
+  확인('체크를 끄면 기억되는가', await p.evaluate(() => localStorage.getItem('recOn') === '0' && !document.getElementById('rec-auto').checked));
+  await p.click('#btn-rec'); await p.waitForTimeout(300);   // «⏺ 지금부터 녹음» — 체크도 켜짐
+  확인('«지금부터 녹음» 을 누르면 다시 녹음하고 체크도 켜지는가', await p.evaluate(() => REC.on && window.__recorders.length === 2 && document.getElementById('rec-auto').checked));
   console.log('\n── 마이크 고르기 · 이름 · 소리 막대 (2026-10-14 «꽂은 마이크인지 노트북 마이크인지») ──');
   await p.waitForTimeout(200);
   확인('마이크 줄이 보이고 «지금 녹음: 노트북 내장 마이크»', await p.evaluate(() => !document.getElementById('rec-row').hidden && document.getElementById('rec-mic').textContent.indexOf('지금 녹음: 노트북 내장 마이크') > -1), await p.evaluate(() => document.getElementById('rec-mic').textContent));
   확인('고르기 칸에 기본 + 마이크 둘(이름)', await p.evaluate(() => { var o = [...document.querySelectorAll('#mic-pick option')].filter(x => !x.disabled); return o.length === 3 && o[1].textContent === '노트북 내장 마이크' && o[2].textContent === 'USB 마이크 (외장)'; }));
   확인('마이크가 둘이라 «받아 적기는 윈도우 기본 마이크» 안내가 보이는가', await p.evaluate(() => !document.getElementById('rec-mictip').hidden));
   확인('소리 막대가 켜져 있는가', await p.evaluate(() => document.getElementById('rec-level').getAttribute('data-on') === 'yes'));
-  await p.waitForTimeout(1600);   // 3초보다 짧은 녹음은 파일을 안 만드니 조금 기다립니다
+  await p.waitForTimeout(3000);   // 3초보다 짧은 녹음은 파일을 안 만드니 기다립니다
   const dl1 = p.waitForEvent('download', { timeout: 3000 }).catch(() => null);
   await p.selectOption('#mic-pick', 'usb1'); await p.waitForTimeout(400);
   const d1 = await dl1;
-  확인('녹음 중에 마이크를 바꾸면 지금까지 것을 파일로 떨어뜨리고 새 마이크로 이어 녹음', !!d1 && await p.evaluate(() => REC.on && window.__recorders.length === 2 && window.__gumArgs[1].audio.deviceId.exact === 'usb1' && document.getElementById('rec-mic').textContent.indexOf('USB 마이크') > -1),
+  확인('녹음 중에 마이크를 바꾸면 지금까지 것을 파일로 떨어뜨리고 새 마이크로 이어 녹음', !!d1 && await p.evaluate(() => REC.on && window.__recorders.length === 3 && window.__gumArgs[2].audio.deviceId.exact === 'usb1' && document.getElementById('rec-mic').textContent.indexOf('USB 마이크') > -1),
        (d1 ? d1.suggestedFilename() : '내려받음 없음') + ' / ' + await p.evaluate(() => JSON.stringify({ on: REC.on, n: window.__recorders.length, mic: document.getElementById('rec-mic').textContent, hint: REC.hint })));
   확인('고른 마이크를 기억하는가', await p.evaluate(() => localStorage.getItem('micId') === 'usb1' && document.getElementById('mic-pick').value === 'usb1'));
   await p.click('#btn-answer'); await p.waitForTimeout(1300);
@@ -278,7 +290,7 @@ const FAKE_MIC = () => {
   await p.click('#btn-finish'); await p.waitForTimeout(600);
   const dl = await dlP;
   확인('끝내면 녹음 파일을 내려받는가(면접녹음_학생_날짜.webm)', !!dl && /^면접녹음_.*고다윤.*\.webm$/.test(dl.suggestedFilename()), dl && dl.suggestedFilename());
-  확인('마이크 선을 끊었는가', await p.evaluate(() => !REC.on && window.__recorders[1].stream.__t.stopped));
+  확인('마이크 선을 끊었는가', await p.evaluate(() => !REC.on && window.__recorders[2].stream.__t.stopped));
   const saved = await 표(p, 'interview_answers');
   const s2 = saved.filter(r => r.seq === 2)[0];
   확인('서버 줄에 받아 적은 글·태그·판정·요지가 다 들어갔는가',
