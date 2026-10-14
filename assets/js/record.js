@@ -68,7 +68,8 @@ function recMeterStart(stream) {
       var peak = 0;
       for (var i = 0; i < buf.length; i++) { var v = Math.abs(buf[i] - 128); if (v > peak) peak = v; }
       var bar = document.querySelector('#rec-level .bar');
-      if (bar) bar.style.width = Math.min(100, Math.round(peak / 128 * 100 * 1.6)) + '%';
+      // 말소리는 보통 128 에서 5~30 쯤 흔들립니다 — 그 폭이 막대 전체가 되게 4배 (처음엔 1.6배라 «잘 안 움직인다» 하셨음)
+      if (bar) bar.style.width = Math.min(100, Math.round(peak / 128 * 100 * 4)) + '%';
       REC.rafId = requestAnimationFrame(loop);
     })();
   } catch (e) { /* 가짜 마이크(시험) 등 — 막대 없이 녹음만 */ }
@@ -227,6 +228,13 @@ function recPaint() {
     var lv = document.getElementById('rec-level');
     if (lv) lv.setAttribute('data-on', REC.on ? 'yes' : 'no');
     var tip = document.getElementById('rec-mictip');
-    if (tip) tip.hidden = named.length < 2;   // 마이크가 둘 이상일 때만 — 받아 적기는 윈도우 기본 마이크
+    if (tip) {
+      tip.hidden = named.length < 2;   // 마이크가 둘 이상일 때만
+      var viaTrack = typeof LISTEN !== 'undefined' && LISTEN.on && LISTEN.viaTrack;
+      var bad = typeof LISTEN !== 'undefined' && LISTEN.trackBad;
+      tip.innerHTML = viaTrack ? '받아 적기도 이 마이크로 듣고 있습니다.'
+        : bad ? '이 크롬은 고른 마이크를 받아 적기에 못 넘깁니다 — 받아 적기는 <b>윈도우 기본 마이크</b>를 씁니다. 꽂은 마이크로 받아 적으려면 윈도우 설정 → 시스템 → 소리 → 입력에서 그 마이크를 고르세요.'
+        : '녹음을 켜 두면 받아 적기도 여기서 고른 마이크로 듣습니다(최근 크롬). 녹음을 끄면 받아 적기는 <b>윈도우 기본 마이크</b>를 씁니다 — 윈도우 설정 → 시스템 → 소리 → 입력에서 바꿀 수 있습니다.';
+    }
   }
 }

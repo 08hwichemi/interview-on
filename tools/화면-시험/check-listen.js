@@ -24,7 +24,9 @@ const ROWS = () => ({
 const FAKE_SR = () => {
   window.__recs = [];
   function R() { this.started = false; window.__recs.push(this); }
-  R.prototype.start = function () { this.started = true; var me = this; setTimeout(function () { me.onstart && me.onstart(); }, 0); };
+  R.prototype.start = function (track) {
+    if (window.__noTrack && track) throw new TypeError('start(track) 를 모르는 크롬 흉내');
+    this.started = true; this.track = track || null; var me = this; setTimeout(function () { me.onstart && me.onstart(); }, 0); };
   R.prototype.stop = R.prototype.abort = function () {
     this.started = false; var me = this; setTimeout(function () { me.onend && me.onend(); }, 0);
   };
@@ -129,6 +131,12 @@ const FAKE_MIC = () => {
   확인('«답변 시작» 을 누르면 답변 시계가 흐르는가', await p.evaluate(() => answering && seconds >= 1), await p.evaluate(() => seconds));
   확인('단추가 «답변 끝» 으로', (await p.evaluate(() => document.getElementById('btn-answer').textContent)) === '답변 끝');
   확인('듣기 시작했는가', await p.evaluate(() => LISTEN.on && window.__recs.length === 1 && window.__recs[0].started));
+  // 받아 적기도 고른 마이크로 — 녹음 마이크 선을 음성 인식에 넘김 (2026-10-14 «마이크를 가려도 적힌다»)
+  확인('«답변 시작» 으로 켜진 받아 적기가 녹음 중인 마이크 선(USB)을 넘겨 듣는가', await p.evaluate(() => { var r = window.__recs[window.__recs.length - 1]; return LISTEN.on && LISTEN.viaTrack && r.track && r.track.label === 'USB 마이크 (외장)'; }));
+  확인('«받아 적는 중 (USB 마이크 …)» 과 «받아 적기도 이 마이크로» 안내', await p.evaluate(() => document.getElementById('live-state').textContent.indexOf('USB 마이크') > -1 && document.getElementById('rec-mictip').textContent.indexOf('받아 적기도 이 마이크로') > -1));
+  await p.evaluate(() => { window.__fail('audio-capture'); window.__end(); }); await p.waitForTimeout(400);
+  확인('마이크 선을 못 받는 크롬이면(audio-capture) 기본 마이크로 다시 켜고 안내', await p.evaluate(() => { var r = window.__recs[window.__recs.length - 1]; return LISTEN.on && !LISTEN.viaTrack && LISTEN.trackBad && !r.track && document.getElementById('rec-mictip').textContent.indexOf('못 넘깁니다') > -1; }));
+  await p.evaluate(() => { LISTEN.trackBad = false; LISTEN.hint = ''; LISTEN.fails = 0; });
   확인('«받아 적는 중» 표시', (await p.evaluate(() => document.getElementById('live-state').textContent)).indexOf('받아 적는 중') > -1);
   await p.evaluate(() => window.__say('안녕하세요 저는', false)); await p.waitForTimeout(50);
   확인('확정 전 글은 회색으로 보이고 아직 저장되지 않는가',
