@@ -24,7 +24,9 @@ const ROWS = () => ({
 const FAKE_SR = () => {
   window.__recs = [];
   function R() { this.started = false; window.__recs.push(this); }
-  R.prototype.start = function () { this.started = true; };
+  R.prototype.start = function (track) {
+    if (window.__noTrack && track) throw new TypeError('start(track) 를 모르는 크롬 흉내');
+    this.started = true; this.track = track || null; var me = this; setTimeout(function () { me.onstart && me.onstart(); }, 0); };
   R.prototype.stop = R.prototype.abort = function () {
     this.started = false; var me = this; setTimeout(function () { me.onend && me.onend(); }, 0);
   };
@@ -36,19 +38,51 @@ const FAKE_SR = () => {
     r.onresult({ resultIndex: 0, results: [one] });
   };
   window.__fail = function (kind) { var r = window.__recs[window.__recs.length - 1]; r.onerror({ error: kind }); };
+  window.__end = function () { var r = window.__recs[window.__recs.length - 1]; r.started = false; r.onend && r.onend(); };
+};
+// 가짜 마이크 · 녹음기 — 이 환경엔 마이크가 없습니다. 10초 조각 대신 바로 조각 하나를 줍니다
+const FAKE_MIC = () => {
+  window.__mics = 0; window.__recorders = [];
+  window.__gumArgs = [];
+  navigator.mediaDevices.getUserMedia = async function (c) {
+    window.__mics++; window.__gumArgs.push(c); window.__allowed = true;
+    var id = c && c.audio && c.audio.deviceId && c.audio.deviceId.exact;
+    if (id === 'gone') throw new Error('NotFoundError');
+    var t = { stop: function () { t.stopped = true; }, label: id === 'usb1' ? 'USB 마이크 (외장)' : '노트북 내장 마이크' };
+    return { getTracks: function () { return [t]; }, getAudioTracks: function () { return [t]; }, __t: t };
+  };
+  navigator.mediaDevices.enumerateDevices = async function () {
+    window.__micListed = true;
+    var ok = window.__allowed;   // 허용 전엔 이름이 비어 옵니다(진짜 크롬과 같게)
+    return [{ kind: 'audioinput', deviceId: 'default', label: ok ? '노트북 내장 마이크' : '' },
+            { kind: 'audioinput', deviceId: 'usb1', label: ok ? 'USB 마이크 (외장)' : '' },
+            { kind: 'videoinput', deviceId: 'cam', label: '' }];
+  };
+  function MR(stream, opt) { this.stream = stream; this.opt = opt || {}; this.state = 'inactive'; window.__recorders.push(this); }
+  MR.isTypeSupported = function (t) { return /webm/.test(t); };
+  MR.prototype.start = function (slice) { this.state = 'recording'; this.slice = slice; };
+  MR.prototype.stop = function () {
+    this.state = 'inactive'; var me = this;
+    me.ondataavailable && me.ondataavailable({ data: new Blob([new Uint8Array(50000)], { type: 'audio/webm' }) });
+    setTimeout(function () { me.onstop && me.onstop(); }, 0);
+  };
+  window.MediaRecorder = MR;
 };
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  // ⚠️ 이 작업 환경은 LANG 이 비어 있어 크롬이 한글 파일 이름(면접녹음_…)을 «download» 로 바꿉니다 — 크롬만 C.UTF-8 로 띄웁니다(check-other 와 같음)
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+                                    env: Object.assign({}, process.env, { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' }) });
 
   // ── 1. 크롬(음성 인식 있음) ──
   const ctx = await b.newContext({ viewport: { width: 1512, height: 1000 } });
   await ctx.route('**/supabase-js*/**', r => r.fulfill({ contentType: 'application/javascript', body: SB }));
   await ctx.route('**/pretendard*', r => r.fulfill({ contentType: 'text/css', body: '' }));
   await ctx.addInitScript(FAKE_SR);
+  await ctx.addInitScript(FAKE_MIC);
   await ctx.addInitScript((rows) => {
     window.__FAKE__ = { profile: { id: 't1', name: '이용휘', login_id: '이용휘', role: 'teacher' }, rows: rows };
-    try { localStorage.removeItem('listenOn'); localStorage.removeItem('tagUse'); } catch (e) {}
+    try { localStorage.removeItem('listenOn'); localStorage.removeItem('tagUse'); localStorage.removeItem('recOn'); localStorage.removeItem('micId'); } catch (e) {}
   }, ROWS());
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message));
@@ -63,6 +97,8 @@ const FAKE_SR = () => {
        (await p.evaluate(() => document.getElementById('btn-stt').textContent)).indexOf('끄기') > -1);
   확인('아직 듣지 않는다 — «답변 시작을 누르면»', (await p.evaluate(() => document.getElementById('live-state').textContent)).indexOf('답변 시작') > -1);
   확인('음성 인식을 아직 안 만들었는가', await p.evaluate(() => window.__recs.length === 0));
+  확인('진행 화면을 열 때 마이크 목록을 읽었는가(허용 전엔 «허용하면 이름이 보입니다»)', await p.evaluate(() => {
+    var o = [...document.querySelectorAll('#mic-pick option')]; return window.__micListed && o.some(x => x.disabled && x.textContent.indexOf('허용') > -1); }));
   확인('진행 화면에 태그는 없고, 쓰는 칸(평가·요지)은 있는가',
        await p.evaluate(() => !document.getElementById('tag-area') && !!document.getElementById('answer-memo')));
   확인('영역 다섯 줄 × 좋음·보통·아쉬움 표가 있는가',
@@ -73,10 +109,47 @@ const FAKE_SR = () => {
   확인('«면접 시작» 만으로는 면접 전체만 흐르고 답변 시계는 안 흐르는가',
        await p.evaluate(() => ticking && !answering && seconds === 0 && totalSeconds >= 1), await p.evaluate(() => seconds + ' / ' + totalSeconds));
   확인('«면접 시작» 만으로는 듣지 않는가', await p.evaluate(() => !LISTEN.on && window.__recs.length === 0));
+  console.log('\n── 녹음 (record.js, 2026-10-14) ──');
+  확인('«면접 시작» 을 누르면 녹음이 켜지는가(처음은 켜 둠)', await p.evaluate(() => REC.on && window.__mics === 1 && window.__recorders.length === 1 && window.__recorders[0].state === 'recording'));
+  확인('목소리용 32kbps · webm · 10초 조각', await p.evaluate(() => { var r = window.__recorders[0]; return r.opt.audioBitsPerSecond === 32000 && /webm/.test(r.opt.mimeType) && r.slice === 10000; }));
+  확인('«녹음 중 00:0N» 표시와 «■ 녹음 멈추기» 단추, 체크는 없음(선생님: 옵션 빼고 편하게 · 멈추는 단추는 남김)', await p.evaluate(() => { var st = document.getElementById('rec-state'), b = document.getElementById('btn-rec'); return !st.hidden && /녹음 중 00:0\d/.test(st.textContent) && !b.hidden && b.textContent.indexOf('녹음 멈추기') > -1 && !document.getElementById('rec-auto'); }));
+  await p.click('#btn-timer'); await p.waitForTimeout(200);   // 일시정지
+  확인('«일시정지» 해도 녹음은 이어지는가', await p.evaluate(() => REC.on && window.__recorders[0].state === 'recording'));
+  await p.click('#btn-timer'); await p.waitForTimeout(200);   // 이어서
+  확인('«이어서» 눌러도 녹음기를 새로 만들지 않는가', await p.evaluate(() => window.__recorders.length === 1));
+  await p.waitForTimeout(1600);
+  const dl0 = p.waitForEvent('download', { timeout: 1500 }).catch(() => null);
+  await p.click('#btn-rec'); await p.waitForTimeout(300);   // «■ 녹음 멈추기»
+  확인('«녹음 멈추기» 를 누르면 파일이 되고 «⏺ 녹음 다시 켜기» 로 바뀌는가', await p.evaluate(() => !REC.on && REC.paused && REC.files.length === 1 && document.getElementById('btn-rec').textContent.indexOf('다시 켜기') > -1 && !document.getElementById('btn-rec').hidden));
+  확인('저절로 내려받지 않고 오른쪽 아래 «녹음 파일» 띠에 «⬇ 내려받기» 가 뜨는가(선생님: 원하면 받게)', !(await dl0) && await p.evaluate(() => { var b = document.getElementById('rec-files'); return !b.hidden && b.querySelectorAll('.rfget').length === 1 && b.textContent.indexOf('⬇ 내려받기') > -1; }));
+  const dlx = p.waitForEvent('download', { timeout: 3000 }).catch(() => null);
+  await p.click('#rec-files .rfget'); const dx = await dlx;
+  확인('«⬇ 내려받기» 를 누르면 그때 받고 «다시 내려받기» 로 바뀌는가', !!dx && /^면접녹음_.*고다윤.*\.webm$/.test(dx.suggestedFilename()) && await p.evaluate(() => REC.files[0].got && document.querySelector('#rec-files .rfget').textContent.indexOf('다시 내려받기') > -1), dx && dx.suggestedFilename());
+  await p.click('#btn-timer'); await p.waitForTimeout(200); await p.click('#btn-timer'); await p.waitForTimeout(300);   // 일시정지 → 이어서
+  확인('멈춘 뒤엔 «이어서» 를 눌러도 저절로 다시 켜지지 않는가', await p.evaluate(() => !REC.on && window.__recorders.length === 1));
+  await p.click('#btn-rec'); await p.waitForTimeout(300);   // «⏺ 녹음 다시 켜기»
+  확인('«녹음 다시 켜기» 를 누르면 다시 녹음하는가', await p.evaluate(() => REC.on && !REC.paused && window.__recorders.length === 2));
+  console.log('\n── 마이크 고르기 · 이름 · 소리 막대 (2026-10-14 «꽂은 마이크인지 노트북 마이크인지») ──');
+  await p.waitForTimeout(200);
+  확인('마이크 줄이 보이고 «지금 녹음: 노트북 내장 마이크»', await p.evaluate(() => !document.getElementById('rec-row').hidden && document.getElementById('rec-mic').textContent.indexOf('지금 녹음: 노트북 내장 마이크') > -1), await p.evaluate(() => document.getElementById('rec-mic').textContent));
+  확인('고르기 칸에 기본 + 마이크 둘(이름)', await p.evaluate(() => { var o = [...document.querySelectorAll('#mic-pick option')].filter(x => !x.disabled); return o.length === 3 && o[1].textContent === '노트북 내장 마이크' && o[2].textContent === 'USB 마이크 (외장)'; }));
+  확인('마이크가 둘이라 «받아 적기는 윈도우 기본 마이크» 안내가 보이는가', await p.evaluate(() => !document.getElementById('rec-mictip').hidden));
+  확인('소리 막대가 켜져 있는가', await p.evaluate(() => document.getElementById('rec-level').getAttribute('data-on') === 'yes'));
+  await p.waitForTimeout(3000);   // 3초보다 짧은 녹음은 파일을 안 만드니 기다립니다
+  await p.selectOption('#mic-pick', 'usb1'); await p.waitForTimeout(400);
+  확인('녹음 중에 마이크를 바꾸면 지금까지 것이 파일(띠에 2개)이 되고 새 마이크로 이어 녹음', await p.evaluate(() => REC.on && REC.files.length === 2 && document.querySelectorAll('#rec-files .rfget').length === 2 && window.__recorders.length === 3 && window.__gumArgs[2].audio.deviceId.exact === 'usb1' && document.getElementById('rec-mic').textContent.indexOf('USB 마이크') > -1),
+       await p.evaluate(() => JSON.stringify({ on: REC.on, n: window.__recorders.length, files: REC.files.length, mic: document.getElementById('rec-mic').textContent, hint: REC.hint })));
+  확인('고른 마이크를 기억하는가', await p.evaluate(() => localStorage.getItem('micId') === 'usb1' && document.getElementById('mic-pick').value === 'usb1'));
   await p.click('#btn-answer'); await p.waitForTimeout(1300);
   확인('«답변 시작» 을 누르면 답변 시계가 흐르는가', await p.evaluate(() => answering && seconds >= 1), await p.evaluate(() => seconds));
   확인('단추가 «답변 끝» 으로', (await p.evaluate(() => document.getElementById('btn-answer').textContent)) === '답변 끝');
   확인('듣기 시작했는가', await p.evaluate(() => LISTEN.on && window.__recs.length === 1 && window.__recs[0].started));
+  // 받아 적기도 고른 마이크로 — 녹음 마이크 선을 음성 인식에 넘김 (2026-10-14 «마이크를 가려도 적힌다»)
+  확인('«답변 시작» 으로 켜진 받아 적기가 녹음 중인 마이크 선(USB)을 넘겨 듣는가', await p.evaluate(() => { var r = window.__recs[window.__recs.length - 1]; return LISTEN.on && LISTEN.viaTrack && r.track && r.track.label === 'USB 마이크 (외장)'; }));
+  확인('«받아 적는 중 (USB 마이크 …)» 과 «받아 적기도 이 마이크로» 안내', await p.evaluate(() => document.getElementById('live-state').textContent.indexOf('USB 마이크') > -1 && document.getElementById('rec-mictip').textContent.indexOf('받아 적기도 이 마이크로') > -1));
+  await p.evaluate(() => { window.__fail('audio-capture'); window.__end(); }); await p.waitForTimeout(400);
+  확인('마이크 선을 못 받는 크롬이면(audio-capture) 기본 마이크로 다시 켜고 안내', await p.evaluate(() => { var r = window.__recs[window.__recs.length - 1]; return LISTEN.on && !LISTEN.viaTrack && LISTEN.trackBad && !r.track && document.getElementById('rec-mictip').textContent.indexOf('못 넘깁니다') > -1; }));
+  await p.evaluate(() => { LISTEN.trackBad = false; LISTEN.hint = ''; LISTEN.fails = 0; });
   확인('«받아 적는 중» 표시', (await p.evaluate(() => document.getElementById('live-state').textContent)).indexOf('받아 적는 중') > -1);
   await p.evaluate(() => window.__say('안녕하세요 저는', false)); await p.waitForTimeout(50);
   확인('확정 전 글은 회색으로 보이고 아직 저장되지 않는가',
@@ -84,6 +157,14 @@ const FAKE_SR = () => {
   await p.evaluate(() => window.__say('안녕하세요 저는 고다윤입니다', true)); await p.waitForTimeout(50);
   확인('확정된 글이 첫 질문에 붙는가', await p.evaluate(() => answers[0].transcript === '안녕하세요 저는 고다윤입니다'), await p.evaluate(() => answers[0].transcript));
   확인('화면에도 보이는가', (await p.evaluate(() => document.getElementById('live-text').textContent)).indexOf('고다윤입니다') > -1);
+  console.log('\n── 끊겨서 다시 켜는 사이 (2026-10-14 핫스팟) ──');
+  await p.evaluate(() => { LISTEN.fails = 5; window.__end(); }); await p.waitForTimeout(300);
+  확인('잇달아 실패한 뒤 끊기면 «끊겨서 다시 켜는 중» 이 빨갛게', await p.evaluate(() => document.getElementById('livebox').getAttribute('data-on') === 'gap' && document.getElementById('live-state').textContent.indexOf('다시 켜는 중') > -1 && !LISTEN.on));
+  await p.waitForTimeout(1000);
+  확인('1초 뒤(전엔 3초) 다시 켜지고 빨간 표시가 꺼지는가', await p.evaluate(() => LISTEN.on && !LISTEN.gap && document.getElementById('livebox').getAttribute('data-on') === 'yes'), await p.evaluate(() => LISTEN.on + ' / ' + LISTEN.gap));
+  await p.evaluate(() => { window.__end(); }); await p.waitForTimeout(1200); await p.evaluate(() => { window.__end(); }); await p.waitForTimeout(1200);
+  확인('세 번 넘게 끊기면 «N번 끊겼다» 안내', (await p.evaluate(() => document.getElementById('live-hint').textContent)).indexOf('번 끊겼다') > -1, await p.evaluate(() => document.getElementById('live-hint').textContent));
+  await p.evaluate(() => { LISTEN.fails = 0; window.__recs0 = window.__recs.length; });   // 끊김 시험으로 늘어난 개수는 여기서부터 셉니다
 
   console.log('\n── 들으면서 누르기 — 단추와 키보드 ──');
   확인('👍👎 단추는 없고(우수·보통·미흡과 겹쳐 뺌) 판정이 영역 표 위에 있는가', await p.evaluate(() => {
@@ -133,7 +214,7 @@ const FAKE_SR = () => {
   확인('그래서 듣기도 멈췄는가', await p.evaluate(() => !LISTEN.on));
   await p.click('#btn-answer'); await p.waitForTimeout(200);
   확인('확정 전 글은 지난 질문에 붙여 두는가', await p.evaluate(() => answers[0].transcript === '안녕하세요 저는 고다윤입니다 그리고 또'), await p.evaluate(() => answers[0].transcript));
-  확인('«답변 시작» 으로 새로 듣기 시작했는가(두 번째 인식)', await p.evaluate(() => LISTEN.on && LISTEN.qi === 1 && window.__recs.length === 2));
+  확인('«답변 시작» 으로 새로 듣기 시작했는가(두 번째 인식)', await p.evaluate(() => LISTEN.on && LISTEN.qi === 1 && window.__recs.length === window.__recs0 + 1));
   확인('받아 적는 칸이 비워졌는가', (await p.evaluate(() => document.getElementById('live-text').textContent)).indexOf('고다윤') === -1);
   await p.evaluate(() => window.__say('열을 가하면 패치가', true)); await p.waitForTimeout(50);
   확인('두 번째 질문에 붙는가', await p.evaluate(() => answers[1].transcript === '열을 가하면 패치가'));
@@ -146,7 +227,7 @@ const FAKE_SR = () => {
 
   console.log('\n── 크롬이 스스로 멈추면 다시 켠다 · 시계를 멈추면 같이 멈춘다 ──');
   await p.evaluate(() => window.__recs[window.__recs.length - 1].onend()); await p.waitForTimeout(400);
-  확인('저절로 다시 켜지는가', await p.evaluate(() => LISTEN.on && window.__recs.length === 3));
+  확인('저절로 다시 켜지는가', await p.evaluate(() => LISTEN.on && window.__recs.length === window.__recs0 + 2));
   await p.click('#btn-answer'); await p.waitForTimeout(200);
   확인('«답변 끝» 을 누르면 듣기도 멈추는가', await p.evaluate(() => !LISTEN.on && !answering && ticking && !window.__recs[2].started));
   await p.click('#btn-answer'); await p.waitForTimeout(200);
@@ -206,7 +287,13 @@ const FAKE_SR = () => {
   확인('요지도 여기서', await p.evaluate(() => answers[1].memo === '원리는 알지만 결론이 늦음'));
 
   console.log('\n── 면접 끝내기 — 한 번에 저장 ──');
+  const dlP = p.waitForEvent('download', { timeout: 1500 }).catch(() => null);
   await p.click('#btn-finish'); await p.waitForTimeout(600);
+  const dl = await dlP;
+  확인('끝내면 녹음이 멈추고 띠에 파일 3개 — 저절로 내려받지는 않는가', !dl && await p.evaluate(() => !REC.on && REC.files.length === 3 && !document.getElementById('rec-files').hidden && !document.getElementById('view-report').hidden));
+  확인('마이크 선을 끊었는가', await p.evaluate(() => !REC.on && window.__recorders[2].stream.__t.stopped));
+  await p.evaluate(() => { window.__dropAsk = null; var c = window.confirm; window.confirm = function (m) { window.__dropAsk = m; return true; }; recDropFiles(); window.confirm = c; });
+  확인('띠의 ✕ 는 안 받은 파일이 있으면 묻고 비우는가', await p.evaluate(() => /내려받지 않은/.test(window.__dropAsk || '') && REC.files.length === 0 && document.getElementById('rec-files').hidden));
   const saved = await 표(p, 'interview_answers');
   const s2 = saved.filter(r => r.seq === 2)[0];
   확인('서버 줄에 받아 적은 글·태그·판정·요지가 다 들어갔는가',

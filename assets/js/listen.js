@@ -23,8 +23,23 @@ var LISTEN = {
   interim: '',      // 아직 확정 안 된 글(회색으로 보여 줌)
   hint: '',         // 화면에 적을 까닭 («마이크를 허용해 주세요» 등)
   restartId: null,
-  fails: 0          // 잇달아 실패한 횟수 — 많으면 더 천천히 다시 켭니다
+  fails: 0,         // 잇달아 실패한 횟수 — 많으면 조금 천천히 다시 켭니다
+  gap: false,       // 답변 중인데 끊겨서 다시 켜는 사이인가 — 이때 말은 안 적힙니다(화면에 빨갛게)
+  gaps: 0,          // 이 면접에서 끊겼다 다시 켠 횟수
+  viaTrack: false,  // 녹음 중인 마이크 선(고른 마이크)으로 듣는 중인가
+  trackBad: false   // 마이크 선 넘기기가 이 크롬에서 안 됨 — 기본 마이크로
 };
+
+// 2026-10-14 선생님: «녹음은 꽂은 마이크로 되는데 받아 적기는 노트북 마이크로 되는 것 같다(마이크를 가려도 적힌다)».
+//   크롬의 음성 인식은 마이크를 고르는 칸이 없고 늘 윈도우 기본 마이크를 씁니다. 대신 최근 크롬은 start(마이크 선) 으로
+//   «이 소리를 들어라» 하고 넘길 수 있어서, 녹음(record.js)이 고른 마이크로 켜져 있으면 그 선을 넘깁니다.
+//   모르는 크롬이면(오류 · audio-capture) 전처럼 기본 마이크로. 녹음을 꺼 두면 넘길 선이 없어 기본 마이크입니다.
+function listenTrack() {
+  if (LISTEN.trackBad) return null;
+  if (typeof REC === 'undefined' || !REC.on || !REC.stream) return null;
+  try { var t = REC.stream.getAudioTracks ? REC.stream.getAudioTracks()[0] : null; return (t && t.readyState !== 'ended') ? t : null; }
+  catch (e) { return null; }
+}
 
 function listenCtor() { return window.SpeechRecognition || window.webkitSpeechRecognition || null; }
 
@@ -39,13 +54,18 @@ function toggleListen() {
   listenSync();
 }
 
+// 지금 듣고 있어야 하는가 — 켜 둠 · 답변 시계가 흐름 · 진행 화면
+function listenShould() {
+  var run = document.getElementById('view-run');
+  return listenWanted() && !!listenCtor() &&
+         typeof answering !== 'undefined' && answering &&
+         typeof liveInterview !== 'undefined' && liveInterview &&
+         run && !run.hidden;
+}
+
 // «원하는 상태 · 답변 시계 · 화면» 을 보고 켜거나 끕니다. 시계 단추를 누를 때마다, 질문을 넘길 때마다 부릅니다.
 function listenSync() {
-  var run = document.getElementById('view-run');
-  var should = listenWanted() && !!listenCtor() &&
-               typeof answering !== 'undefined' && answering &&
-               typeof liveInterview !== 'undefined' && liveInterview &&
-               run && !run.hidden;
+  var should = listenShould();
   if (should && !LISTEN.on) listenStart();
   else if (!should && LISTEN.on) listenStop();
   listenPaint();
@@ -63,7 +83,9 @@ function listenStart() {
   rec.maxAlternatives = 1;
   LISTEN.qi = (typeof qIndex === 'number') ? qIndex : 0;
 
+  rec.onstart = function () { if (LISTEN.rec === rec) { LISTEN.gap = false; listenPaint(); } };   // 서버가 다시 듣기 시작 — 빨간 표시 끔
   rec.onresult = function (ev) {
+    LISTEN.gap = false;
     var fin = '', tmp = '';
     for (var i = ev.resultIndex; i < ev.results.length; i++) {
       var r = ev.results[i];
@@ -83,7 +105,14 @@ function listenStart() {
       try { localStorage.setItem('listenOn', '0'); } catch (e) { /* */ }
       return;
     }
-    if (kind === 'audio-capture') { LISTEN.hint = '마이크를 찾지 못했습니다. 노트북 마이크가 켜져 있는지 봐 주세요.'; return; }
+    if (kind === 'audio-capture') {
+      if (LISTEN.viaTrack) {   // onend 에서 기본 마이크로 다시 켬
+        LISTEN.trackBad = true; LISTEN.hint = '이 크롬은 고른 마이크를 받아 적기에 못 넘깁니다 — 기본 마이크로 받아 적습니다.';
+        if (typeof recPaint === 'function') recPaint();   // 마이크 줄 안내도 바로
+        return;
+      }
+      LISTEN.hint = '마이크를 찾지 못했습니다. 노트북 마이크가 켜져 있는지 봐 주세요.'; return;
+    }
     if (kind === 'network') { LISTEN.hint = '인터넷이 끊겨 받아 적지 못하고 있습니다. 이어지면 저절로 다시 적습니다.'; LISTEN.fails++; return; }
     // no-speech · aborted 는 흔한 일 — onend 에서 다시 켭니다
   };
@@ -96,17 +125,28 @@ function listenStart() {
     // 아직 확정 안 된 글이 남아 있으면 버리지 않고 붙입니다(크롬이 스스로 멈출 때 생김)
     if (LISTEN.interim.trim()) { listenAppend(LISTEN.qi, LISTEN.interim); LISTEN.interim = ''; }
     // 켜 둔 상태면 다시 켭니다. 잇달아 실패하면 조금 기다렸다가
-    var wait = LISTEN.fails > 2 ? 3000 : 150;
+    // (2026-10-14 핫스팟 면접에서 «잘 되다가 멈춤» — 3초 쉬던 것을 1초로. 쉬는 동안의 말은 사라지니 짧게.
+    //  다시 켜는 것은 크롬 안의 일이라 우리 서버 사용량과는 상관없습니다)
+    var wait = LISTEN.fails > 2 ? 1000 : 150;
+    if (listenShould()) { LISTEN.gap = true; LISTEN.gaps++; }   // 답변 중인데 끊김 — 다시 켜질 때까지 빨갛게
     LISTEN.restartId = setTimeout(function () { LISTEN.restartId = null; listenSync(); }, wait);
     listenPaint();
   };
-  try {
-    rec.start();
+  var track = listenTrack();
+  var started = false;
+  if (track) {
+    try { rec.start(track); started = true; LISTEN.viaTrack = true; }   // 고른 마이크 선으로
+    catch (e) { LISTEN.trackBad = true; LISTEN.viaTrack = false; }      // 모르는 크롬 — 기본 마이크로
+  }
+  if (!started) {
+    try { rec.start(); started = true; LISTEN.viaTrack = false; }
+    catch (e) { /* 이미 도는 중에 또 start 하면 터집니다 — 그냥 둡니다 */ }
+  }
+  if (started) {
     LISTEN.rec = rec;
     LISTEN.on = true;
-    if (LISTEN.hint.indexOf('인터넷') === -1) LISTEN.hint = '';
-  } catch (e) {
-    // 이미 도는 중에 또 start 하면 터집니다 — 그냥 둡니다
+    if (LISTEN.hint.indexOf('인터넷') === -1 && LISTEN.hint.indexOf('못 넘깁니다') === -1) LISTEN.hint = '';
+    if (typeof recPaint === 'function') recPaint();   // 마이크 줄 안내(«받아 적기도 이 마이크로») 바로
   }
 }
 
@@ -158,8 +198,9 @@ function listenPaint() {
   var hint = document.getElementById('live-hint');
   var has = !!listenCtor();
   var wanted = listenWanted();
+  var gap = LISTEN.gap && !LISTEN.on && listenShould();   // 답변 중인데 다시 켜는 사이
 
-  box.setAttribute('data-on', LISTEN.on ? 'yes' : 'no');
+  box.setAttribute('data-on', LISTEN.on ? 'yes' : gap ? 'gap' : 'no');
   if (btn) {
     btn.hidden = !has;
     btn.textContent = wanted ? '🎤 받아 적기 끄기' : '🎤 받아 적기 켜기';
@@ -168,13 +209,15 @@ function listenPaint() {
   if (st) {
     st.textContent = !has ? '(이 브라우저에는 음성 인식이 없습니다)'
       : !wanted ? '받아 적기 꺼짐'
-      : LISTEN.on ? '● 받아 적는 중'
+      : LISTEN.on ? ('● 받아 적는 중' + (LISTEN.viaTrack && typeof REC !== 'undefined' && REC.micLabel ? ' (' + REC.micLabel + ')' : ''))
+      : gap ? '⚠️ 끊겨서 다시 켜는 중 — 지금 말은 안 적힙니다'
       : '«답변 시작» 을 누르면 받아 적습니다';
   }
   if (hint) {
     hint.textContent = !has
       ? '크롬(또는 엣지)에서 열면 학생이 말하는 것을 글로 받아 적을 수 있습니다. 소리는 구글 서버를 거쳐 글자만 돌아옵니다.'
-      : LISTEN.hint;
+      : LISTEN.hint || (LISTEN.gaps >= 3 && typeof liveInterview !== 'undefined' && liveInterview
+          ? '이 면접에서 ' + LISTEN.gaps + '번 끊겼다 다시 켰습니다. 인터넷이 불안하면 잦습니다 — 녹음 파일로 보완하세요.' : '');
     hint.hidden = !hint.textContent;
   }
   if (txt) {
