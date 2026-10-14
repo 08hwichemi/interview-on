@@ -507,7 +507,7 @@ function backToList() {
     if (!confirm('면접을 접고 학생 목록으로 갈까요?\n지금까지 기록은 남아 있고, 나중에 다시 열 수 있습니다.')) return;
   }
   stopTicking();
-  if (typeof recStop === 'function') recStop();   // 녹음 중이었으면 지금까지 것을 파일로
+  if (typeof recStop === 'function') { recStop(); REC.paused = false; }   // 녹음 중이었으면 지금까지 것을 파일로
   liveInterview = false;
   editingMid = false;
   interviewId = null;
@@ -2048,7 +2048,7 @@ async function finishInterview() {
 
   if (error) { toast('저장하지 못했습니다: ' + error.message, 'bad'); return; }
   liveInterview = false;   // 시간은 여기서 멈춥니다. 뒤에 고쳐도 더 흐르지 않습니다
-  if (typeof recStop === 'function') recStop();   // 녹음 파일을 다운로드 폴더에
+  if (typeof recStop === 'function') { recStop(); REC.paused = false; }   // 녹음 파일을 다운로드 폴더에. 다음 면접은 다시 처음부터 녹음
   if (typeof LISTEN !== 'undefined') { LISTEN.gaps = 0; LISTEN.gap = false; }
   openReport(interviewId);
 }

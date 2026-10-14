@@ -110,22 +110,21 @@ const FAKE_MIC = () => {
        await p.evaluate(() => ticking && !answering && seconds === 0 && totalSeconds >= 1), await p.evaluate(() => seconds + ' / ' + totalSeconds));
   확인('«면접 시작» 만으로는 듣지 않는가', await p.evaluate(() => !LISTEN.on && window.__recs.length === 0));
   console.log('\n── 녹음 (record.js, 2026-10-14) ──');
-  확인('「☑ 면접 시작하면 녹음」 체크가 켜져 있는가(처음)', await p.evaluate(() => document.getElementById('rec-auto').checked && !document.getElementById('rec-auto-wrap').hidden));
   확인('«면접 시작» 을 누르면 녹음이 켜지는가(처음은 켜 둠)', await p.evaluate(() => REC.on && window.__mics === 1 && window.__recorders.length === 1 && window.__recorders[0].state === 'recording'));
   확인('목소리용 32kbps · webm · 10초 조각', await p.evaluate(() => { var r = window.__recorders[0]; return r.opt.audioBitsPerSecond === 32000 && /webm/.test(r.opt.mimeType) && r.slice === 10000; }));
-  확인('단추가 «녹음 중 · 멈추고 저장» 이고 시간이 흐르는가', await p.evaluate(() => document.getElementById('btn-rec').textContent.indexOf('멈추고 저장') > -1 && !document.getElementById('btn-rec').hidden && !document.getElementById('rec-state').hidden));
+  확인('«녹음 중 00:0N» 표시와 «■ 녹음 멈추기» 단추, 체크는 없음(선생님: 옵션 빼고 편하게 · 멈추는 단추는 남김)', await p.evaluate(() => { var st = document.getElementById('rec-state'), b = document.getElementById('btn-rec'); return !st.hidden && /녹음 중 00:0\d/.test(st.textContent) && !b.hidden && b.textContent.indexOf('녹음 멈추기') > -1 && !document.getElementById('rec-auto'); }));
   await p.click('#btn-timer'); await p.waitForTimeout(200);   // 일시정지
   확인('«일시정지» 해도 녹음은 이어지는가', await p.evaluate(() => REC.on && window.__recorders[0].state === 'recording'));
   await p.click('#btn-timer'); await p.waitForTimeout(200);   // 이어서
   확인('«이어서» 눌러도 녹음기를 새로 만들지 않는가', await p.evaluate(() => window.__recorders.length === 1));
   await p.waitForTimeout(1600);
   const dl0 = p.waitForEvent('download', { timeout: 3000 }).catch(() => null);
-  await p.click('#btn-rec'); await p.waitForTimeout(300);   // «■ 멈추고 저장»
-  확인('«멈추고 저장» 을 누르면 파일로 떨어지고 «⏺ 지금부터 녹음» 으로 바뀌는가', !!(await dl0) && await p.evaluate(() => !REC.on && document.getElementById('btn-rec').textContent.indexOf('지금부터 녹음') > -1 && !document.getElementById('btn-rec').hidden));
-  await p.click('#rec-auto'); await p.waitForTimeout(100);
-  확인('체크를 끄면 기억되는가', await p.evaluate(() => localStorage.getItem('recOn') === '0' && !document.getElementById('rec-auto').checked));
-  await p.click('#btn-rec'); await p.waitForTimeout(300);   // «⏺ 지금부터 녹음» — 체크도 켜짐
-  확인('«지금부터 녹음» 을 누르면 다시 녹음하고 체크도 켜지는가', await p.evaluate(() => REC.on && window.__recorders.length === 2 && document.getElementById('rec-auto').checked));
+  await p.click('#btn-rec'); await p.waitForTimeout(300);   // «■ 녹음 멈추기»
+  확인('«녹음 멈추기» 를 누르면 파일로 떨어지고 «⏺ 녹음 다시 켜기» 로 바뀌는가', !!(await dl0) && await p.evaluate(() => !REC.on && REC.paused && document.getElementById('btn-rec').textContent.indexOf('다시 켜기') > -1 && !document.getElementById('btn-rec').hidden));
+  await p.click('#btn-timer'); await p.waitForTimeout(200); await p.click('#btn-timer'); await p.waitForTimeout(300);   // 일시정지 → 이어서
+  확인('멈춘 뒤엔 «이어서» 를 눌러도 저절로 다시 켜지지 않는가', await p.evaluate(() => !REC.on && window.__recorders.length === 1));
+  await p.click('#btn-rec'); await p.waitForTimeout(300);   // «⏺ 녹음 다시 켜기»
+  확인('«녹음 다시 켜기» 를 누르면 다시 녹음하는가', await p.evaluate(() => REC.on && !REC.paused && window.__recorders.length === 2));
   console.log('\n── 마이크 고르기 · 이름 · 소리 막대 (2026-10-14 «꽂은 마이크인지 노트북 마이크인지») ──');
   await p.waitForTimeout(200);
   확인('마이크 줄이 보이고 «지금 녹음: 노트북 내장 마이크»', await p.evaluate(() => !document.getElementById('rec-row').hidden && document.getElementById('rec-mic').textContent.indexOf('지금 녹음: 노트북 내장 마이크') > -1), await p.evaluate(() => document.getElementById('rec-mic').textContent));

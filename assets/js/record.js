@@ -23,10 +23,14 @@
 
 // 2026-10-14 밤 선생님: «마이크가 꽂혀 있는데 면접 시작을 해도 목록이 안 뜨고 뺐다 꽂아야 뜬다 · 면접 시작을 눌러도 녹음이 안 되고 단추를 눌러야 된다»
 //   ① 목록은 녹음이 켜진 뒤에만 읽었음 → 진행 화면을 열 때 바로 읽습니다(허용이 이미 돼 있으면 이름까지 보임)
-//   ② 단추 «🎙 녹음 켜짐» 이 상태처럼 보이는데 누르면 꺼지는 스위치였음 → 「☑ 면접 시작하면 녹음」 체크 칸 + «⏺ 지금부터 녹음 / ■ 멈추고 저장» 단추로
+//   ② 단추 «🎙 녹음 켜짐» 이 상태처럼 보이는데 누르면 꺼지는 스위치였음
+// 🚨 그 뒤 선생님: «그냥 편하게 쓰자. 면접 시작하면 녹음하고, 답변 시작하면 음성 인식. 왜 자꾸 옵션을 넣어 불편하게. 조작할 게 너무 많다»
+//   → «면접 시작하면 녹음» 체크를 뺐습니다. «면접 시작» 이면 늘 녹음. «잠시만, 녹음 버튼은 남겨 놔야지, 중간에 멈출 수도 있으니»
+//     → 단추는 «■ 녹음 멈추기»(녹음 중) / «⏺ 녹음 다시 켜기»(면접 중인데 멈춰 있을 때) 하나. 화면엔 «녹음 중 00:12» 표시. 마이크 고르기 칸은 그대로
 
 var REC = { rec: null, stream: null, on: false, startedAt: 0, who: '', hint: '', tickId: null,
-            mics: [], micLabel: '', audio: null, analyser: null, rafId: null, listed: false };
+            mics: [], micLabel: '', audio: null, analyser: null, rafId: null, listed: false,
+            paused: false };   // «녹음 멈추기» 를 눌렀는가 — 이 면접에선 «이어서» 를 눌러도 저절로 다시 켜지 않음
 
 function recMicId() { try { return localStorage.getItem('micId') || ''; } catch (e) { return ''; } }
 
@@ -86,31 +90,21 @@ function recMeterStop() {
   if (bar) bar.style.width = '0';
 }
 
-function recWanted() {
-  try { return localStorage.getItem('recOn') !== '0'; } catch (e) { return true; }
+function recWanted() { return !REC.paused; }   // 스위치 없음 — «면접 시작» 이면 늘 녹음. «녹음 멈추기» 를 누른 면접에서만 안 켬 (선생님 말씀: 옵션 빼고 편하게)
+
+// «■ 녹음 멈추기» / «⏺ 녹음 다시 켜기» 단추 — 중간에 멈출 수 있게(선생님 말씀)
+function recButton() {
+  if (REC.on) { REC.paused = true; recStop(); return; }   // 멈추면 지금까지 것을 파일로. 이 면접에선 저절로 다시 켜지 않음
+  REC.paused = false;
+  REC.hint = '';
+  recStart();
+  recPaint();
 }
+function toggleRec() { recButton(); }   // 옛 이름 — 혹시 어디서 부르면
 function recSupported() {
   if (/[?&]guide(=|&|$)/.test(location.search)) return false;   // 연습 모드 — 마이크 안 씀
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
 }
-// 「☑ 면접 시작하면 녹음」 체크 칸
-function recSetAuto(on) {
-  try { localStorage.setItem('recOn', on ? '1' : '0'); } catch (e) { /* 못 적어도 이번만은 됨 */ }
-  REC.hint = '';
-  if (!on && REC.on) recStop();                                       // 끄면 지금까지 것을 파일로
-  else if (on && typeof ticking !== 'undefined' && ticking) recStart();   // 면접 중에 켜면 바로
-  recPaint();
-}
-// «⏺ 지금부터 녹음» / «■ 멈추고 저장» 단추
-function recButton() {
-  if (REC.on) { recStop(); return; }
-  try { localStorage.setItem('recOn', '1'); } catch (e) { /* */ }   // 체크도 켬
-  REC.hint = '';
-  recStart();   // (recSetAuto 를 거치면 두 번 켜려 들어 마이크를 두 번 잡았음)
-  recPaint();
-}
-function toggleRec() { recButton(); }   // 옛 이름 — 혹시 어디서 부르면
-
 function recMime() {
   var tries = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', ''];
   for (var i = 0; i < tries.length; i++) {
@@ -204,29 +198,25 @@ function recFinish(chunks, startedAt, who) {
 }
 
 function recPaint() {
-  var btn = document.getElementById('btn-rec');
   var st = document.getElementById('rec-state');
+  var btn = document.getElementById('btn-rec');
   var hint = document.getElementById('rec-hint');
-  if (!btn) return;
+  if (!st) return;
   var ok = recSupported();
-  var wanted = recWanted();
   var live = typeof liveInterview === 'undefined' || liveInterview;
   var tick = typeof ticking !== 'undefined' && ticking;
   // 진행 화면을 열면 마이크 목록부터(허용이 돼 있으면 이름까지) — 전엔 녹음이 켜진 뒤에만 읽어 «뺐다 꽂아야 뜬다» 하셨음
   if (ok && !REC.listed) { REC.listed = true; recListMics(); }
-  var auto = document.getElementById('rec-auto');
-  if (auto) { auto.checked = wanted; auto.disabled = !ok; }
-  var autoWrap = document.getElementById('rec-auto-wrap');
-  if (autoWrap) autoWrap.hidden = !ok;
-  // 단추: 녹음 중이면 «■ 멈추고 저장», 면접 중인데 안 돌면 «⏺ 지금부터 녹음», 그 밖엔 숨김
-  btn.hidden = !ok || !live || !(REC.on || tick);
-  btn.classList.toggle('rec-on', REC.on);
-  btn.textContent = REC.on ? '녹음 중 · 멈추고 저장' : '⏺ 지금부터 녹음';   // 녹음 중엔 CSS 의 깜빡이는 빨간 점이 앞에 붙음
-  btn.title = REC.on ? '멈추면 지금까지 녹음을 파일로 내려받습니다' : '지금부터 녹음합니다. 끝내면 파일로 내려받습니다';
-  if (st) {
-    var secs = REC.on ? Math.round((Date.now() - REC.startedAt) / 1000) : 0;
-    st.textContent = REC.on ? (typeof mmss === 'function' ? mmss(secs) : secs + '초') : '';
-    st.hidden = !REC.on;
+  // «녹음 중 00:12» 표시
+  var secs = REC.on ? Math.round((Date.now() - REC.startedAt) / 1000) : 0;
+  st.textContent = REC.on ? '녹음 중 ' + (typeof mmss === 'function' ? mmss(secs) : secs + '초') : '';
+  st.hidden = !REC.on;
+  st.title = '«면접 끝내기» 를 누르면 녹음 파일이 다운로드 폴더에 떨어집니다';
+  // 단추: 녹음 중이면 «■ 녹음 멈추기», 면접 중인데 멈춰 있으면 «⏺ 녹음 다시 켜기», 그 밖엔 숨김
+  if (btn) {
+    btn.hidden = !ok || !live || !(REC.on || (tick && REC.paused));
+    btn.textContent = REC.on ? '■ 녹음 멈추기' : '⏺ 녹음 다시 켜기';
+    btn.title = REC.on ? '멈추면 지금까지 녹음을 파일로 내려받습니다' : '지금부터 다시 녹음합니다(파일이 하나 더 생깁니다)';
   }
   if (hint) { hint.textContent = REC.hint; hint.hidden = !REC.hint; }
 
@@ -258,7 +248,7 @@ function recPaint() {
       var bad = typeof LISTEN !== 'undefined' && LISTEN.trackBad;
       tip.innerHTML = viaTrack ? '받아 적기도 이 마이크로 듣고 있습니다.'
         : bad ? '이 크롬은 고른 마이크를 받아 적기에 못 넘깁니다 — 받아 적기는 <b>윈도우 기본 마이크</b>를 씁니다. 꽂은 마이크로 받아 적으려면 윈도우 설정 → 시스템 → 소리 → 입력에서 그 마이크를 고르세요.'
-        : '녹음을 켜 두면 받아 적기도 여기서 고른 마이크로 듣습니다(최근 크롬). 녹음을 끄면 받아 적기는 <b>윈도우 기본 마이크</b>를 씁니다 — 윈도우 설정 → 시스템 → 소리 → 입력에서 바꿀 수 있습니다.';
+        : '«면접 시작» 하면 이 마이크로 녹음하고, «답변 시작» 하면 같은 마이크로 받아 적습니다.';
     }
   }
 }
