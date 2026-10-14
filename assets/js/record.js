@@ -115,7 +115,7 @@ function recPaint() {
   var wanted = recWanted();
   btn.setAttribute('aria-pressed', wanted);
   btn.classList.toggle('rec-on', REC.on);
-  btn.textContent = REC.on ? '⏺ 녹음 중 · 끄기' : (wanted ? '🎙 녹음 켜짐' : '🎙 녹음 꺼짐');
+  btn.textContent = REC.on ? '녹음 중 · 끄기' : (wanted ? '🎙 녹음 켜짐' : '🎙 녹음 꺼짐');   // 녹음 중엔 CSS 의 깜빡이는 빨간 점이 앞에 붙음
   btn.title = REC.on ? '끄면 지금까지 녹음을 파일로 내려받습니다'
     : wanted ? '«면접 시작» 을 누르면 노트북에서 녹음하고, 끝내면 파일로 내려받습니다' : '녹음하지 않습니다';
   if (st) {
