@@ -896,3 +896,13 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .sheetchip[aria-pressed="true"] .x:hover{color:#fff}
 .sheetchip.new{padding:5px 11px;border-style:dashed;color:var(--ink-3);cursor:pointer}
 @media (max-width:900px){.sheetname{max-width:none}}
+
+/* 녹음 파일 띠 — 오른쪽 아래, «⬇ 내려받기» 를 눌러야 받음 (2026-10-14) */
+.recfiles{position:fixed;right:16px;bottom:16px;z-index:1200;width:min(420px,calc(100vw - 32px));background:var(--surface);
+  border:1px solid var(--ink);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:12px 14px;font-size:13px}
+.recfiles .rfhead{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;font-weight:600;color:var(--ink);margin-bottom:8px;line-height:1.5}
+.recfiles .rfx{background:none;border:0;font-size:16px;color:var(--ink-3);cursor:pointer;padding:0 2px;line-height:1}
+.recfiles .rfx:hover{color:var(--ink)}
+.recfiles .rfrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px dashed var(--line)}
+.recfiles .rfname{min-width:0;overflow-wrap:anywhere;color:var(--ink-2)}
+.recfiles .rfget{flex:0 0 auto;padding:8px 12px;font-size:13px}

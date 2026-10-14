@@ -6,7 +6,7 @@
 // 어떻게 도는가
 //   · 폰(안드로이드)과 달리 **컴퓨터 크롬 · 엣지는 녹음과 받아 적기를 동시에** 켤 수 있습니다(2026-10-13 폰에서만 안 됐음)
 //   · 진행 화면에서 «면접 시작»(시계)을 처음 누를 때 켜지고, «면접 끝내기» 또는 «목록으로» 에서 멈추며
-//     **노트북의 다운로드 폴더에 한 파일**(면접녹음_학생_날짜시각.webm)로 떨어집니다. «일시정지» 해도 녹음은 이어집니다
+//     오른쪽 아래 띠의 **«⬇ 내려받기» 를 누르면** 노트북의 다운로드 폴더에 한 파일(면접녹음_학생_날짜시각.webm)로. «일시정지» 해도 녹음은 이어집니다
 //   · 인터넷을 안 거치고 서버에도 안 올립니다(Supabase 용량 0). 받아 적기가 끊겨도 녹음은 안 끊깁니다
 //   · 목소리용으로 낮춰(32kbps) 15분이 4MB 쯤. 3초보다 짧으면 파일을 안 만듭니다
 //   · 마이크를 못 잡으면(허용 안 함 · 다른 앱이 쥠) 녹음만 건너뛰고 받아 적기는 그대로
@@ -27,10 +27,14 @@
 // 🚨 그 뒤 선생님: «그냥 편하게 쓰자. 면접 시작하면 녹음하고, 답변 시작하면 음성 인식. 왜 자꾸 옵션을 넣어 불편하게. 조작할 게 너무 많다»
 //   → «면접 시작하면 녹음» 체크를 뺐습니다. «면접 시작» 이면 늘 녹음. «잠시만, 녹음 버튼은 남겨 놔야지, 중간에 멈출 수도 있으니»
 //     → 단추는 «■ 녹음 멈추기»(녹음 중) / «⏺ 녹음 다시 켜기»(면접 중인데 멈춰 있을 때) 하나. 화면엔 «녹음 중 00:12» 표시. 마이크 고르기 칸은 그대로
+//   → «녹음 다운로드는 다운로드 버튼으로 원하면 받게» — 끝내도 저절로 안 받고, 오른쪽 아래 «🎙 녹음 파일» 띠의 **⬇ 내려받기** 를 눌러야 받습니다.
+//     파일은 브라우저 안에만 있다가(REC.files) 다음 학생의 면접을 시작하면 비웁니다. 안 받은 파일이 있는데 탭을 닫으면 브라우저가 한 번 묻습니다
 
 var REC = { rec: null, stream: null, on: false, startedAt: 0, who: '', hint: '', tickId: null,
             mics: [], micLabel: '', audio: null, analyser: null, rafId: null, listed: false,
-            paused: false };   // «녹음 멈추기» 를 눌렀는가 — 이 면접에선 «이어서» 를 눌러도 저절로 다시 켜지 않음
+            paused: false,     // «녹음 멈추기» 를 눌렀는가 — 이 면접에선 «이어서» 를 눌러도 저절로 다시 켜지 않음
+            files: [],         // 다 된 녹음 파일들 [{ name, blob, secs, got }] — «⬇ 내려받기» 를 눌러야 받음
+            filesFor: null };  // 어느 면접(interviewId)의 파일인가 — 다른 면접을 시작하면 비움
 
 function recMicId() { try { return localStorage.getItem('micId') || ''; } catch (e) { return ''; } }
 
@@ -139,6 +143,8 @@ async function recStartInner() {
     return;
   }
   if (REC.on) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }   // 기다리는 사이 다른 곳에서 켜짐
+  var ivNow = (typeof interviewId !== 'undefined') ? interviewId : null;
+  if (REC.filesFor !== ivNow) { REC.files = []; REC.filesFor = ivNow; }   // 다른 학생의 면접 — 지난 파일은 비움(받았든 안 받았든; 끝낼 때 띠가 떠 있었음)
   var opt = { audioBitsPerSecond: 32000 };   // 목소리용 — 15분에 4MB 쯤
   var mime = recMime();
   if (mime) opt.mimeType = mime;
@@ -189,13 +195,35 @@ function recFinish(chunks, startedAt, who) {
   var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
   var name = '면접녹음_' + String(who || '학생').replace(/[\\/:*?"<>|\s]+/g, '_') + '_' +
              d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' + p2(d.getHours()) + p2(d.getMinutes()) + '.' + ext;
-  var url = URL.createObjectURL(blob);
+  REC.files.push({ name: name, blob: blob, secs: secs, got: false });
+  recPaint();
+  if (typeof toast === 'function') toast('녹음이 끝났습니다(' + recMmss(secs) + '). 오른쪽 아래 «⬇ 내려받기» 로 받으세요.');
+}
+function recMmss(secs) { return typeof mmss === 'function' ? mmss(secs) : secs + '초'; }
+
+// «⬇ 내려받기» — 눌렀을 때만 다운로드 폴더로
+function recDownload(i) {
+  var f = REC.files[i];
+  if (!f) return;
+  var url = URL.createObjectURL(f.blob);
   var a = document.createElement('a');
-  a.href = url; a.download = name;
+  a.href = url; a.download = f.name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
-  if (typeof toast === 'function') toast('녹음 파일을 내려받았습니다 — ' + name + ' (' + Math.round(blob.size / 1024 / 1024 * 10) / 10 + 'MB, 다운로드 폴더)');
+  f.got = true;
+  recPaint();
+  if (typeof toast === 'function') toast('내려받았습니다 — ' + f.name + ' (다운로드 폴더)');
 }
+// 띠의 ✕ — 안 받은 파일이 있으면 한 번 묻습니다
+function recDropFiles() {
+  if (REC.files.some(function (f) { return !f.got; }) && !confirm('아직 내려받지 않은 녹음 파일이 있습니다. 버릴까요?')) return;
+  REC.files = []; REC.filesFor = null;
+  recPaint();
+}
+// 안 받은 파일이 있는데 탭을 닫으면 브라우저가 한 번 묻습니다
+window.addEventListener('beforeunload', function (ev) {
+  if (REC.on || REC.files.some(function (f) { return !f.got; })) { ev.preventDefault(); ev.returnValue = ''; }
+});
 
 function recPaint() {
   var st = document.getElementById('rec-state');
@@ -211,14 +239,29 @@ function recPaint() {
   var secs = REC.on ? Math.round((Date.now() - REC.startedAt) / 1000) : 0;
   st.textContent = REC.on ? '녹음 중 ' + (typeof mmss === 'function' ? mmss(secs) : secs + '초') : '';
   st.hidden = !REC.on;
-  st.title = '«면접 끝내기» 를 누르면 녹음 파일이 다운로드 폴더에 떨어집니다';
+  st.title = '«면접 끝내기» 를 누르면 오른쪽 아래에 «⬇ 내려받기» 가 뜹니다';
   // 단추: 녹음 중이면 «■ 녹음 멈추기», 면접 중인데 멈춰 있으면 «⏺ 녹음 다시 켜기», 그 밖엔 숨김
   if (btn) {
     btn.hidden = !ok || !live || !(REC.on || (tick && REC.paused));
     btn.textContent = REC.on ? '■ 녹음 멈추기' : '⏺ 녹음 다시 켜기';
-    btn.title = REC.on ? '멈추면 지금까지 녹음을 파일로 내려받습니다' : '지금부터 다시 녹음합니다(파일이 하나 더 생깁니다)';
+    btn.title = REC.on ? '멈추면 지금까지 녹음이 파일이 되어 «⬇ 내려받기» 가 뜹니다' : '지금부터 다시 녹음합니다(파일이 하나 더 생깁니다)';
   }
   if (hint) { hint.textContent = REC.hint; hint.hidden = !REC.hint; }
+
+  // 오른쪽 아래 «🎙 녹음 파일» 띠 — 다 된 파일마다 «⬇ 내려받기»
+  var bar = document.getElementById('rec-files');
+  if (bar) {
+    bar.hidden = !REC.files.length;
+    if (REC.files.length) {
+      bar.innerHTML = '<div class="rfhead"><span>🎙 녹음 파일 ' + REC.files.length + '개 — 노트북에만 있습니다. 필요하면 내려받으세요.</span>' +
+        '<button type="button" class="rfx" onclick="recDropFiles()" title="띠 닫기(파일 버림)" aria-label="녹음 파일 띠 닫기">✕</button></div>' +
+        REC.files.map(function (f, i) {
+          return '<div class="rfrow"><span class="rfname">' + String(f.name).replace(/&/g, '&amp;').replace(/</g, '&lt;') +
+                 ' <span class="opt">' + recMmss(f.secs) + ' · ' + (Math.round(f.blob.size / 1024 / 1024 * 10) / 10) + 'MB</span></span>' +
+                 '<button type="button" class="btn ' + (f.got ? '' : 'solid') + ' rfget" onclick="recDownload(' + i + ')">' + (f.got ? '다시 내려받기' : '⬇ 내려받기') + '</button></div>';
+        }).join('');
+    }
+  }
 
   // 마이크 줄 — 고르기 · 지금 쓰는 마이크 이름 · 소리 막대
   var row = document.getElementById('rec-row');
