@@ -126,7 +126,7 @@ var otherFoldNow = null;
 
 function otherGroups() {
   var out = [], at = {};
-  otherRows.forEach(function (iv) {
+  otherMerged().forEach(function (iv) {
     var s = iv.other_school || '';
     if (!(s in at)) { at[s] = out.length; out.push({ school: s, rows: [] }); }
     out[at[s]].rows.push(iv);
@@ -135,11 +135,30 @@ function otherGroups() {
 }
 
 // 한 줄 — 고르는 단추 · ★ · 🗑. 담당 학생 칸에서는 희망 전공 앞에 학교도 적습니다
+// 목록에 보일 줄 — 질문지(«준비중» 줄)가 여러 벌인 학생은 **한 줄로 묶습니다**.
+// 2026-10-14 선생님 말씀: «질문지 2개를 만들었더니 왼쪽 목록에 사람이 왜 2명이 되는 거야? 명단은 1개로».
+// 같은 학교 · 이름의 «준비중» 줄들을 하나로(가장 최근 것이 대표, ids 에 전부). 면접을 본 줄(진행중 · 작성완료 · 전달됨)은 회차라 따로.
+function otherMerged() {
+  var out = [], at = {};
+  otherRows.forEach(function (iv) {
+    if (iv.status !== '준비중') { out.push(Object.assign({ ids: [iv.id], nsheets: 1 }, iv)); return; }
+    var key = (iv.other_school || '') + '\n' + (iv.other_name || '');
+    if (key in at) {
+      var m = out[at[key]];
+      m.ids.push(iv.id); m.nsheets++;
+      if ((iv.started_at || '') > (m.started_at || '')) {   // 더 최근 것을 대표로(누르면 이것이 열림)
+        Object.assign(m, iv, { ids: m.ids, nsheets: m.nsheets });
+      }
+    } else { at[key] = out.length; out.push(Object.assign({ ids: [iv.id], nsheets: 1 }, iv)); }
+  });
+  return out;
+}
+
 function otherRowHTML(iv, withSchool) {
-  var on = target && target.other && target.ivId === iv.id;
-  var fav = otherFav[iv.id] === true;
-  // 질문지가 여러 벌이면 같은 학생이 여러 줄 — 질문지 이름을 꼬리표로 붙여 가릅니다 (2026-10-13)
-  var sub = [withSchool ? iv.other_school : '', iv.other_major, iv.sheet_name ? '«' + iv.sheet_name + '»' : '']
+  var ids = iv.ids || [iv.id];
+  var on = target && target.other && ids.indexOf(target.ivId) > -1;
+  var fav = ids.some(function (id) { return otherFav[id] === true; });
+  var sub = [withSchool ? iv.other_school : '', iv.other_major, iv.nsheets > 1 ? '질문지 ' + iv.nsheets + '벌' : '']
     .filter(function (x) { return x; }).join(' · ');
   return '<div class="srow">' +
     '<button class="railrow orow" aria-current="' + !!on + '" onclick="otherOpen(\'' + iv.id + '\')">' +
@@ -150,28 +169,29 @@ function otherRowHTML(iv, withSchool) {
     '<button class="star" aria-pressed="' + fav + '" onclick="otherToggleFav(\'' + iv.id + '\')"' +
       ' title="' + (fav ? '담당 학생에서 빼기' : '담당 학생으로 담기') + '">★</button>' +
     '<button class="odel" title="이 학생 지우기" aria-label="' + esc(iv.other_name) + ' 지우기"' +
-      ' onclick="otherDelete([\'' + iv.id + '\'])">🗑</button>' +
+      ' onclick="otherDelete(' + esc(JSON.stringify(ids)) + ')">🗑</button>' +
   '</div>';
 }
 
 function otherRenderList() {
   var box = document.getElementById('other-list');
+  var merged = otherMerged();
   var cnt = document.getElementById('other-count');
-  if (cnt) cnt.textContent = otherRows.length;
+  if (cnt) cnt.textContent = merged.length;
   if (!box) return;
-  if (!otherRows.length) {
+  if (!merged.length) {
     box.innerHTML = '<p class="empty">아직 없습니다.<br>위 «＋ 타학교 학생 더하기» 로 학교 · 이름 · 희망 전공 · 질문을 넣어 두세요.</p>';
     return;
   }
   // ★ 담당 학생 — 학교 묶음과 상관없이 맨 위에 늘 펴 둡니다(우리 학교 명단과 같은 모양)
-  var favs = otherRows.filter(function (iv) { return otherFav[iv.id]; });
+  var favs = merged.filter(function (iv) { return iv.ids.some(function (id) { return otherFav[id]; }); });
   var favHTML = favs.length
     ? '<div class="favbox ofav"><p class="sec">★ 담당 학생 ' + favs.length + '명</p>' +
         '<div class="favlist">' + favs.map(function (iv) { return otherRowHTML(iv, true); }).join('') + '</div></div>'
     : '';
   var fold = otherFoldNow || (otherFoldNow = otherFoldMap());
   box.innerHTML = favHTML + otherGroups().map(function (g, gi) {
-    var hasOpen = target && target.other && g.rows.some(function (iv) { return iv.id === target.ivId; });
+    var hasOpen = target && target.other && g.rows.some(function (iv) { return iv.ids.indexOf(target.ivId) > -1; });
     var shut = !!fold[g.school] && !hasOpen;      // 지금 보고 있는 학생의 학교는 접어도 펴 둡니다
     return '<div class="ogroup">' +
       '<button class="ohead" aria-expanded="' + !shut + '" onclick="otherToggleGroup(' + gi + ')">' +
@@ -266,14 +286,15 @@ async function otherDelete(ids, label) {
   if (editingMid || !ids.length) return;
   var rows = otherRows.filter(function (r) { return ids.indexOf(r.id) > -1; });
   if (!rows.length) return;
-  var who = label || rows.map(function (r) { return r.other_name; }).join(', ');
+  var names = rows.map(function (r) { return r.other_name; }).filter(function (n, i, a) { return a.indexOf(n) === i; });   // 질문지가 여러 벌이면 같은 이름이 여럿
+  var who = label || names.join(', ');
   var sent = rows.filter(otherOpenNow).length;
   var msg = who + ' — 지울까요?\n\n질문 · 평가 · 받아 적은 글이 모두 지워지고, 되돌릴 수 없습니다.' +
             (sent ? '\nQR 로 평가서를 열 수 있는 학생 ' + sent + '명은 더는 열리지 않습니다.' : '');
   if (!confirm(msg)) return;
   const { error } = await sb.from('interviews').delete().in('id', ids);
   if (error) { toast('지우지 못했습니다: ' + error.message, 'bad'); return; }
-  toast(rows.length + '명을 지웠습니다.', 'ok');
+  toast(names.length + '명을 지웠습니다.', 'ok');
   var wasOpen = target && target.other && ids.indexOf(target.ivId) > -1;
   otherRows = otherRows.filter(function (r) { return ids.indexOf(r.id) === -1; });
   if (wasOpen) { liveInterview = false; interviewId = null; backToList(); }   // 보고 있던 학생이면 첫 화면으로
@@ -317,7 +338,9 @@ async function otherResetReport() {
 function otherDeleteGroup(gi) {
   var g = otherGroups()[gi];
   if (!g) return;
-  otherDelete(g.rows.map(function (r) { return r.id; }), (g.school || '학교 안 적은 학생') + ' ' + g.rows.length + '명 모두');
+  var ids = [];
+  g.rows.forEach(function (r) { ids = ids.concat(r.ids || [r.id]); });
+  otherDelete(ids, (g.school || '학교 안 적은 학생') + ' ' + g.rows.length + '명 모두');
 }
 
 // 준비 화면을 타학교 학생으로 엽니다 (pickStudent 의 타학교 판)

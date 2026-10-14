@@ -139,7 +139,7 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   확인('안내에 «1차» 가 보이는가', (await p.evaluate(() => document.getElementById('sheet-title').textContent)).indexOf('1차') > -1);
   확인('알약 단추 «1차» 가 눌린 채이고 «＋ 새 질문지» 가 있는가', await p.evaluate(() => {
     var c = [...document.querySelectorAll('#sheet-list .sheetchip')];
-    return c.length === 2 && c[0].textContent === '1차' && c[0].getAttribute('aria-pressed') === 'true' && c[1].textContent.indexOf('새 질문지') > -1; }));
+    return c.length === 2 && c[0].querySelector('.pick').textContent === '1차' && c[0].getAttribute('aria-pressed') === 'true' && c[1].textContent.indexOf('새 질문지') > -1; }));
 
   await p.click('#sheet-list .sheetchip.new'); await p.waitForTimeout(200);   // «비울까요?» 는 confirm — 위에서 accept
   확인('«＋ 새 질문지» 를 누르면 화면이 비고 열어 둔 질문지가 없는가(목록은 그대로)',
@@ -153,16 +153,25 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   확인('이름을 안 적으면 «질문지 2» 로', s2a.some(x => x.sheet_name === '질문지 2'));
   확인('알약 단추가 셋(질문지 둘 + 새 질문지)이고 새 것이 눌려 있는가', await p.evaluate(() => {
     var c = [...document.querySelectorAll('#sheet-list .sheetchip')];
-    var a = c.filter(x => x.textContent === '질문지 2')[0], b = c.filter(x => x.textContent === '1차')[0];
+    var a = c.filter(x => x.querySelector('.pick') && x.querySelector('.pick').textContent === '질문지 2')[0], b = c.filter(x => x.querySelector('.pick') && x.querySelector('.pick').textContent === '1차')[0];
     return c.length === 3 && a && a.getAttribute('aria-pressed') === 'true' && b && b.getAttribute('aria-pressed') === 'false'; }));
 
-  await p.click('#sheet-list .sheetchip:text-is("1차")'); await p.waitForTimeout(400);
+  await p.click('#sheet-list .sheetchip .pick:text-is("1차")'); await p.waitForTimeout(400);
   확인('«1차» 를 누르면 그 질문지가 펴지는가', await p.evaluate(() => midQuestions.length === 1 && midQuestions[0].text === '시험용 질문' && sheetName === '1차' && document.getElementById('sheet-name').value === '1차'));
   await p.fill('#sheet-name', '1차 (연습)');
   await p.click('#btn-save-sheet'); await p.waitForTimeout(400);
   확인('이름 칸을 고치고 저장하면 이름만 바뀌고 줄은 안 늘어나는가',
        (await 표(p,'interviews')).filter(x => x.status === '준비중' && x.student_id === 's2').map(x => x.sheet_name).sort().join(',') === '1차 (연습),질문지 2');
-  확인('알약 단추 글자도 바뀌는가', await p.evaluate(() => [...document.querySelectorAll('#sheet-list .sheetchip')].some(x => x.textContent === '1차 (연습)')));
+  확인('알약 단추 글자도 바뀌는가', await p.evaluate(() => [...document.querySelectorAll('#sheet-list .sheetchip .pick')].some(x => x.textContent === '1차 (연습)')));
+  // 열어 두지 않은 질문지를 알약의 × 로 지우기 → 열어 둔 것은 그대로
+  await p.click('#sheet-list .sheetchip .pick:text-is("질문지 2") >> xpath=following-sibling::button'); await p.waitForTimeout(400);
+  확인('다른 알약의 × 를 누르면 그 질문지만 지워지고 열어 둔 것은 그대로',
+       await p.evaluate(() => sheetName === '1차 (연습)' && sheets.length === 1 && midQuestions.length === 1) &&
+       (await 표(p,'interviews')).filter(x => x.status === '준비중' && x.student_id === 's2').map(x => x.sheet_name).join(',') === '1차 (연습)');
+  await p.click('#sheet-list .sheetchip.new'); await p.waitForTimeout(200);
+  await p.evaluate(() => { addQuestion('서울대용 질문 하나', '진로역량'); addQuestion('서울대용 질문 둘', '학업역량'); });
+  await p.click('#btn-save-sheet'); await p.waitForTimeout(400);   // 다시 «질문지 2»
+  확인('× 로 지운 뒤 새로 저장하면 «질문지 2» 로 둘', (await 표(p,'interviews')).filter(x => x.status === '준비중' && x.student_id === 's2').map(x => x.sheet_name).sort().join(',') === '1차 (연습),질문지 2');
 
   await p.evaluate(async () => { await pickStudent('s1'); await pickStudent('s2'); }); await p.waitForTimeout(500);
   확인('다른 학생에 갔다 오면 가장 최근 질문지(질문지 2)가 펴지고 목록에 둘이 있는가',

@@ -321,7 +321,7 @@ async function 준비(b, rows, vw, vh, init) {
   await p.click('#btn-save-sheet'); await p.waitForTimeout(300);
   const j1 = (await 표(p, 'interviews')).filter(x => x.other_name === '정어진');
   확인('첫 질문지는 이름 없이 저장(줄 1)', j1.length === 1 && j1[0].sheet_name === '' && j1[0].status === '준비중', JSON.stringify(j1.map(x => x.sheet_name)));
-  확인('알약 단추에 날짜 이름 하나 + «＋ 새 질문지»', await p.evaluate(() => { var c = [...document.querySelectorAll('#sheet-list .sheetchip')]; return c.length === 2 && /질문지$/.test(c[0].textContent) && c[0].getAttribute('aria-pressed') === 'true'; }));
+  확인('알약 단추에 날짜 이름 하나(×) + «＋ 새 질문지»', await p.evaluate(() => { var c = [...document.querySelectorAll('#sheet-list .sheetchip')]; return c.length === 2 && /질문지$/.test(c[0].querySelector('.pick').textContent) && !!c[0].querySelector('.x') && c[0].getAttribute('aria-pressed') === 'true'; }));
   await p.click('#sheet-list .sheetchip.new'); await p.waitForTimeout(200);   // «비울까요?» → 예
   확인('«＋ 새 질문지» 뒤 화면이 비고 목록의 눌린 줄이 없는가', await p.evaluate(() => midQuestions.length === 0 && sheetId === null && target.ivId === null && !document.querySelector('#other-list .orow[aria-current="true"]')));
   확인('학교 · 이름 · 희망 전공은 그대로인가', await p.evaluate(() => document.getElementById('other-name').value === '정어진' && document.getElementById('other-major').value === '생명'));
@@ -330,22 +330,24 @@ async function 준비(b, rows, vw, vh, init) {
   await p.click('#btn-save-sheet'); await p.waitForTimeout(400);
   const j2 = (await 표(p, 'interviews')).filter(x => x.other_name === '정어진');
   확인('«2차» 질문지가 같은 학생 줄로 하나 더(줄 2, 학교 · 전공 같음)', j2.length === 2 && j2.some(x => x.sheet_name === '2차') && j2.every(x => x.other_school === '중산고' && x.other_major === '생명'), JSON.stringify(j2.map(x => x.sheet_name)));
-  확인('왼쪽 타학교 목록에 정어진이 두 줄이고 «2차» 꼬리표', await p.evaluate(() => { var rows = [...document.querySelectorAll('#other-list .orow')].filter(r => r.textContent.indexOf('정어진') > -1); return rows.length === 2 && rows.some(r => r.textContent.indexOf('«2차»') > -1); }));
-  확인('목록에서 «2차» 줄이 눌린 채', await p.evaluate(() => { var on = document.querySelector('#other-list .orow[aria-current="true"]'); return on && on.textContent.indexOf('«2차»') > -1; }));
+  확인('왼쪽 타학교 목록에는 정어진이 **한 줄**이고 «질문지 2벌»(2026-10-14 선생님 말씀: 명단은 1개로)', await p.evaluate(() => { var rows = [...document.querySelectorAll('#other-list .orow')].filter(r => r.textContent.indexOf('정어진') > -1); return rows.length === 1 && rows[0].textContent.indexOf('질문지 2벌') > -1; }));
+  확인('학생 수도 한 명으로 세는가', (await p.textContent('#other-count')) === '1');
+  확인('목록에서 그 줄이 눌린 채', await p.evaluate(() => { var on = document.querySelector('#other-list .orow[aria-current="true"]'); return on && on.textContent.indexOf('정어진') > -1; }));
   const firstId = j2.filter(x => x.sheet_name === '')[0].id;
-  await p.click('#sheet-list .sheetchip:not(.new) >> nth=1'); await p.waitForTimeout(300);   // 알약 두 번째 = 먼저 만든 것(최근 것이 앞)
-  확인('알약으로 첫 질문지를 열면 그 질문 · 목록 줄도 그쪽', await p.evaluate((id) => sheetId === id && target.ivId === id && midQuestions.length === 1 && midQuestions[0].text.indexOf('지각') > -1 && document.querySelector('#other-list .orow[aria-current="true"]').textContent.indexOf('«2차»') === -1, firstId));
+  await p.click('#sheet-list .sheetchip:not(.new) .pick >> nth=1'); await p.waitForTimeout(300);   // 알약 두 번째 = 먼저 만든 것(최근 것이 앞)
+  확인('알약으로 첫 질문지를 열면 그 질문이 펴지고 목록 줄은 그대로 눌린 채', await p.evaluate((id) => sheetId === id && target.ivId === id && midQuestions.length === 1 && midQuestions[0].text.indexOf('지각') > -1 && !!document.querySelector('#other-list .orow[aria-current="true"]'), firstId));
   // 목록에서 «2차» 줄을 누르면 그 줄(최근 것이 아니라 누른 것)
   await p.evaluate((id) => otherOpen(id), j2.filter(x => x.sheet_name === '2차')[0].id); await p.waitForTimeout(400);
-  확인('목록의 «2차» 줄을 누르면 «2차» 질문지가 열리고 알약 둘 다 있음', await p.evaluate(() => sheetName === '2차' && midQuestions.length === 1 && midQuestions[0].text.indexOf('후성유전학') > -1 && sheets.length === 2));
+  확인('목록의 줄을 누르면 가장 최근 «2차» 질문지가 열리고 알약 둘 다 있음', await p.evaluate(() => sheetName === '2차' && midQuestions.length === 1 && midQuestions[0].text.indexOf('후성유전학') > -1 && sheets.length === 2));
   확인('안내에 «2차» 이름', (await p.textContent('#sheet-title')).indexOf('2차') > -1);
   // 희망 전공을 고쳐 «명단 저장» 하면 두 줄 다 바뀜
   await p.fill('#other-major', '생명과학과'); await p.click('.otheracts .btn.solid'); await p.waitForTimeout(300);
   확인('«명단 저장» 으로 희망 전공을 고치면 두 질문지 줄 모두 바뀌는가', (await 표(p, 'interviews')).filter(x => x.other_name === '정어진').every(x => x.other_major === '생명과학과'));
-  // 하나 지우면 학생은 남음
-  await p.evaluate(() => deleteSheet()); await p.waitForTimeout(400);
+  // 알약의 × 로 열어 둔 «2차» 를 지우면 학생은 남음
+  await p.click('#sheet-list .sheetchip[aria-pressed="true"] .x'); await p.waitForTimeout(500);
   const j3 = (await 표(p, 'interviews')).filter(x => x.other_name === '정어진');
-  확인('«2차» 를 지워도 첫 질문지(학생)는 남고 그것이 펴짐', j3.length === 1 && j3[0].sheet_name === '' && await p.evaluate((id) => sheetId === id && target.ivId === id && !document.getElementById('view-setup').hidden, j3[0].id), p.__asked.slice(-1)[0]);
+  확인('«2차» 를 × 로 지워도 첫 질문지(학생)는 남고 그것이 펴지며 목록도 한 줄', j3.length === 1 && j3[0].sheet_name === '' && await p.evaluate((id) => sheetId === id && target.ivId === id && !document.getElementById('view-setup').hidden && [...document.querySelectorAll('#other-list .orow')].filter(r => r.textContent.indexOf('정어진') > -1).length === 1, j3[0].id), p.__asked.slice(-1)[0]);
+  확인('묻는 말에 «2차»', p.__asked.slice(-1)[0].indexOf('«2차»') > -1, p.__asked.slice(-1)[0]);
   확인('마지막 질문지 지우기는 «학생과 질문지를» 묻는가', await p.evaluate(() => { window.__d = p => p; return true; }) && (await (async () => { await p.evaluate(() => deleteSheet()); await p.waitForTimeout(300); return p.__asked.slice(-1)[0].indexOf('학생과 질문지') > -1; })()));
   확인('콘솔 오류 없음', p.__errs.length === 0, p.__errs.join(' | '));
   await ctx.close();

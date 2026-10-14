@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-10-13.5">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-10-14.1">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-13.5">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-13.5">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-13.5">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-13.5">
-  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-13.5">
-  <link rel="stylesheet" href="../assets/css/hugi.css?v=2026-10-13.5">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-13.5">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-14.1">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-14.1">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-14.1">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-14.1">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-14.1">
+  <link rel="stylesheet" href="../assets/css/hugi.css?v=2026-10-14.1">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-14.1">
 </head>
 <body>
 
@@ -183,8 +183,7 @@
                  타학교 학생은 학생 줄 자체가 질문지라 한 벌뿐이고 목록 줄(.ours-only)은 가립니다. teacher-app.js 의 paintSheetNote -->
             <p class="note info" id="sheet-note" hidden style="margin-top:16px">
               <b>미리 만들어 둔 질문지 <span id="sheet-title"></span>입니다.</b> <span id="sheet-when"></span> ·
-              고치고 다시 저장하시면 됩니다. 이름은 바로 아래 «질문지 이름» 칸에서 바꿉니다.
-              <button class="linkbtn danger" onclick="deleteSheet()" style="margin-left:6px">질문지 지우기</button>
+              고치고 다시 저장하시면 됩니다. 이름 바꾸기 · 다른 질문지 열기 · 지우기(×)는 바로 아래 «질문지 이름» 칸에서.
             </p>
 
             <div id="history-box" class="ours-only" style="margin-top:22px">
@@ -233,7 +232,8 @@
               <div class="qsectbody" id="qsect-body">
                 <!-- 질문지 이름과 저장해 둔 질문지 목록 — 한 학생에게 여러 벌(1차 · 2차, 대학별) 이름을 붙여 저장해 두고 골라 엽니다
                      (2026-10-13 선생님 말씀. 처음엔 «질문지 저장» 옆에 두었는데 «이름은 맨 위쪽이 맞다» 하셔서 여기로).
-                     타학교 학생도 같습니다 — 줄 하나가 «학생 + 질문지 한 벌» 이라 여러 벌이면 목록에 같은 이름이 여러 줄로 뜨고 «이름» 꼬리표로 가릅니다.
+                     타학교 학생도 같습니다 — 줄 하나가 «학생 + 질문지 한 벌» 이지만 왼쪽 목록에는 한 사람 한 줄로 묶어 보입니다(other-school.js 의 otherMerged).
+                     알약마다 × 로 그 질문지를 지웁니다(2026-10-14 선생님 말씀: 지우기도 여기서).
                      teacher-app.js 의 paintSheetNote · openSheet · newSheet -->
                 <div class="sheethead">
                   <label class="lbl" for="sheet-name">질문지 이름</label>
@@ -701,31 +701,31 @@
   // 화면 · 단추는 실제와 똑같고, 저장은 이 창 안에서만 됩니다(실제 서버로 아무것도 안 감).
   // config.js 가 서버에 붙기 전에 끼워야 해서 여기 둡니다.
   var GUIDE_MODE = /[?&]guide(=|&|$)/.test(location.search);
-  if (GUIDE_MODE) document.write('<script src="../assets/js/guide-server.js?v=2026-10-13.5"><\/script>');
+  if (GUIDE_MODE) document.write('<script src="../assets/js/guide-server.js?v=2026-10-14.1"><\/script>');
 </script>
-<script src="../assets/js/config.js?v=2026-10-13.5"></script>
-<script src="../assets/js/update-bar.js?v=2026-10-13.5"></script>
-<script src="../assets/js/utils.js?v=2026-10-13.5"></script>
-<script src="../assets/js/api.js?v=2026-10-13.5"></script>
-<script src="../assets/js/browse.js?v=2026-10-13.5"></script>
-<script src="../assets/js/reviews.js?v=2026-10-13.5"></script>
-<script src="../assets/js/questions.js?v=2026-10-13.5"></script>
-<script src="../assets/js/report.js?v=2026-10-13.5"></script>
-<script src="../assets/js/chat.js?v=2026-10-13.5"></script>
-<script src="../assets/js/practice.js?v=2026-10-13.5"></script>
-<script src="../assets/js/hugi.js?v=2026-10-13.5"></script>
-<script src="../assets/js/notice.js?v=2026-10-13.5"></script>
-<script src="../assets/js/badges.js?v=2026-10-13.5"></script>
-<script src="../assets/js/admin-notice.js?v=2026-10-13.5"></script>
-<script src="../assets/js/teacher-app.js?v=2026-10-13.5"></script>
-<script src="../assets/js/listen.js?v=2026-10-13.5"></script>
-<script src="../assets/js/saenggibu.js?v=2026-10-13.5"></script>
-<script src="../assets/vendor/qrcode.js?v=2026-10-13.5"></script>
-<script src="../assets/js/other-school.js?v=2026-10-13.5"></script>
+<script src="../assets/js/config.js?v=2026-10-14.1"></script>
+<script src="../assets/js/update-bar.js?v=2026-10-14.1"></script>
+<script src="../assets/js/utils.js?v=2026-10-14.1"></script>
+<script src="../assets/js/api.js?v=2026-10-14.1"></script>
+<script src="../assets/js/browse.js?v=2026-10-14.1"></script>
+<script src="../assets/js/reviews.js?v=2026-10-14.1"></script>
+<script src="../assets/js/questions.js?v=2026-10-14.1"></script>
+<script src="../assets/js/report.js?v=2026-10-14.1"></script>
+<script src="../assets/js/chat.js?v=2026-10-14.1"></script>
+<script src="../assets/js/practice.js?v=2026-10-14.1"></script>
+<script src="../assets/js/hugi.js?v=2026-10-14.1"></script>
+<script src="../assets/js/notice.js?v=2026-10-14.1"></script>
+<script src="../assets/js/badges.js?v=2026-10-14.1"></script>
+<script src="../assets/js/admin-notice.js?v=2026-10-14.1"></script>
+<script src="../assets/js/teacher-app.js?v=2026-10-14.1"></script>
+<script src="../assets/js/listen.js?v=2026-10-14.1"></script>
+<script src="../assets/js/saenggibu.js?v=2026-10-14.1"></script>
+<script src="../assets/vendor/qrcode.js?v=2026-10-14.1"></script>
+<script src="../assets/js/other-school.js?v=2026-10-14.1"></script>
 <script>
   // 연습 모드의 안내 칸 — 눌러야 할 단추에 테두리를 두르고 한 걸음씩 안내합니다 (guide-coach.js)
-  if (GUIDE_MODE) document.write('<link rel="stylesheet" href="../assets/css/guide.css?v=2026-10-13.5">' +
-                                 '<script src="../assets/js/guide-coach.js?v=2026-10-13.5"><\/script>');
+  if (GUIDE_MODE) document.write('<link rel="stylesheet" href="../assets/css/guide.css?v=2026-10-14.1">' +
+                                 '<script src="../assets/js/guide-coach.js?v=2026-10-14.1"><\/script>');
 </script>
 <script>
   function gateFail(msg, detail) {
