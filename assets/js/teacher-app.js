@@ -507,6 +507,7 @@ function backToList() {
     if (!confirm('면접을 접고 학생 목록으로 갈까요?\n지금까지 기록은 남아 있고, 나중에 다시 열 수 있습니다.')) return;
   }
   stopTicking();
+  if (typeof recStop === 'function') recStop();   // 녹음 중이었으면 지금까지 것을 파일로
   liveInterview = false;
   editingMid = false;
   interviewId = null;
@@ -1543,6 +1544,7 @@ function toggleTimer() {
   if (!startedOnce) markInterviewStarted();
   startedOnce = true;
   startTicking();
+  if (typeof recStart === 'function') recStart();   // 녹음(record.js) — 켜 두었으면 노트북에서. «일시정지» 해도 이어집니다
 }
 
 function paintTimerButton() {
@@ -1565,6 +1567,7 @@ function paintTimerButton() {
   }
   // 받아 적기는 답변 시계와 같이 켜지고 멈춥니다 (listen.js)
   if (typeof listenSync === 'function') listenSync();
+  if (typeof recPaint === 'function') recPaint();   // 녹음 단추 (record.js)
 }
 
 function paintTotal() {
@@ -2045,6 +2048,8 @@ async function finishInterview() {
 
   if (error) { toast('저장하지 못했습니다: ' + error.message, 'bad'); return; }
   liveInterview = false;   // 시간은 여기서 멈춥니다. 뒤에 고쳐도 더 흐르지 않습니다
+  if (typeof recStop === 'function') recStop();   // 녹음 파일을 다운로드 폴더에
+  if (typeof LISTEN !== 'undefined') { LISTEN.gaps = 0; LISTEN.gap = false; }
   openReport(interviewId);
 }
 

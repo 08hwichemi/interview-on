@@ -690,6 +690,13 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 /* 받아 적는 동안은 테두리가 살짝 진해지고 «●» 가 깜빡입니다 */
 .livebox[data-on="yes"] .livetext{border-color:var(--ink-3)}
 .livebox[data-on="yes"] #live-state{color:var(--rose);animation:livedot 1.4s ease-in-out infinite}
+/* 끊겨서 다시 켜는 중 — 지금 말은 안 적히니 눈에 띄게 (2026-10-14 핫스팟에서 멈춘 것을 겪고) */
+.livebox[data-on="gap"] .livetext{border-color:var(--rose)}
+.livebox[data-on="gap"] #live-state{color:var(--rose);font-weight:700}
+.livebtns{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rec-state{color:var(--rose);font-variant-numeric:tabular-nums}
+.livehead .ghost.rec-on{border-color:var(--rose);color:var(--rose)}
+.livehead .ghost.rec-on::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--rose);margin-right:6px;animation:livedot 1.4s ease-in-out infinite}
 @keyframes livedot{0%,100%{opacity:1}50%{opacity:.35}}
 
 .ratingrow.big .rbtn{flex:1;padding:14px 12px;font-size:16px}
