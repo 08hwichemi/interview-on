@@ -732,8 +732,12 @@ function paintSheetNote() {
     list.innerHTML = !hasList ? '' :
       '<span class="lbl">저장해 둔 질문지</span>' +
       sheets.map(function (s) {
-        return '<button type="button" class="sheetchip" aria-pressed="' + (s.id === sheetId) + '" ' +
-               'onclick="openSheet(\'' + sheetEsc(s.id) + '\')" title="이 질문지 열기">' + sheetEsc(sheetLabel(s)) + '</button>';
+        var nm = sheetEsc(sheetLabel(s)), id = sheetEsc(s.id);
+        // 알약 = 열기 단추 + × (이 질문지 지우기). 2026-10-14 선생님 말씀: 지우기도 «저장해 둔 질문지» 에서
+        return '<span class="sheetchip" aria-pressed="' + (s.id === sheetId) + '">' +
+               '<button type="button" class="pick" onclick="openSheet(\'' + id + '\')" title="이 질문지 열기">' + nm + '</button>' +
+               '<button type="button" class="x" onclick="deleteSheet(\'' + id + '\')" title="이 질문지 지우기" aria-label="' + nm + ' 지우기">×</button>' +
+               '</span>';
       }).join('') +
       '<button type="button" class="sheetchip new" onclick="newSheet()">＋ 새 질문지</button>';
   }
@@ -891,30 +895,32 @@ async function saveSheet() {
   if (ok) toast('질문지' + (sheetName ? ' «' + sheetName + '»' : '') + ' 를 저장했습니다. 면접 날 이 학생을 고르면 그대로 뜹니다.');
 }
 
-// 저장해 둔 질문지를 버립니다 (화면의 질문은 그대로 둡니다).
+// 저장해 둔 질문지를 버립니다 — 알약의 × (어느 것이든) 또는 열어 둔 것.
 // ⚠️ 교사 화면에는 showConfirm() 이 없습니다 — 그건 학생 앱(ui.js) 것입니다.
 //    여기서는 다른 지우기들과 같이 브라우저 confirm 을 씁니다.
-async function deleteSheet() {
-  if (!sheetId) return;
-  var others = sheets.filter(function (s) { return s.id !== sheetId; });
+async function deleteSheet(id) {
+  id = id || sheetId;
+  if (!id) return;
+  var row = sheets.filter(function (s) { return s.id === id; })[0] || { id: id, sheet_name: sheetName };
+  var others = sheets.filter(function (s) { return s.id !== id; });
+  var isOpen = id === sheetId;
+  var label = row.sheet_name ? ' «' + row.sheet_name + '»' : '';
   // 타학교 학생은 질문지 줄이 곧 그 학생이라, 마지막 질문지를 지우면 타학교 목록에서도 빠집니다
   if (target && target.other && !others.length) {
     if (!confirm(whoLabel(target) + ' 학생과 질문지를 지울까요?\n타학교 목록에서 빠지고, 되돌릴 수 없습니다.')) return;
-  } else if (!confirm('저장해 둔 질문지' + (sheetName ? ' «' + sheetName + '»' : '') + ' 를 지울까요?\n화면에 있는 질문은 그대로 둡니다.')) return;
+  } else if (!confirm('저장해 둔 질문지' + label + ' 를 지울까요?' + (isOpen ? '\n화면에 있는 질문은 그대로 둡니다.' : ''))) return;
 
-  var id = sheetId;
-  sheetId = null; sheetSavedAt = null; sheetName = '';
-  sheets = sheets.filter(function (s) { return s.id !== id; });   // 다른 질문지는 알약 단추에 그대로
+  sheets = others;   // 다른 질문지는 알약 단추에 그대로
+  if (isOpen) { sheetId = null; sheetSavedAt = null; sheetName = ''; }
   paintSheetNote();
   await sb.from('interview_answers').delete().eq('interview_id', id);
   const { error } = await sb.from('interviews').delete().eq('id', id);
   if (error) { toast('질문지를 지우지 못했습니다: ' + error.message, 'bad'); return; }
-  toast('질문지를 지웠습니다.');
+  toast('질문지' + label + ' 를 지웠습니다.');
   if (target && target.other) {
     if (!others.length) { backToList(); return; }
-    // 같은 학생의 다른 질문지가 남아 있으면 그중 최근 것을 폅니다(목록의 줄도 그쪽으로)
-    target.ivId = null;
-    await openSheet(others[0].id, others[0]);
+    // 열어 둔 것을 지웠으면 같은 학생의 남은 질문지 중 최근 것을 폅니다(목록의 줄도 그쪽)
+    if (isOpen) { target.ivId = null; await openSheet(others[0].id, others[0]); }
     if (typeof otherLoad === 'function') otherLoad();
   }
 }
