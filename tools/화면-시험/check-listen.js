@@ -41,7 +41,20 @@ const FAKE_SR = () => {
 // 가짜 마이크 · 녹음기 — 이 환경엔 마이크가 없습니다. 10초 조각 대신 바로 조각 하나를 줍니다
 const FAKE_MIC = () => {
   window.__mics = 0; window.__recorders = [];
-  navigator.mediaDevices.getUserMedia = async function () { window.__mics++; var t = { stop: function () { t.stopped = true; } }; return { getTracks: function () { return [t]; }, __t: t }; };
+  window.__gumArgs = [];
+  navigator.mediaDevices.getUserMedia = async function (c) {
+    window.__mics++; window.__gumArgs.push(c); window.__allowed = true;
+    var id = c && c.audio && c.audio.deviceId && c.audio.deviceId.exact;
+    if (id === 'gone') throw new Error('NotFoundError');
+    var t = { stop: function () { t.stopped = true; }, label: id === 'usb1' ? 'USB 마이크 (외장)' : '노트북 내장 마이크' };
+    return { getTracks: function () { return [t]; }, getAudioTracks: function () { return [t]; }, __t: t };
+  };
+  navigator.mediaDevices.enumerateDevices = async function () {
+    var ok = window.__allowed;   // 허용 전엔 이름이 비어 옵니다(진짜 크롬과 같게)
+    return [{ kind: 'audioinput', deviceId: 'default', label: ok ? '노트북 내장 마이크' : '' },
+            { kind: 'audioinput', deviceId: 'usb1', label: ok ? 'USB 마이크 (외장)' : '' },
+            { kind: 'videoinput', deviceId: 'cam', label: '' }];
+  };
   function MR(stream, opt) { this.stream = stream; this.opt = opt || {}; this.state = 'inactive'; window.__recorders.push(this); }
   MR.isTypeSupported = function (t) { return /webm/.test(t); };
   MR.prototype.start = function (slice) { this.state = 'recording'; this.slice = slice; };
@@ -66,7 +79,7 @@ const FAKE_MIC = () => {
   await ctx.addInitScript(FAKE_MIC);
   await ctx.addInitScript((rows) => {
     window.__FAKE__ = { profile: { id: 't1', name: '이용휘', login_id: '이용휘', role: 'teacher' }, rows: rows };
-    try { localStorage.removeItem('listenOn'); localStorage.removeItem('tagUse'); localStorage.removeItem('recOn'); } catch (e) {}
+    try { localStorage.removeItem('listenOn'); localStorage.removeItem('tagUse'); localStorage.removeItem('recOn'); localStorage.removeItem('micId'); } catch (e) {}
   }, ROWS());
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message));
@@ -99,6 +112,19 @@ const FAKE_MIC = () => {
   확인('«일시정지» 해도 녹음은 이어지는가', await p.evaluate(() => REC.on && window.__recorders[0].state === 'recording'));
   await p.click('#btn-timer'); await p.waitForTimeout(200);   // 이어서
   확인('«이어서» 눌러도 녹음기를 새로 만들지 않는가', await p.evaluate(() => window.__recorders.length === 1));
+  console.log('\n── 마이크 고르기 · 이름 · 소리 막대 (2026-10-14 «꽂은 마이크인지 노트북 마이크인지») ──');
+  await p.waitForTimeout(200);
+  확인('마이크 줄이 보이고 «지금 녹음: 노트북 내장 마이크»', await p.evaluate(() => !document.getElementById('rec-row').hidden && document.getElementById('rec-mic').textContent.indexOf('지금 녹음: 노트북 내장 마이크') > -1), await p.evaluate(() => document.getElementById('rec-mic').textContent));
+  확인('고르기 칸에 기본 + 마이크 둘(이름)', await p.evaluate(() => { var o = [...document.querySelectorAll('#mic-pick option')].filter(x => !x.disabled); return o.length === 3 && o[1].textContent === '노트북 내장 마이크' && o[2].textContent === 'USB 마이크 (외장)'; }));
+  확인('마이크가 둘이라 «받아 적기는 윈도우 기본 마이크» 안내가 보이는가', await p.evaluate(() => !document.getElementById('rec-mictip').hidden));
+  확인('소리 막대가 켜져 있는가', await p.evaluate(() => document.getElementById('rec-level').getAttribute('data-on') === 'yes'));
+  await p.waitForTimeout(1600);   // 3초보다 짧은 녹음은 파일을 안 만드니 조금 기다립니다
+  const dl1 = p.waitForEvent('download', { timeout: 3000 }).catch(() => null);
+  await p.selectOption('#mic-pick', 'usb1'); await p.waitForTimeout(400);
+  const d1 = await dl1;
+  확인('녹음 중에 마이크를 바꾸면 지금까지 것을 파일로 떨어뜨리고 새 마이크로 이어 녹음', !!d1 && await p.evaluate(() => REC.on && window.__recorders.length === 2 && window.__gumArgs[1].audio.deviceId.exact === 'usb1' && document.getElementById('rec-mic').textContent.indexOf('USB 마이크') > -1),
+       (d1 ? d1.suggestedFilename() : '내려받음 없음') + ' / ' + await p.evaluate(() => JSON.stringify({ on: REC.on, n: window.__recorders.length, mic: document.getElementById('rec-mic').textContent, hint: REC.hint })));
+  확인('고른 마이크를 기억하는가', await p.evaluate(() => localStorage.getItem('micId') === 'usb1' && document.getElementById('mic-pick').value === 'usb1'));
   await p.click('#btn-answer'); await p.waitForTimeout(1300);
   확인('«답변 시작» 을 누르면 답변 시계가 흐르는가', await p.evaluate(() => answering && seconds >= 1), await p.evaluate(() => seconds));
   확인('단추가 «답변 끝» 으로', (await p.evaluate(() => document.getElementById('btn-answer').textContent)) === '답변 끝');
@@ -244,7 +270,7 @@ const FAKE_MIC = () => {
   await p.click('#btn-finish'); await p.waitForTimeout(600);
   const dl = await dlP;
   확인('끝내면 녹음 파일을 내려받는가(면접녹음_학생_날짜.webm)', !!dl && /^면접녹음_.*고다윤.*\.webm$/.test(dl.suggestedFilename()), dl && dl.suggestedFilename());
-  확인('마이크 선을 끊었는가', await p.evaluate(() => !REC.on && window.__recorders[0].stream.__t.stopped));
+  확인('마이크 선을 끊었는가', await p.evaluate(() => !REC.on && window.__recorders[1].stream.__t.stopped));
   const saved = await 표(p, 'interview_answers');
   const s2 = saved.filter(r => r.seq === 2)[0];
   확인('서버 줄에 받아 적은 글·태그·판정·요지가 다 들어갔는가',
