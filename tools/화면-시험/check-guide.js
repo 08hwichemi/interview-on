@@ -222,7 +222,7 @@ async function 걸음(p, 글, 테두리도) {
   확인('  학교 · 이름 · 희망 전공 예시가 저절로', await p.evaluate(() =>
     document.getElementById('other-school').value === '한빛고' && document.getElementById('other-name').value === '홍길동'));
   await p.click('.otheracts .btn.solid');
-  await 걸음(p, '여러 질문 붙여넣기');
+  await 걸음(p, '«📋 붙여넣기»');
   await p.click('.btnrow button[onclick="otherTogglePaste()"]');
   await 걸음(p, '붙여 넣는 칸');
   await p.click('#other-paste-text');

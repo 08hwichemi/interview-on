@@ -838,6 +838,11 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .otherpaste{margin:0 0 14px;padding:12px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--surface-2)}
 .otherpaste textarea{width:100%;margin-bottom:10px;font-size:14px;line-height:1.6}
 .otherpaste .btnrow{justify-content:flex-end;margin:0}
+/* 붙여넣기 칸 하나를 «낼 질문» 에 넣기 / 학생에게 보내기 두 가지로 씁니다 — 어느 단추로 열었는지(data-mode)에 따라 제목 · 단추만 바꿈 */
+.otherpaste .pastettl{margin:0 0 8px;font-size:13px;font-weight:800;color:var(--ink)}
+.otherpaste .pastettl .opt{font-weight:500;color:var(--ink-3)}
+.otherpaste[data-mode="send"] .paste-add-only,
+.otherpaste:not([data-mode="send"]) .paste-send-only{display:none!important}
 
 /* QR — 책상 건너편에서 폰으로 찍습니다. 화면 높이에 맞춰 크게 */
 .qr-overlay{position:fixed;inset:0;z-index:2100;display:none;align-items:center;justify-content:center;

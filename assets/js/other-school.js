@@ -428,11 +428,18 @@ function otherCheckName() {
 // 앞의 번호(「1.」 「2)」 「Q3.」 「- 」 「•」)는 떼어 냅니다. 이미 있는 질문과 글자가 같으면 건너뜁니다.
 // 처음엔 타학교 전용이었는데 2026-10-15 부터 우리 학교 학생도 씁니다(이름은 그대로 other… 로 둡니다 —
 // 따라 하기 · 시험이 이 이름을 가리킵니다). 우리 학교 학생이면 아래 pasteSendToStudent 로 학생에게 보낼 수도 있습니다.
-function otherTogglePaste() {
+// mode: 없으면 «낼 질문» 에 넣기, 'send' 면 학생에게 보내기(우리 학교 학생만 — «📨 질문 보내기» 단추).
+// 같은 단추를 다시 누르면 닫고, 다른 단추를 누르면 적어 둔 글은 그대로 두고 칸의 쓰임만 바꿉니다.
+function otherTogglePaste(mode) {
+  mode = (mode === 'send' && target && !target.other) ? 'send' : 'add';
   var box = document.getElementById('other-paste');
-  box.hidden = !box.hidden;
-  if (!box.hidden) document.getElementById('other-paste-text').focus();
+  if (!box.hidden && box.dataset.mode === mode) { box.hidden = true; return; }
+  box.dataset.mode = mode;
+  if (mode === 'send') document.getElementById('paste-send-who').textContent = (target.name || '학생') + ' 학생';
+  box.hidden = false;
+  document.getElementById('other-paste-text').focus();
 }
+function otherClosePaste() { document.getElementById('other-paste').hidden = true; }
 
 function otherCleanLine(s) {
   return String(s || '')
@@ -475,11 +482,11 @@ function otherPasteAdd() {
 
 // ── 직접 적은 질문을 학생에게 보내기 (2026-10-15 선생님 말씀) ──
 // 예전엔 생기부 화면(「📄 생기부에서 뽑기」)에서 뽑은 질문만 학생에게 보낼 수 있었습니다.
-// 이제 붙여넣기 칸에 적은 질문도 그 학생의 답안 연습장 «받은 질문»(practice_offers)으로 보냅니다.
+// 이제 «📨 질문 보내기» 단추로 연 칸에 적은 질문도 그 학생의 답안 연습장 «받은 질문»(practice_offers)으로 보냅니다.
 // 생기부 화면의 «학생에게 보내기» 와 같은 표 · 같은 규칙입니다(saenggibu.js 의 sendSaenggibuPicks):
 //   같은 학생에게 같은 질문을 또 보내면 서버가 하나만 남기고, 다른 계정으로 로그인돼 있으면 막습니다.
 // 학년은 «공통», 영역은 «직접» 으로 보냅니다 — 학생 창에서는 «공통 · 선생님 직접» 묶음으로 보입니다.
-// 타학교 학생은 계정이 없어 보낼 곳이 없으므로 단추를 가립니다(.ours-only).
+// 타학교 학생은 계정이 없어 보낼 곳이 없으므로 «📨 질문 보내기» 단추를 가립니다(.ours-only).
 async function pasteSendToStudent() {
   if (typeof target === 'undefined' || !target || target.other) return;
   var list = otherPasteLines();

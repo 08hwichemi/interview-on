@@ -1,4 +1,4 @@
-// 선생님 화면 — 우리 학교 학생에게도 «📋 여러 질문 붙여넣기», 그리고 직접 적은 질문을 «📨 학생에게 보내기» (2026-10-15)
+// 선생님 화면 — 우리 학교 학생에게도 «📋 붙여넣기», 그리고 따로 된 «📨 질문 보내기» 단추로 직접 적은 질문을 학생에게 (2026-10-15)
 // (우리 학교에도 단추 · «낼 질문» 에 넣기(번호 떼기 · 같은 것 건너뜀) · 보내기는 묻고 · 아니오면 안 보냄 ·
 //  practice_offers 로 학년 «공통» · 영역 «직접» · 같은 질문은 한 번만 · 다른 계정 로그인 막음 · 타학교엔 보내기 단추 없음 ·
 //  학생을 바꾸면 칸이 닫힘 · 학생 앱 «받은 질문» 에 «공통 · 선생님 직접» 묶음 · 400px)
@@ -34,15 +34,17 @@ const 보임 = (p, sel) => p.evaluate(s => { const e = document.querySelector(s)
     await p.waitForTimeout(300);
 
     console.log('\n── 우리 학교 학생 ──');
-    확인('«📋 여러 질문 붙여넣기» 단추가 보이는가', await 보임(p, '.btnrow button[onclick="otherTogglePaste()"]'));
-    await p.click('.btnrow button[onclick="otherTogglePaste()"]'); await p.waitForTimeout(100);
-    확인('붙여넣기 칸이 열리는가', await 보임(p, '#other-paste'));
-    확인('«📨 학생에게 보내기» 단추와 안내가 보이는가', await 보임(p, '#paste-send') && await 보임(p, '#other-paste .hint'));
-    확인('단추 줄이 칸 밖으로 넘치지 않는가', await p.evaluate(() => {
-      const box = document.getElementById('other-paste').getBoundingClientRect();
-      return [...document.querySelectorAll('#other-paste .btnrow button')].every(x => x.getBoundingClientRect().right <= box.right + 0.5);
+    const 붙여 = '.btnrow button[onclick="otherTogglePaste()"]', 보내 = '.btnrow button[onclick="otherTogglePaste(\'send\')"]';
+    확인('«📋 붙여넣기» · «📨 질문 보내기» 단추가 따로 보이는가', await 보임(p, 붙여) && await 보임(p, 보내) &&
+         (await p.textContent(붙여)).trim() === '📋 붙여넣기' && (await p.textContent(보내)).trim() === '📨 질문 보내기');
+    확인('질문 더하는 단추 줄이 옆으로 넘치지 않는가', await p.evaluate(() => {
+      const box = document.getElementById('qsect-body').getBoundingClientRect();
+      return [...document.querySelectorAll('#qsect-body > .btnrow button')].every(x => x.getBoundingClientRect().right <= box.right + 0.5);
     }));
-    확인('옆으로 넘치지 않는가', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await p.click(붙여); await p.waitForTimeout(100);
+    확인('«📋 붙여넣기» → 칸 제목 «낼 질문 에 넣을 질문» · «낼 질문» 에 넣기 단추만', await 보임(p, '#other-paste') &&
+         /«낼 질문» 에 넣을 질문/.test(await p.evaluate(() => [...document.querySelectorAll('#other-paste .pastettl')].filter(x => x.offsetParent).map(x => x.textContent).join(''))) &&
+         await 보임(p, '#other-paste .btn.solid.paste-add-only') && !(await 보임(p, '#paste-send')));
 
     // «낼 질문» 에 넣기 — 타학교와 같게
     await p.fill('#other-paste-text', '1. 탐구 주제를 고른 까닭은?\n2) 실험에서 어려웠던 점은?\n\n- 탐구 주제를 고른 까닭은?');
@@ -52,7 +54,25 @@ const 보임 = (p, sel) => p.evaluate(s => { const e = document.querySelector(s)
 
     // 학생에게 보내기
     const 받은 = () => p.evaluate(() => window.__T.practice_offers || []);
-    await p.click('.btnrow button[onclick="otherTogglePaste()"]');
+    await p.click(보내); await p.waitForTimeout(100);
+    확인('«📨 질문 보내기» → 칸 제목에 학생 이름 · «받은 질문» 안내 · 보내기 단추만', await 보임(p, '#other-paste') &&
+         /📨 고다윤 학생에게 보낼 질문[\s\S]*받은 질문/.test(await p.evaluate(() => [...document.querySelectorAll('#other-paste .pastettl')].filter(x => x.offsetParent).map(x => x.textContent).join(''))) &&
+         await 보임(p, '#paste-send') && !(await 보임(p, '#other-paste .paste-add-only')));
+    확인('칸 안 단추가 칸 밖으로 넘치지 않는가', await p.evaluate(() => {
+      const box = document.getElementById('other-paste').getBoundingClientRect();
+      return [...document.querySelectorAll('#other-paste button')].filter(x => x.offsetParent).every(x => x.getBoundingClientRect().right <= box.right + 0.5);
+    }));
+    확인('옆으로 넘치지 않는가', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await p.fill('#other-paste-text', '적어 둔 글');
+    await p.click(붙여); await p.waitForTimeout(100);
+    확인('열린 채 다른 단추를 누르면 글은 그대로, 쓰임만 바뀜', await 보임(p, '#other-paste') && await 보임(p, '#other-paste .paste-add-only') &&
+         (await p.inputValue('#other-paste-text')) === '적어 둔 글');
+    await p.click(붙여); await p.waitForTimeout(100);
+    확인('같은 단추를 다시 누르면 닫힘', !(await 보임(p, '#other-paste')));
+    await p.click(보내); await p.fill('#other-paste-text', '');
+    await p.click('#other-paste button:has-text("닫기")'); await p.waitForTimeout(100);
+    확인('«닫기» 로 닫힘', !(await 보임(p, '#other-paste')));
+    await p.click(보내); await p.waitForTimeout(100);
     대답 = true; await p.click('#paste-send'); await p.waitForTimeout(150);
     확인('빈 칸이면 묻지 않고 «보낼 질문이 없습니다»', 물음.length === 0 && /보낼 질문이 없습니다/.test(await p.textContent('#toast')));
     await p.fill('#other-paste-text', 'Q1. 동아리에서 맡은 역할은?\n• 진로를 바꾼 까닭은?\n진로를 바꾼 까닭은?');
@@ -67,7 +87,7 @@ const 보임 = (p, sel) => p.evaluate(s => { const e = document.querySelector(s)
          r.teacher_id === 'u1' && r.teacher_name === '이용휘' && r.school_id), JSON.stringify(보낸[0]));
     확인('«낼 질문» 은 그대로(보내기는 질문지와 따로)', await p.evaluate(() => midQuestions.length === 2));
     확인('보내면 칸이 비고 닫히는가 · «보냈습니다»', !(await 보임(p, '#other-paste')) && /2개를 고다윤 학생에게 보냈습니다/.test(await p.textContent('#toast')));
-    await p.click('.btnrow button[onclick="otherTogglePaste()"]');
+    await p.click(보내);
     await p.fill('#other-paste-text', '동아리에서 맡은 역할은?\n새 질문 하나');
     await p.click('#paste-send'); await p.waitForTimeout(300);
     보낸 = await 받은();
@@ -75,7 +95,7 @@ const 보임 = (p, sel) => p.evaluate(s => { const e = document.querySelector(s)
     확인('«이미 보낸 1개는 건너뜀»', /1개를 고다윤 학생에게 보냈습니다.*이미 보낸 1개는 건너뜀/.test(await p.textContent('#toast')), await p.textContent('#toast'));
 
     // 같은 브라우저가 다른 계정으로 로그인돼 있으면 막음
-    await p.click('.btnrow button[onclick="otherTogglePaste()"]');
+    await p.click(보내);
     await p.fill('#other-paste-text', '다른 계정 질문');
     await p.evaluate(() => { window.__realGS = sb.auth.getSession; sb.auth.getSession = () => Promise.resolve({ data: { session: { user: { id: 'student-x' } } } }); });
     await p.click('#paste-send'); await p.waitForTimeout(300);
@@ -90,9 +110,10 @@ const 보임 = (p, sel) => p.evaluate(s => { const e = document.querySelector(s)
     console.log('\n── 타학교 학생 ──');
     await p.evaluate(() => { railShowOther(true); otherNew(); }); await p.waitForTimeout(200);
     await p.evaluate(() => { if (!qsectOpen) toggleQsect(); });
-    await p.click('.btnrow button[onclick="otherTogglePaste()"]'); await p.waitForTimeout(100);
-    확인('타학교도 붙여넣기 칸은 열림', await 보임(p, '#other-paste'));
-    확인('타학교엔 «학생에게 보내기» 단추 · 안내가 없음', !(await 보임(p, '#paste-send')) && !(await 보임(p, '#other-paste .hint')));
+    확인('타학교엔 «📨 질문 보내기» 단추가 없음', !(await 보임(p, 보내)));
+    await p.evaluate(() => otherTogglePaste('send')); await p.waitForTimeout(100);
+    확인('혹시 불려도 타학교면 «낼 질문» 에 넣기 칸으로 열림', await 보임(p, '#other-paste') && !(await 보임(p, '#paste-send')) &&
+         await 보임(p, '#other-paste .paste-add-only'));
     확인('스크립트 오류 없음', errs.length === 0, errs.join(' | '));
     await ctx.close();
   }
