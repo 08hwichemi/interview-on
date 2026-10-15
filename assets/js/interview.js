@@ -185,6 +185,176 @@ function importQuestionsFromFile(event) {
   reader.readAsText(file);
 }
 
+// ── 📒 답안 연습장에서 질문 가져오기 (2026-10-15 선생님 말씀) ──
+// 답안 연습장에 써 둔 질문을 골라 모의 면접 질문 칸(창체 · 전공)에 넣습니다. 같은 질문을 두 번 쓰지 않아도 됩니다.
+// 칸마다 단추가 따로 있어서, 누른 칸으로 들어갑니다. 빈 칸부터 채우고 모자라면 칸을 더 만듭니다.
+// 넣은 질문은 «고정» 이 켜져 있어 ✨ AI 추천 질문을 눌러도 덮이지 않습니다.
+// 이미 두 칸 어디에든 같은 글자의 질문이 있으면 «이미 있음» 으로 보이고 못 고릅니다.
+// 서버 요청: 창을 열 때 연습장 질문 읽기 1번(처음이면 내 학생 정보 1번 더). 넣는 것은 이 기기 안의 일입니다.
+var MP = { type: 'changche', list: [], picked: {}, grades: [], cats: [] };
+var MP_GRADE_ORDER = ['1', '2', '3', '공통'];
+
+function mockPracticeHave() {
+  var have = {};
+  document.querySelectorAll('#changche-inputs .custom-q-input, #major-inputs .custom-q-input').forEach(function (el) {
+    var v = el.value.trim();
+    if (v) have[v] = true;
+  });
+  return have;
+}
+
+async function mockOpenPractice(type) {
+  MP.type = type;
+  MP.picked = {};
+  MP.grades = []; MP.cats = [];   // 칩은 열 때마다 풉니다 — 다른 칸에 넣으러 왔는데 지난번 칩이 걸려 있으면 헷갈립니다
+  var box = document.getElementById('mock-prac-list');
+  document.getElementById('mock-prac-title').textContent =
+    '📒 연습장에서 가져오기 · ' + (type === 'changche' ? '🌱 창체' : '📚 전공');
+  box.innerHTML = '<p class="prac-empty">불러오는 중...</p>';
+  document.getElementById('mock-prac-overlay').style.display = 'flex';
+  mockPaintPracticeBtn();
+  // 내 학생 번호(students.id)는 답안 연습장 화면과 같이 씁니다 (practice.js)
+  if (!practiceMyStudentId) {
+    const { data, error } = await sb.from('students').select('id, grade').maybeSingle();
+    if (error || !data) { box.innerHTML = '<p class="prac-empty">내 학생 정보를 불러오지 못했습니다.</p>'; return; }
+    practiceMyStudentId = data.id;
+    practiceMyGrade = data.grade ? String(data.grade) : '공통';
+  }
+  var all = await fetchPracticeAnswers(practiceMyStudentId);
+  MP.list = all.filter(function (a) { return String(a.question || '').trim(); });
+  mockPaintPractice();
+}
+
+function mockClosePractice() {
+  document.getElementById('mock-prac-overlay').style.display = 'none';
+}
+
+function mockPracticeGradeText(g) { return (g && g !== '공통') ? g + '학년' : '공통'; }
+
+// 칩에 걸리는 질문 — 학년 · 분류. 연습장 필터와 같이 여러 개 고를 수 있고, 안 고르면 전부입니다.
+function mockPracticeVisible() {
+  return MP.list.filter(function (a) {
+    return practiceMatchFilter(a.grade || '공통', MP.grades) && practiceMatchFilter(a.category, MP.cats);
+  }).sort(function (x, y) {
+    return (MP_GRADE_ORDER.indexOf(x.grade || '공통') - MP_GRADE_ORDER.indexOf(y.grade || '공통')) ||
+           String(x.created_at).localeCompare(String(y.created_at));
+  });
+}
+function mockPracticeToggleGrade(g) { practiceToggleIn(MP.grades, g); mockPaintPractice(); }
+function mockPracticeToggleCat(c) { practiceToggleIn(MP.cats, c); mockPaintPractice(); }
+
+function mockPaintPractice() {
+  var box = document.getElementById('mock-prac-list');
+  if (!MP.list.length) {
+    box.innerHTML = '<p class="prac-empty">답안 연습장에 써 둔 질문이 아직 없습니다.<br>홈의 «답안 연습장» 에서 먼저 질문을 써 보세요.</p>';
+    mockPaintPracticeBtn();
+    return;
+  }
+  var gradesHere = MP_GRADE_ORDER.filter(function (g) { return MP.list.some(function (a) { return (a.grade || '공통') === g; }); });
+  var catsHere = [];
+  MP.list.forEach(function (a) { if (a.category && catsHere.indexOf(a.category) === -1) catsHere.push(a.category); });
+  MP.grades = MP.grades.filter(function (g) { return gradesHere.indexOf(g) > -1; });
+  MP.cats = MP.cats.filter(function (c) { return catsHere.indexOf(c) > -1; });
+
+  var have = mockPracticeHave();
+  var visible = mockPracticeVisible();
+  var html = '<p class="prac-hint">고른 질문은 «' + (MP.type === 'changche' ? '🌱 창체 역량 질문' : '📚 전공 적합성 질문') +
+             '» 칸에 들어갑니다. 넣은 뒤에도 글자를 고칠 수 있습니다.</p>';
+  html += '<div class="prac-offer-filter">' +
+    '<div class="prac-offer-frow"><span class="prac-offer-flabel">학년</span><div class="prac-chips">' +
+      gradesHere.map(function (g) {
+        return '<button class="prac-chip" aria-pressed="' + (MP.grades.indexOf(g) > -1) + '" onclick="mockPracticeToggleGrade(\'' + g + '\')">' +
+               esc(mockPracticeGradeText(g)) + '</button>';
+      }).join('') + '</div></div>' +
+    '<div class="prac-offer-frow"><span class="prac-offer-flabel">분류</span><div class="prac-chips">' +
+      practiceFilterChipsHTML(catsHere, MP.cats, 'mockPracticeToggleCat') + '</div></div>' +
+    '</div>';
+  var free = visible.filter(function (a) { return !have[a.question.trim()]; });
+  var narrowed = MP.grades.length || MP.cats.length;
+  html += '<label class="prac-offer-bar"><input type="checkbox" id="mock-prac-all" onchange="mockPracticeToggleAll()">' +
+            '<b>전체 선택</b><span>' + (narrowed ? '골라 본 질문 ' : '연습장 질문 ') + visible.length + '개' +
+            (narrowed ? ' / 전체 ' + MP.list.length + '개' : '') + '</span></label>';
+  if (!visible.length) html += '<p class="prac-empty">고른 학년 · 분류에 맞는 질문이 없습니다.</p>';
+  visible.forEach(function (a) {
+    var had = !!have[a.question.trim()];
+    var on = !had && !!MP.picked[a.id];
+    html += '<div class="prac-offer' + (on ? ' on' : '') + (had ? ' had' : '') + '" data-id="' + a.id + '">' +
+      '<label class="prac-offer-pick"><input type="checkbox"' + (on ? ' checked' : '') + (had ? ' disabled' : '') +
+        ' onchange="mockPracticeToggle(\'' + a.id + '\')">' +
+        '<span class="prac-offer-q">' + esc(a.question) + '</span></label>' +
+      '<div class="prac-offer-foot"><span class="mock-prac-tags">' +
+        esc(mockPracticeGradeText(a.grade) + ' · ' + (a.category || '분류 없음')) + (had ? ' · 이미 질문 칸에 있음' : '') +
+      '</span></div></div>';
+  });
+  var keepTop = box.scrollTop;
+  box.innerHTML = html;
+  box.scrollTop = keepTop;
+  mockPaintPracticeBtn(free);
+}
+
+// 체크할 때 목록을 다시 그리면 창 안 스크롤이 튀므로 그 줄과 단추만 고칩니다 (받은 질문 창과 같은 방식)
+function mockPracticeToggle(id) {
+  if (MP.picked[id]) delete MP.picked[id]; else MP.picked[id] = true;
+  var row = document.querySelector('#mock-prac-list .prac-offer[data-id="' + id + '"]');
+  if (row) row.classList.toggle('on', !!MP.picked[id]);
+  mockPaintPracticeBtn();
+}
+// 전체 선택 ↔ 전체 해제 — 지금 보이는 것 가운데 아직 질문 칸에 없는 것만
+function mockPracticeToggleAll() {
+  var have = mockPracticeHave();
+  var free = mockPracticeVisible().filter(function (a) { return !have[a.question.trim()]; });
+  var all = free.length && free.every(function (a) { return MP.picked[a.id]; });
+  free.forEach(function (a) { if (all) delete MP.picked[a.id]; else MP.picked[a.id] = true; });
+  mockPaintPractice();
+}
+
+function mockPaintPracticeBtn(free) {
+  var btn = document.getElementById('mock-prac-add');
+  var n = Object.keys(MP.picked).length;
+  btn.disabled = !n;
+  btn.textContent = n ? '고른 ' + n + '개 넣기' : '넣을 질문을 고르세요';
+  var allBox = document.getElementById('mock-prac-all');
+  if (allBox) {
+    if (!free) {
+      var have = mockPracticeHave();
+      free = mockPracticeVisible().filter(function (a) { return !have[a.question.trim()]; });
+    }
+    var some = free.filter(function (a) { return MP.picked[a.id]; }).length;
+    allBox.checked = !!free.length && some === free.length;
+    allBox.indeterminate = some > 0 && some < free.length;
+    allBox.disabled = !free.length;
+  }
+}
+
+function mockAddPractice() {
+  var have = mockPracticeHave();
+  // 칩으로 좁혀 가려진 것도 골라 둔 것이면 넣습니다(단추에 «고른 N개» 로 보였으니까요)
+  var picks = MP.list.filter(function (a) { return MP.picked[a.id] && !have[a.question.trim()]; });
+  if (!picks.length) return;
+  // 빈 칸부터 채웁니다
+  var empties = Array.from(document.querySelectorAll('#' + MP.type + '-inputs .custom-q-row')).filter(function (row) {
+    return !row.querySelector('.custom-q-input').value.trim();
+  });
+  var added = 0;
+  picks.forEach(function (a) {
+    var q = a.question.trim();
+    if (have[q]) return;     // 연습장에 같은 질문이 두 번 있을 때
+    have[q] = true;
+    added++;
+    var row = empties.shift();
+    if (row) {
+      row.querySelector('.custom-q-input').value = q;
+      row.querySelector('.q-checkbox').checked = true;
+    } else {
+      renderCustomInput(MP.type, q);
+    }
+  });
+  saveToLocalStorage();
+  MP.picked = {};
+  mockClosePractice();
+  showToast(added + '개를 ' + (MP.type === 'changche' ? '🌱 창체' : '📚 전공') + ' 질문 칸에 넣었습니다.<br>아래 «몇 개 출제» 도 확인해 주세요.', 'success');
+}
+
 // 배열 랜덤 섞기 헬퍼
 function getRandom(arr, count) {
   var validArr = arr.filter(text => text.trim().length > 0);

@@ -226,6 +226,9 @@ function closeTopLayer() {
     if (typeof closeUnivModal === 'function') closeUnivModal(); else univ.style.display = 'none';
     return true;
   }
+  // 모의 면접 세팅의 «📒 연습장에서 가져오기» 창 (interview.js)
+  var mockPrac = document.getElementById('mock-prac-overlay');
+  if (mockPrac && mockPrac.style.display === 'flex') { mockPrac.style.display = 'none'; return true; }
   return false;
 }
 

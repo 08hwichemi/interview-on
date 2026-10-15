@@ -78,15 +78,15 @@ async function 준비(b, rows, vw, vh, init) {
   for (const [sel, 무엇] of [['#btn-talk', '톡'], ['.prac-tabs.ours-only', '답안 연습장·후기 탭'], ['#history-box', '지난 면접'], ['#susi-box', '수시 지원']]) {
     확인('우리 학교 것은 가려짐: ' + 무엇, !(await 보임(p, sel)));
   }
-  확인('생기부 뽑기 · 학생 질문 단추는 가려지고 «여러 질문 붙여넣기» 가 보임',
+  확인('생기부 뽑기 · 학생 질문 · 질문 보내기 단추는 가려지고 «붙여넣기» 가 보임',
        await p.evaluate(() => {
          const btns = Array.from(document.querySelectorAll('#qsect-body .btnrow button')).filter(x => x.offsetParent);
          const t = btns.map(x => x.textContent).join('|');
-         return t.indexOf('생기부') === -1 && t.indexOf('학생 질문') === -1 && t.indexOf('붙여넣기') > -1 && t.indexOf('직접 적기') > -1;
+         return t.indexOf('생기부') === -1 && t.indexOf('학생 질문') === -1 && t.indexOf('질문 보내기') === -1 && t.indexOf('붙여넣기') > -1 && t.indexOf('직접 적기') > -1;
        }));
 
   console.log('\n── 질문 붙여넣기 ──');
-  await p.click('text=📋 여러 질문 붙여넣기');
+  await p.click('text=📋 붙여넣기');
   await p.fill('#other-paste-text', '1. 탐구 주제를 고른 까닭은 무엇인가요?\n2) 실험에서 가장 어려웠던 점은?\n\n- 탐구 주제를 고른 까닭은 무엇인가요?\nQ3. 우리 학과에 와서 하고 싶은 공부는?');
   await p.click('text=«낼 질문» 에 넣기'); await p.waitForTimeout(100);
   const mid = await p.evaluate(() => midQuestions.map(q => q.text));

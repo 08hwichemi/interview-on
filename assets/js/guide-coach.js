@@ -233,7 +233,8 @@
         done: sheetSaved,
         b: '<b>면접은 시작되지 않고</b> 질문만 남겨 둡니다. 면접 날에는 학생만 고르면 이 질문지가 그대로 뜹니다.' +
            '<p class="gd-more">다른 질문 단추 — <b>📄 생기부에서 뽑기</b>(PDF 를 이 브라우저 안에서만 읽어 질문 후보를 뽑음, 서버에 안 올라감) · ' +
-           '<b>✍️ 학생 질문</b>(학생이 답안 연습장에 쓴 질문). 필요 없는 질문은 «삭제».</p>' }
+           '<b>✍️ 학생 질문</b>(학생이 답안 연습장에 쓴 질문) · <b>📋 붙여넣기</b>(한 줄에 하나씩 «낼 질문» 에) · ' +
+           '<b>📨 질문 보내기</b>(직접 적은 질문을 학생 답안 연습장 «받은 질문» 으로 — 생기부 없이). 필요 없는 질문은 «삭제».</p>' }
     ] },
 
     { title: '면접 진행 · 받아 적기', setup: readySetup, steps: [
@@ -359,9 +360,9 @@
         show: { at: '#other-list', t: '왼쪽 목록에 «한빛고 홍길동» 이 들어갔습니다', b: '학교별로 묶이고, 머리줄을 누르면 접힙니다. 줄마다 ★ · 🗑.' },
         done: function () { return target && target.other && !!target.ivId; },
         b: '칸에서 ' + kbd('Enter') + ' 도 됩니다. 여러 명을 넣을 땐 옆의 <b>«저장하고 다음 학생 ＋»</b> — 학교는 그대로 두고 이름 칸으로 갑니다.' },
-      { at: '.btnrow button[onclick="otherTogglePaste()"]', real: true, t: '«📋 여러 질문 붙여넣기» 를 누르세요',
+      { at: '.btnrow button[onclick="otherTogglePaste()"]', real: true, t: '«📋 붙여넣기» 를 누르세요',
         done: function () { return !$('#other-paste').hidden; },
-        b: '생기부로 따로 만들어 온 질문을 한꺼번에 넣는 단추입니다.' },
+        b: '생기부로 따로 만들어 온 질문을 한꺼번에 넣는 단추입니다. 우리 학교 학생에게도 같은 단추가 있습니다.' },
       { at: '#other-paste-text', t: '질문을 붙여 넣는 칸을 누르세요',
         act: function () { return typeInto($('#other-paste-text'), '1. 탐구 주제를 고른 까닭은 무엇인가요?\n2) 그 실험에서 가장 어려웠던 점은?\nQ3. 희망 전공과 이어지는 활동을 하나 소개해 주세요.'); },
         done: function () { return /Q3\. 희망 전공과 이어지는 활동을 하나 소개해 주세요\.$/.test($('#other-paste-text').value); },
