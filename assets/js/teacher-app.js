@@ -578,6 +578,7 @@ async function pickStudent(id) {
   resetGreetings();
   renderGreetings();
   renderQuestions();
+  document.getElementById('other-paste').hidden = true;   // 붙여넣기 칸은 학생마다 닫힌 채로 시작
   setupGoTab(teacherLastGoTab);   // 마지막으로 보던 탭을 그대로 이어 갑니다
   show('setup');
   paintHistoryAcc();   // 학생을 고를 때마다 접힌 상태를 다시 맞춥니다 (휴대폰: 접어서 스크롤 줄이기)

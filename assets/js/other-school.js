@@ -426,6 +426,8 @@ function otherCheckName() {
 // ── 질문 여러 개 한꺼번에 붙여넣기 ──
 // 생기부로 질문을 따로 만들어 오신다고 해서(2026-10-11), 한 줄에 하나씩 붙여 넣으면 «낼 질문» 에 차례로 붙습니다.
 // 앞의 번호(「1.」 「2)」 「Q3.」 「- 」 「•」)는 떼어 냅니다. 이미 있는 질문과 글자가 같으면 건너뜁니다.
+// 처음엔 타학교 전용이었는데 2026-10-15 부터 우리 학교 학생도 씁니다(이름은 그대로 other… 로 둡니다 —
+// 따라 하기 · 시험이 이 이름을 가리킵니다). 우리 학교 학생이면 아래 pasteSendToStudent 로 학생에게 보낼 수도 있습니다.
 function otherTogglePaste() {
   var box = document.getElementById('other-paste');
   box.hidden = !box.hidden;
@@ -440,14 +442,24 @@ function otherCleanLine(s) {
     .trim();
 }
 
+// 붙여 넣은 칸의 글을 질문 목록으로 — 번호를 떼고, 빈 줄과 같은 글자는 한 번만
+function otherPasteLines() {
+  var seen = {}, out = [];
+  String(document.getElementById('other-paste-text').value || '').split(/\r?\n/).forEach(function (line) {
+    var q = otherCleanLine(line);
+    if (!q || seen[q]) return;
+    seen[q] = true;
+    out.push(q);
+  });
+  return out;
+}
+
 function otherPasteAdd() {
   var ta = document.getElementById('other-paste-text');
   var have = {};
   midQuestions.forEach(function (q) { have[q.text.trim()] = true; });
   var added = 0, same = 0;
-  String(ta.value || '').split(/\r?\n/).forEach(function (line) {
-    var q = otherCleanLine(line);
-    if (!q) return;
+  otherPasteLines().forEach(function (q) {
     if (have[q]) { same++; return; }
     have[q] = true;
     midQuestions.push({ text: q, competency: '기타' });
@@ -459,6 +471,45 @@ function otherPasteAdd() {
   document.getElementById('other-paste').hidden = true;
   toast('질문 ' + added + '개를 «낼 질문» 에 넣었습니다.' + (same ? ' (같은 것 ' + same + '개는 건너뜀)' : '') +
         ' 무엇을 보는 질문인지 골라 두세요.', 'ok');
+}
+
+// ── 직접 적은 질문을 학생에게 보내기 (2026-10-15 선생님 말씀) ──
+// 예전엔 생기부 화면(「📄 생기부에서 뽑기」)에서 뽑은 질문만 학생에게 보낼 수 있었습니다.
+// 이제 붙여넣기 칸에 적은 질문도 그 학생의 답안 연습장 «받은 질문»(practice_offers)으로 보냅니다.
+// 생기부 화면의 «학생에게 보내기» 와 같은 표 · 같은 규칙입니다(saenggibu.js 의 sendSaenggibuPicks):
+//   같은 학생에게 같은 질문을 또 보내면 서버가 하나만 남기고, 다른 계정으로 로그인돼 있으면 막습니다.
+// 학년은 «공통», 영역은 «직접» 으로 보냅니다 — 학생 창에서는 «공통 · 선생님 직접» 묶음으로 보입니다.
+// 타학교 학생은 계정이 없어 보낼 곳이 없으므로 단추를 가립니다(.ours-only).
+async function pasteSendToStudent() {
+  if (typeof target === 'undefined' || !target || target.other) return;
+  var list = otherPasteLines();
+  if (!list.length) { toast('보낼 질문이 없습니다. 한 줄에 하나씩 적으세요.', 'bad'); return; }
+  var who = target.name || target.student_no || '학생';
+  if (!confirm(list.length + '개를 ' + who + ' 학생의 답안 연습장으로 보냅니다.\n' +
+               '학생이 «받은 질문» 에서 골라 답을 써 봅니다.')) return;
+  if (!(await sgSameLogin())) return;
+
+  var rows = list.map(function (q) {
+    return { school_id: SCHOOL_ID, student_id: target.id,
+             teacher_id: me.id, teacher_name: (me && me.name) || '',
+             grade: '공통', area: '직접', subject: '', question: q };
+  });
+  var btn = document.getElementById('paste-send');
+  if (btn) btn.disabled = true;
+  const { data, error } = await sb.from('practice_offers')
+    .upsert(rows, { onConflict: 'student_id,question', ignoreDuplicates: true })
+    .select('id');
+  if (btn) btn.disabled = false;
+  if (error) {
+    if (/row-level security/.test(error.message || '')) alert(SG_OTHER_LOGIN_MSG);
+    else toast('보내지 못했습니다: ' + error.message, 'bad');
+    return;
+  }
+  var made = (data || []).length;
+  document.getElementById('other-paste-text').value = '';
+  document.getElementById('other-paste').hidden = true;
+  toast(made + '개를 ' + who + ' 학생에게 보냈습니다.' +
+        (rows.length > made ? ' (이미 보낸 ' + (rows.length - made) + '개는 건너뜀)' : ''), 'ok');
 }
 
 // ── 평가서 화면 — QR ──

@@ -428,7 +428,8 @@ function practiceOfferGradeText(g) { return (g && g !== '공통') ? g + '학년'
 // 영역은 자율 · 동아리 · 봉사 · 진로 · 과세특 · 개세특 · 행발. 세특 과목은 묶지 않고 카드 안에만 적습니다
 // (과목마다 묶었더니 묶음이 과목 수만큼 생겼습니다 — 2026-10-07 선생님 말씀).
 var PO_GRADE_ORDER = ['1', '2', '3', '공통'];
-var PO_AREA_ORDER = ['자율', '동아리', '봉사', '진로', '과세특', '개세특', '행발', '창체', ''];
+// «직접» 은 선생님이 생기부 없이 직접 적어 보낸 질문입니다(2026-10-15, other-school.js 의 pasteSendToStudent)
+var PO_AREA_ORDER = ['직접', '자율', '동아리', '봉사', '진로', '과세특', '개세특', '행발', '창체', ''];
 // 잠깐 썼던 옛 이름도 새 이름으로 읽습니다(서버 자료는 2026-10-07 에 옮겼습니다)
 var PO_AREA_OLD = { '자율활동': '자율', '동아리활동': '동아리', '봉사활동': '봉사', '진로활동': '진로', '행특': '행발' };
 var POF = { grades: [], areas: [] };   // 받은 질문 창의 칩 — 창을 닫았다 열어도 그대로
@@ -439,7 +440,7 @@ function practiceOfferArea(o) {
   if (a === '세특') return /^개인별/.test(o.subject || '') ? '개세특' : '과세특';
   return a;
 }
-function practiceOfferAreaText(a) { return a || '영역 모름'; }
+function practiceOfferAreaText(a) { return a === '직접' ? '선생님 직접' : (a || '영역 모름'); }
 function practiceOfferGroupKey(o) { return (o.grade || '공통') + '|' + practiceOfferArea(o); }
 function practiceOfferGroupText(o) {
   return practiceOfferGradeText(o.grade) + ' · ' + practiceOfferAreaText(practiceOfferArea(o));
