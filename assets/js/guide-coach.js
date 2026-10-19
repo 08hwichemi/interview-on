@@ -124,6 +124,7 @@
     if (!on('run') && !on('finish')) return;
     if (!startedOnce) toggleTimer();
     answers.forEach(function (a, i) {
+      if (a.skipped) return;     // 건너뛴 질문은 그대로 비워 둡니다
       // 예시 학생이 아직 다 말하지 않은 질문은 예시 답변을 통째로 넣습니다
       if (!window.__guideSpoke[i]) { a.transcript = saidFor(i); window.__guideSpoke[i] = true; }
       if (!a.seconds) { a.seconds = 40 + (i * 17) % 50; totalSeconds += a.seconds + 15; }
@@ -176,6 +177,12 @@
   //   · watch: 누를 것 없이 보여 주기만 하고, 다 보이면 저절로 다음(예시 학생이 말하는 받아 적기)
   // 걸음 하나 = { t: 무엇을 누를지, b: 설명, at: 테두리를 두를 곳, done: 다 됐는가, 위의 셋 중 하나 }
   var EX_Q = '화학 세특의 반응 속도 탐구에서 가장 어려웠던 점은 무엇인가요?';
+  var EX_F = '그 어려움을 어떻게 풀었나요?';    // 준비 화면에서 미리 적는 꼬리 질문 예시
+  function exRow() {
+    var rows = document.querySelectorAll('#q-list .qrow');
+    for (var k = 0; k < rows.length; k++) if (rows[k].querySelector('input').value === EX_Q) return rows[k];
+    return null;
+  }
   var CH = [
     { title: '화면 둘러보기', setup: function () { home(); }, steps: [
       { at: '#rail-tab-other', real: true, t: '«🏫 타학교 면접» 을 눌러 보세요',
@@ -228,6 +235,12 @@
         done: function () { var k = midQuestions.map(function (q) { return q.text; }).indexOf(EX_Q); return k > -1 && k < midQuestions.length - 1; },
         b: '줄마다 <b>▲ ▼</b> 로 한 칸씩 옮깁니다. 첫인사 · 끝인사는 늘 맨 앞 · 맨 뒤입니다.' +
            '<p class="gd-more">면접 도중 «← 질문 고치기» 로 와서 순서를 바꿔도 매긴 평가는 그대로 남습니다.</p>' },
+      // 꼬리 질문 미리 적기 (2026-10-19 더함)
+      { at: function () { var r = exRow(); return r && r.querySelector('.qfadd'); }, real: true, t: '그 질문의 «＋ 꼬리» 를 누르세요',
+        after: function () { var r = exRow(), box = r && r.nextElementSibling; return typeInto(box && box.querySelector('.qfrow input'), EX_F); },
+        done: function () { var q = midQuestions.filter(function (x) { return x.text === EX_Q; })[0]; return !!(q && q.follow && q.follow[0] === EX_F); },
+        b: '질문 밑에 <b>↳ 꼬리 질문</b> 칸이 생깁니다. 면접 화면에서 그 질문 카드 밑에 같이 보이고, <b>시간 · 받아 적기 · 평가는 원래 질문 하나로</b> 갑니다. ' +
+           '<span class="gd-ex">(연습에서는 예시가 적힙니다)</span><p class="gd-more">여러 개 적어도 되고, 필요 없으면 줄 끝의 × 로 뺍니다.</p>' },
       { at: '#btn-save-sheet', real: true, t: '«질문지 저장» 을 누르세요',
         show: { at: '#sheet-note', t: '«미리 만들어 둔 질문지입니다»', b: '면접 날 이 학생을 고르면 이 표시와 함께 질문지가 그대로 뜹니다.' },
         done: sheetSaved,
@@ -275,26 +288,31 @@
         act: function () { return typeInto($('#answer-memo'), '지원 동기가 또렷함. 결론을 먼저 말하면 더 좋겠음.'); },
         done: function () { return !!(cur() && cur().memo === '지원 동기가 또렷함. 결론을 먼저 말하면 더 좋겠음.'); },
         b: '한두 줄 적습니다 — <b>학생 리포트에 그대로 들어갑니다.</b> 안 적어도 됩니다. <span class="gd-ex">(연습에서는 예시가 적힙니다)</span>' },
-      // 꼬리 질문 (2026-10-12 더함)
-      { at: '#btn-follow', real: true, t: '더 묻고 싶으면 «＋ 꼬리 질문»',
+      // 꼬리 질문 (2026-10-12 더함 · 2026-10-19 바뀜 — 새 질문이 아니라 지금 질문 밑의 ↳ 줄, 시간은 그대로)
+      { at: '#btn-follow', real: true, t: '이어서 더 물으면 질문 카드 밑 «＋ 꼬리 질문»',
         done: function () { return !$('#follow-box').hidden; },
-        b: '학생 답을 듣고 이어서 묻고 싶을 때 누릅니다. <b>지금 질문 바로 뒤</b>에 새 질문이 생깁니다.' },
+        b: '학생 답을 듣고 이어서 묻고 싶을 때 누릅니다. <b>새 질문이 아니라</b> 지금 질문 카드 밑에 ↳ 줄로 붙고, 시간은 이 질문에 그대로 갑니다.' +
+           '<p class="gd-more">따로 시간을 재는 <b>새 질문</b>을 넣으려면 맨 아래 «＋ 추가 질문» — 지금 질문 바로 뒤에 들어갑니다.</p>' },
       { at: '#follow-text', t: '꼬리 질문 칸을 누르세요',
         act: function () { return typeInto($('#follow-text'), FOLLOW_Q); },
         done: function () { return $('#follow-text').value === FOLLOW_Q; },
-        b: '한 줄로 적습니다. 바쁘면 안 적고 «넣기» 만 눌러도 «꼬리 질문 (1번에 이어서)» 로 들어갑니다. <span class="gd-ex">(연습에서는 예시가 적힙니다)</span>' },
+        b: '한 줄로 적습니다. 바쁘면 안 적고 말로만 물어도 됩니다 — 시간 · 받아 적기는 이 질문에 그대로 이어집니다. <span class="gd-ex">(연습에서는 예시가 적힙니다)</span>' },
       { at: '#follow-add', real: true, t: '«넣기» 를 누르세요',
-        show: { at: '#progress-list', t: '2번에 꼬리 질문이 들어갔습니다', b: '뒤 질문은 한 칸씩 밀리고, 위 질문 카드도 꼬리 질문으로 바뀌었습니다.' },
-        done: function () { return qIndex === 1 && questions[1] && questions[1].text === FOLLOW_Q; },
-        b: '칸에서 ' + kbd('Enter') + ' 도 됩니다. 앞 질문에 받아 적은 글 · 평가는 그대로 남습니다.' +
-           '<p class="gd-more">잘못 넣었거나 건너뛸 질문은 질문 번호 옆 «이 질문 삭제» 로 지웁니다.</p>' },
-      { at: '#btn-answer', real: true, t: '꼬리 질문을 말하고 «답변 시작»',
-        done: function () { return qIndex >= 1 && answering || on('finish'); },
-        b: '받아 적기 · 평가는 다른 질문과 똑같이 붙습니다. «면접 전체» 는 계속 흐르고, «이 질문 답변» 은 질문마다 새로 잽니다.' +
-           '<p class="gd-more">잠깐 멈출 일이 생기면 «일시정지» → «이어서». 질문을 고치려면 첫 질문의 «← 질문 고치기» — 매긴 평가는 그대로 남습니다.</p>' },
+        show: { at: '#run-follow', t: '질문 카드 밑에 꼬리 질문이 붙었습니다', b: '질문 번호도, «이 질문 답변» 시계도, 받아 적기도 그대로입니다. 리포트에도 이 질문 밑에 ↳ 로 나옵니다.' },
+        done: function () { return qIndex === 0 && cur() && questions[0].follow && questions[0].follow.indexOf(FOLLOW_Q) > -1; },
+        b: '칸에서 ' + kbd('Enter') + ' 한 번이면 됩니다. 잘못 넣었으면 그 줄 끝의 × 로 뺍니다.' +
+           '<p class="gd-more">꼬리 질문은 준비 화면에서 질문마다 «＋ 꼬리» 로 미리 적어 둘 수도 있습니다. </p>' },
       { at: '#btn-next', real: true, t: '«다음 질문 →» 을 누르세요',
-        done: function () { return qIndex >= 2 || on('finish'); },
-        b: '키보드 ' + kbd('→') + ' 도 됩니다. 답변 시계와 받아 적기가 멈추고 다음 질문으로 갑니다.' },
+        done: function () { return qIndex >= 1 || on('finish'); },
+        b: '키보드 ' + kbd('→') + ' 도 됩니다. 답변 시계와 받아 적기가 멈추고 다음 질문으로 갑니다.' +
+           '<p class="gd-more">«면접 전체» 는 계속 흐르고, «이 질문 답변» 은 질문마다 새로 잽니다. 잠깐 멈출 일이 생기면 «일시정지» → «이어서». ' +
+           '질문을 고치려면 첫 질문의 «← 질문 고치기» — 매긴 평가는 그대로 남습니다.</p>' },
+      // 건너뛰기 (2026-10-19 더함 — 예전 «이 질문 삭제» 자리)
+      { at: '#btn-skip', real: true, t: '묻지 않고 넘길 질문이면 «이 질문 건너뛰기»',
+        show: { at: '#progress-list', t: '왼쪽에 «건너뜀» 으로 남았습니다', b: '질문은 지워지지 않습니다. 눌러서 돌아가 «건너뛴 것 되돌리기»(또는 «답변 시작») 하면 다시 물을 수 있습니다.' },
+        done: function () { return !!(answers[1] && answers[1].skipped) && (qIndex >= 2 || on('finish')); },
+        b: '질문지에 써 둔 질문을 시간이 없거나 앞 답에서 이미 나와서 <b>묻지 않을 때</b> 누릅니다. 다음 질문으로 넘어가고, ' +
+           '<b>학생 리포트에는 안 나옵니다.</b><p class="gd-more">아주 지우려면 첫 질문의 «← 질문 고치기» 에서 «삭제».</p>' },
       { at: '#btn-next', t: '남은 질문도 같은 순서 — «다음 질문 →» 을 누르세요',
         act: fastFinish,
         done: function () { return on('finish'); },

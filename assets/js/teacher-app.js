@@ -162,12 +162,42 @@ function renderGreetings() {
 // 이걸 보고 첫인사·가운데·끝인사로 도로 풀어 놓습니다 (decomposeQuestions).
 function composeQuestions() {
   var list = [];
-  if (hasOpening()) list.push({ text: opening.text.trim(), competency: opening.comp, slot: 'opening' });
+  if (hasOpening()) list.push({ text: opening.text.trim(), competency: opening.comp, slot: 'opening', follow: cleanFollow(opening.follow) });
   midQuestions.forEach(function (q) {
-    if (q.text.trim()) list.push({ text: q.text.trim(), competency: q.competency, slot: 'mid' });
+    if (q.text.trim()) list.push({ text: q.text.trim(), competency: q.competency, slot: 'mid', follow: cleanFollow(q.follow) });
   });
-  if (hasClosing()) list.push({ text: closing.text.trim(), competency: '기타', slot: 'closing' });
+  if (hasClosing()) list.push({ text: closing.text.trim(), competency: '기타', slot: 'closing', follow: cleanFollow(closing.follow) });
   return list;
+}
+
+// ── 꼬리 질문 (2026-10-19 선생님 말씀) ──
+// 질문 하나에 딸린 꼬리 질문들. 따로 된 질문이 아니라 원래 질문 밑의 줄이라
+// **시간 · 받아 적기 · 평가는 원래 질문 하나로** 갑니다. 표에는 그 질문 줄의 follow_ups 칸(글자 목록)에 남습니다.
+// 준비 화면에서는 질문마다 «＋ 꼬리» 로 미리 적고, 진행 화면에서는 «＋ 꼬리 질문» 으로 지금 질문 밑에 더합니다.
+// ⚠️ 예전(2026-10-12~)엔 «＋ 꼬리 질문» 이 지금 질문 뒤에 **새 질문**을 끼워 넣어 시간도 따로 쟀습니다.
+//    «꼬리 질문은 원래 질문에서 시간이 그대로 가야 한다» 는 말씀에 바꿨습니다.
+// 빈 줄은 저장할 때 뺍니다.
+// ── 한 번의 Enter 로 마치기 (2026-10-19 선생님 말씀: «엔터 쳐서 마무리가 안 되더라») ──
+// ⚠️ 한글을 치다가 Enter 를 누르면 크롬은 그 Enter 를 «글자 확정» 에만 쓰고(keydown 의 isComposing · 229),
+//    keydown 을 다시 보내지 않습니다. 그래서 예전엔 Enter 를 두 번 눌러야 들어갔습니다.
+//    글자 확정 중의 Enter 는 표시만 해 두었다가 손을 뗄 때(keyup) 마칩니다. onkeydown 과 onkeyup 에 둘 다 겁니다.
+function enterKey(e, done) {
+  if (e.key !== 'Enter') return;
+  var el = e.target;
+  if (e.type === 'keydown') {
+    if (e.isComposing || e.keyCode === 229) { el.__enterLater = true; return; }
+    el.__enterLater = false;
+    e.preventDefault();
+    done(e);
+    return;
+  }
+  if (e.type === 'keyup' && el.__enterLater) { el.__enterLater = false; e.preventDefault(); done(e); }
+}
+// 준비 화면의 질문 · 꼬리 칸 — 글자는 칠 때마다 담기므로 Enter 는 «다 적었다» 로 칸에서 나가기만 합니다
+function enterDone(e) { enterKey(e, function () { e.target.blur(); }); }
+
+function cleanFollow(list) {
+  return (list || []).map(function (t) { return String(t || '').trim(); }).filter(Boolean);
 }
 
 // ⚠️ 표에는 «첫인사/끝인사» 라는 칸이 없습니다 — 질문 글자만 남습니다.
@@ -200,11 +230,12 @@ function decomposeQuestions(list) {
       //    다시 열면 글자는 맞는데 칩은 «자기소개» 가 켜져 있었습니다(2026-10-11 선생님이 발견).
       //    글자와 같은 인사말이 있으면 그 칩을, 글자를 고쳐 둔 것이면 이전 칩을 그대로 둡니다.
       var same = OPENINGS.filter(function (o) { return o.text === q.text; })[0];
-      opening = { on: true, key: same ? same.key : opening.key, text: q.text, comp: q.competency };
+      opening = { on: true, key: same ? same.key : opening.key, text: q.text, comp: q.competency, follow: q.follow || [] };
       return;
     }
-    if (q.slot === 'closing') { closing = { on: true, text: q.text }; return; }
-    midQuestions.push({ text: q.text, competency: q.competency });
+    // 첫인사 · 끝인사에 면접 중 더한 꼬리 질문도 «질문 고치기» 를 다녀와도 남게 같이 들고 있습니다
+    if (q.slot === 'closing') { closing = { on: true, text: q.text, follow: q.follow || [] }; return; }
+    midQuestions.push({ text: q.text, competency: q.competency, follow: (q.follow || []).slice() });
   });
 }
 
@@ -462,15 +493,16 @@ function renderRailProgress() {
   // 시간을 «건드린 질문만» 보여주니 1번에만 00:00 이 뜨고 나머지는 빈 줄이라
   // 고장난 것처럼 보였습니다. 이제 모든 줄에 똑같이 보여줍니다.
   document.getElementById('progress-list').innerHTML = questions.map(function (q, i) {
-    var a = answers[i] || { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {} };
+    var a = answers[i] || { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {}, skipped: false };
     var done = a.seconds > 0 || a.good.length || a.bad.length || a.rating || a.memo ||
                a.transcript || (a.marks && a.marks.length) || Object.keys(a.areas || {}).length;
-    return '<button class="railrow q" aria-current="' + (i === qIndex) + '" onclick="goToQuestion(' + i + ')">' +
+    // 건너뛴 질문은 흐릿하게 «건너뜀» — 누르면 그 질문으로 가서 «건너뛴 것 되돌리기» 할 수 있습니다
+    return '<button class="railrow q' + (a.skipped ? ' skipped' : '') + '" aria-current="' + (i === qIndex) + '" onclick="goToQuestion(' + i + ')">' +
       '<span class="qn">' + (i + 1) + '</span>' +
       '<span class="qt">' + esc(q.text) + '</span>' +
-      '<span class="done' + (done ? '' : ' yet') + '">' +
-        (a.rating ? esc(a.rating) + ' ' : '') + mmss(a.seconds) +
-      '</span>' +
+      (a.skipped
+        ? '<span class="done skip">건너뜀</span>'
+        : '<span class="done' + (done ? '' : ' yet') + '">' + (a.rating ? esc(a.rating) + ' ' : '') + mmss(a.seconds) + '</span>') +
       '</button>';
   }).join('');
 }
@@ -645,12 +677,12 @@ async function resumeInterview(id) {
   talk.onclick = function () { openChatRoom(target.auth_user_id, whoLabel(target)); };
 
   questions = putBackSlots((r.answers || []).map(function (a) {
-    return { text: a.question, competency: a.competency };
+    return { text: a.question, competency: a.competency, follow: a.follow_ups || [] };
   }));
   answers = (r.answers || []).map(function (a) {
     return { seconds: a.seconds || 0, good: a.good_tags || [], bad: a.bad_tags || [],
              rating: a.rating || null, memo: a.memo || '',
-             transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {} };
+             transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {}, skipped: !!a.skipped };
   });
   grades = iv.grades || {};
 
@@ -692,7 +724,8 @@ async function resumeInterview(id) {
 // 표를 새로 만들지 않고 interviews 를 씁니다 — **status 가 '준비중' 인 줄이 질문지**입니다.
 //   · 질문 글자는 이미 interview_answers 에 넣게 되어 있습니다 (점수·시간만 비워 둡니다)
 //   · 학생은 '전달됨' 만 볼 수 있으므로 (RLS) 질문지는 학생에게 안 보입니다
-//   · 「면접 시작」을 누르면 **그 줄이 그대로 '진행중'** 이 됩니다. 새로 만들지 않습니다
+//   · 「면접 시작」을 누르면 **그 줄이 그대로 '진행중'** 이 됩니다. 대신 같은 질문의 «준비중» 줄을 새로 하나 남겨
+//     질문지는 사라지지 않습니다(2026-10-19, copySheetBack — 우리 학교 학생만)
 //   · 지난 면접 목록에서는 빼 둡니다 — 회차가 아니니까요
 //
 // ⚠️ 표에 '준비중' 을 허락해 두어야 합니다 (docs/할-일.md 의 SQL 한 줄).
@@ -727,7 +760,8 @@ function paintSheetNote() {
     document.getElementById('sheet-when').textContent = when
       ? (when.getMonth() + 1) + '월 ' + when.getDate() + '일에 저장' : '';
   }
-  var hasList = !!(target && sheets.length);
+  // 면접 도중 «질문 고치기» 로 왔을 때는 질문지 알약을 가립니다 — 눌러 열면 지금 면접 질문이 질문지로 바뀝니다
+  var hasList = !!(target && sheets.length) && !editingMid;
   var list = document.getElementById('sheet-list');
   if (list) {
     list.hidden = !hasList;
@@ -776,7 +810,7 @@ async function openSheet(id, row) {
   row = row || sheets.filter(function (s) { return s.id === id; })[0];
   if (!row) return;
   const rows = await sb.from('interview_answers')
-    .select('seq, question, competency')
+    .select('seq, question, competency, follow_ups')
     .eq('interview_id', id).order('seq', { ascending: true });
   if (rows.error) { toast('질문지를 불러오지 못했습니다: ' + rows.error.message, 'bad'); return; }
   if (!target || !sheets.some(function (s) { return s.id === id; })) return;   // 그새 다른 학생으로 갔음
@@ -786,7 +820,7 @@ async function openSheet(id, row) {
   sheetSavedAt = row.started_at;
   sheetName = row.sheet_name || '';
   decomposeQuestions(putBackSlots((rows.data || []).map(function (a) {
-    return { text: a.question, competency: a.competency || '기타' };
+    return { text: a.question, competency: a.competency || '기타', follow: a.follow_ups || [] };
   })));
   renderGreetings();
   renderQuestions();
@@ -815,6 +849,20 @@ async function keepSheet(list) {
   if (target.other && !otherCheckName()) return false;
   var nameIn = document.getElementById('sheet-name');
   var wantName = nameIn ? nameIn.value.trim().slice(0, 40) : '';
+  // 이름이 있는 질문지를 열어 둔 채 «질문지 이름» 을 **다른 이름**으로 고치고 저장하면 → 새 질문지로 따로 저장합니다
+  // (2026-10-19 선생님 말씀: 1차 질문지를 열어 «2차» 로 이름만 바꿔 저장했더니 1차 질문지 이름이 바뀌어 버렸다).
+  // 열어 둔 것은 그대로 남습니다. 다른 이름이 이미 있는 질문지 이름이면 그 질문지에 덮어쓸지 묻습니다.
+  // 이름 없이 저장해 둔 질문지(«N월 N일 질문지»)에 처음 이름을 붙이는 것은 그 질문지 이름 붙이기로 둡니다.
+  if (sheetId && wantName && sheetName && wantName !== sheetName && !editingMid) {
+    var same = sheets.filter(function (x) { return x.id !== sheetId && x.sheet_name === wantName; })[0];
+    if (same) {
+      if (!confirm('«' + wantName + '» 질문지가 이미 있습니다. 지금 화면의 질문으로 덮어쓸까요?\n(«' + sheetName + '» 질문지는 그대로 남습니다)')) return false;
+      sheetId = same.id; sheetSavedAt = same.started_at; sheetName = wantName;
+      if (target.other) target.ivId = sheetId;
+    } else {
+      sheetId = null; sheetSavedAt = null; sheetName = '';   // 아래에서 새 줄을 만듭니다
+    }
+  }
   if (!sheetId) {
     var row = {
       school_id: SCHOOL_ID,
@@ -874,7 +922,7 @@ async function keepSheet(list) {
   if (!res.error) {
     var rows = list.map(function (q, i) {
       return { interview_id: sheetId, seq: i + 1,
-               competency: q.competency, question: q.text,
+               competency: q.competency, question: q.text, follow_ups: cleanFollow(q.follow),
                seconds: 0, good_tags: [], bad_tags: [], memo: '' };
     });
     res = await sb.from('interview_answers').insert(rows);
@@ -892,9 +940,11 @@ async function saveSheet() {
 
   var btn = document.getElementById('btn-save-sheet');
   btn.disabled = true; btn.textContent = '저장하는 중...';
+  var before = sheets.length;
   var ok = await keepSheet(list);
   btn.disabled = false; btn.textContent = '질문지 저장';
-  if (ok) toast('질문지' + (sheetName ? ' «' + sheetName + '»' : '') + ' 를 저장했습니다. 면접 날 이 학생을 고르면 그대로 뜹니다.');
+  if (ok && before && sheets.length > before) toast('새 질문지' + (sheetName ? ' «' + sheetName + '»' : '') + ' 로 따로 저장했습니다. 전에 저장한 질문지도 그대로 있습니다.', 'ok');
+  else if (ok) toast('질문지' + (sheetName ? ' «' + sheetName + '»' : '') + ' 를 저장했습니다. 면접 날 이 학생을 고르면 그대로 뜹니다.');
 }
 
 // 저장해 둔 질문지를 버립니다 — 알약의 × (어느 것이든) 또는 열어 둔 것.
@@ -1125,6 +1175,35 @@ function moveQuestion(i, d) {
   }
 }
 function setQText(i, v) { midQuestions[i].text = v; renderGreetings(); }
+
+// 준비 화면 — 질문 밑의 꼬리 질문 줄들(.qfrow). 질문 줄(.qrow) 밖에 두어서, «.qrow input» 을 집는 곳(따라 하기 · 시험)이 헷갈리지 않게 했습니다.
+function prepFollowHTML(q, i) {
+  var list = q.follow || [];
+  if (!list.length) return '';
+  return '<div class="qfollows">' + list.map(function (t, j) {
+    return '<div class="qfrow"><span class="qfarrow" aria-hidden="true">↳</span>' +
+      '<input type="text" value="' + esc(t) + '" placeholder="꼬리 질문을 적으세요" maxlength="300"' +
+      ' oninput="setPrepFollow(' + i + ', ' + j + ', this.value)" onkeydown="enterDone(event)" onkeyup="enterDone(event)">' +
+      '<button class="linkbtn danger" onclick="removePrepFollow(' + i + ', ' + j + ')" title="이 꼬리 질문 빼기">×</button></div>';
+  }).join('') + '</div>';
+}
+function addPrepFollow(i) {
+  var q = midQuestions[i];
+  if (!q) return;
+  q.follow = (q.follow || []).concat(['']);
+  renderQuestions();
+  // 방금 생긴 빈 칸에 바로 글자를 치게
+  var rows = document.querySelectorAll('#q-list .qrow');
+  var box = rows[i] && rows[i].nextElementSibling;
+  var ins = box && box.classList.contains('qfollows') ? box.querySelectorAll('input') : [];
+  if (ins.length) ins[ins.length - 1].focus();
+}
+function setPrepFollow(i, j, v) { if (midQuestions[i] && midQuestions[i].follow) midQuestions[i].follow[j] = v; }
+function removePrepFollow(i, j) {
+  if (!midQuestions[i] || !midQuestions[i].follow) return;
+  midQuestions[i].follow.splice(j, 1);
+  renderQuestions();
+}
 function setQComp(i, v) { midQuestions[i].competency = v; }
 
 function renderQuestions() {
@@ -1138,7 +1217,7 @@ function renderQuestions() {
       return '<div class="qrow">' +
         '<span class="qno">' + (base + i + 1) + '</span>' +
         '<input type="text" value="' + esc(q.text) + '" placeholder="질문을 적으세요"' +
-        ' oninput="setQText(' + i + ', this.value)">' +
+        ' oninput="setQText(' + i + ', this.value)" onkeydown="enterDone(event)" onkeyup="enterDone(event)">' +
         '<select onchange="setQComp(' + i + ', this.value)">' +
           COMPETENCIES.map(function (c) {
             return '<option value="' + c + '"' + (c === q.competency ? ' selected' : '') + '>' + c + '</option>';
@@ -1148,8 +1227,10 @@ function renderQuestions() {
           '<button class="qmove" data-d="-1" onclick="moveQuestion(' + i + ', -1)" title="위로"' + (i === 0 ? ' disabled' : '') + '>▲</button>' +
           '<button class="qmove" data-d="1" onclick="moveQuestion(' + i + ', 1)" title="아래로"' + (i === midQuestions.length - 1 ? ' disabled' : '') + '>▼</button>' +
         '</span>' +
+        '<button class="linkbtn qfadd" onclick="addPrepFollow(' + i + ')" title="이 질문에 딸린 꼬리 질문 — 시간은 이 질문으로 잽니다">＋ 꼬리</button>' +
         '<button class="linkbtn danger" onclick="removeQuestion(' + i + ')">삭제</button>' +
-        '</div>';
+        '</div>' +
+        prepFollowHTML(q, i);
     }).join('');
   }
   renderGreetings();
@@ -1366,6 +1447,7 @@ async function editQuestions() {
   renderQuestions();
   setupGoTab('prep');
   show('setup');
+  paintSheetNote();   // 면접 도중엔 질문지 알약을 가립니다
 }
 
 function paintStartButton() {
@@ -1413,7 +1495,7 @@ async function startInterview() {
   interviewId = sheetId;     // 이 줄에 답을 적어 갑니다 (아직 '준비중' 입니다)
   qIndex = 0;
   answers = questions.map(function () {
-    return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {} };
+    return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {}, skipped: false };
   });
   grades = {};
   liveInterview = true;
@@ -1438,9 +1520,38 @@ async function markInterviewStarted() {
   const { error } = await sb.from('interviews').update(patch).eq('id', interviewId);
   if (error) { toast('면접을 시작하지 못했습니다: ' + error.message, 'bad'); return; }
   sheets = sheets.filter(function (s) { return s.id !== interviewId; });   // 이 줄은 이제 면접 — 다른 질문지는 남습니다
+  var keepName = sheetName, keepAt = sheetSavedAt;
   sheetId = null;            // 이제 질문지가 아니라 면접입니다
   sheetSavedAt = null; sheetName = '';
+  if (target && !target.other) await copySheetBack(keepName, keepAt);
   paintSheetNote();
+}
+
+// 면접을 시작해도 질문지는 남게 — 같은 질문 · 같은 이름의 «준비중» 줄을 하나 새로 만들어 둡니다 (2026-10-19 선생님 말씀:
+// «질문지 저장해 두고 면접하면 질문지가 사라지던데»). 지금 줄은 그대로 면접이 되고(이미 적은 것 · 녹음 · 받아 적기 그대로),
+// 새 줄이 질문지 자리를 이어받습니다. 다음에 이 학생을 고르면 질문지 알약에 그대로 있어 2차 면접 등에 다시 씁니다.
+// 질문은 지금 화면의 질문(면접 전에 «질문 고치기» 로 고친 것까지 · 꼬리 질문 포함)으로, 시간 · 평가 · 건너뜀은 비웁니다.
+// 타학교 학생은 줄 하나가 «학생 + 질문지» 라 복사하면 왼쪽 목록에 같은 학생이 «준비중» 으로 또 생기므로 하지 않습니다.
+// 서버 요청 2번(줄 하나 + 질문 줄들). 못 만들어도 면접은 그대로 이어집니다.
+async function copySheetBack(name, savedAt) {
+  var row = { school_id: SCHOOL_ID, student_id: target.id, teacher_id: me.id, teacher_name: me.name || '',
+              status: '준비중', sheet_name: name || '' };
+  if (savedAt) row.started_at = savedAt;    // 알약 단추의 «N월 N일 질문지» 가 처음 만든 날로 보이게
+  const ins = await sb.from('interviews').insert(row).select('id, started_at').single();
+  if (ins.error) { toast('질문지를 남겨 두지 못했습니다(면접은 그대로 됩니다): ' + ins.error.message, 'bad'); return; }
+  var rows = questions.map(function (q, i) {
+    return { interview_id: ins.data.id, seq: i + 1, competency: q.competency, question: q.text,
+             follow_ups: cleanFollow(q.follow), seconds: 0, good_tags: [], bad_tags: [], memo: '' };
+  });
+  if (rows.length) {
+    const qs = await sb.from('interview_answers').insert(rows);
+    if (qs.error) {
+      await sb.from('interviews').delete().eq('id', ins.data.id);   // 질문 없는 빈 질문지가 남지 않게
+      toast('질문지를 남겨 두지 못했습니다(면접은 그대로 됩니다): ' + qs.error.message, 'bad');
+      return;
+    }
+  }
+  sheets.unshift({ id: ins.data.id, started_at: ins.data.started_at, sheet_name: row.sheet_name });
 }
 
 // 질문을 고친 뒤 하던 면접으로 돌아갑니다.
@@ -1463,7 +1574,7 @@ async function resumeWithQuestions(list) {
       used[i] = true;
       return oldA[i];
     }
-    return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {} };
+    return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {}, skipped: false };
   });
   questions = list;
   if (qIndex >= questions.length) qIndex = questions.length - 1;
@@ -1490,10 +1601,10 @@ async function rewriteAnswers() {
     var a = answers[i];
     return {
       interview_id: interviewId, seq: i + 1,
-      competency: q.competency, question: q.text,
+      competency: q.competency, question: q.text, follow_ups: cleanFollow(q.follow),
       seconds: a.seconds, good_tags: a.good, bad_tags: a.bad,
       rating: a.rating, memo: a.memo || '',
-      transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {}
+      transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {}, skipped: !!a.skipped
     };
   });
   if (!rows.length) return true;
@@ -1535,6 +1646,8 @@ function toggleAnswer() {
   if (answering) { answering = false; paintTimerButton(); return; }
   if (!ticking) toggleTimer();
   if (!ticking) return;          // 지난 회차(liveInterview 아님)에서는 시계가 안 켜집니다
+  // 건너뛰었던 질문으로 돌아와 «답변 시작» 하면 다시 묻는 것이니 건너뜀을 풉니다
+  if (answers[qIndex] && answers[qIndex].skipped) { answers[qIndex].skipped = false; paintSkip(); renderRailProgress(); }
   answering = true;
   paintTimerButton();
 }
@@ -1584,6 +1697,7 @@ function showQuestion() {
   document.getElementById('run-step').textContent = (qIndex + 1) + ' / ' + questions.length;
   document.getElementById('run-comp').textContent = q.competency;
   document.getElementById('run-question').textContent = q.text;
+  paintRunFollow();
 
   // 면접 전체 시계는 그대로 둡니다. 질문을 넘겼다고 면접이 멈추는 건 아니니까요.
   // 「이 질문 답변」은 새 질문의 시간으로 갈아 끼우고 **멈춘 채** 둡니다 — 선생님이 질문을 읽고 «답변 시작» 을 누르면 흐릅니다.
@@ -1597,13 +1711,13 @@ function showQuestion() {
   prev.textContent = (qIndex === 0) ? '← 질문 고치기' : '← 이전';
   document.getElementById('btn-next').textContent =
     (qIndex === questions.length - 1) ? '면접 마무리 →' : '다음 질문 →';
-  // 꼬리 질문은 오늘 하는 면접에서만(지난 회차를 열어 고칠 때는 없음)
-  var fb = document.getElementById('btn-follow');
-  if (fb) fb.hidden = !liveInterview;
-  var dq = document.getElementById('btn-delq');
-  if (dq) dq.hidden = !liveInterview || questions.length <= 1;
-  var fbox = document.getElementById('follow-box');
-  if (fbox && !liveInterview) fbox.hidden = true;
+  // 꼬리 질문 · 추가 질문은 오늘 하는 면접에서만(지난 회차를 열어 고칠 때는 없음). 질문을 넘기면 열린 칸은 닫습니다
+  toggleFollow(false);
+  var xb = document.getElementById('btn-extra');
+  if (xb) xb.hidden = !liveInterview;
+  var xbox = document.getElementById('extra-box');
+  if (xbox && !liveInterview) xbox.hidden = true;
+  paintSkip();
 
   renderRating();
   renderAreas('area-grid', qIndex);
@@ -1779,6 +1893,7 @@ async function saveAnswer(i) {
     seq: i + 1,
     competency: q.competency,
     question: q.text,
+    follow_ups: cleanFollow(q.follow),  // 꼬리 질문 — 시간 · 평가는 이 질문 하나로
     seconds: a.seconds,
     good_tags: a.good,
     bad_tags: a.bad,
@@ -1786,7 +1901,8 @@ async function saveAnswer(i) {
     memo: a.memo || '',
     transcript: a.transcript || '',   // 받아 적은 학생 답변 (listen.js)
     marks: a.marks || [],             // 들으면서 찍은 👍👎 — [{ t: 몇 초째, k: 'good'|'bad' }]
-    areas: a.areas || {}              // 영역별 좋음·보통·아쉬움 — { 내용: '좋음', … }
+    areas: a.areas || {},             // 영역별 좋음·보통·아쉬움 — { 내용: '좋음', … }
+    skipped: !!a.skipped              // 건너뛴 질문 — 리포트에 안 나옴
   }, { onConflict: 'interview_id,seq' });
   if (error) toast('이 질문을 저장하지 못했습니다: ' + error.message, 'bad');
 }
@@ -1823,65 +1939,147 @@ async function prevQuestion() {
   scrollToQuestion();
 }
 
-// ══════════════ 꼬리 질문 — 면접 도중에 질문 더하기 ══════════════
+// ══════════════ 꼬리 질문 · 추가 질문 — 면접 도중에 질문 더하기 ══════════════
 //
-// 2026-10-12 선생님 말씀: 면접 중에 추가 질문을 하는 경우가 있다.
-// 진행 화면의 «＋ 꼬리 질문» → 한 줄 칸 → «넣기»(Enter) 하면 **지금 질문 바로 뒤**에 새 질문이 생기고 그리로 넘어갑니다.
-// 질문을 말로 하고 «답변 시작» 을 누르면 받아 적기 · 평가가 다른 질문과 똑같이 붙습니다.
-// 글자를 안 적고 «넣기» 하면 «꼬리 질문 (N번에 이어서)» 로 들어갑니다 — 면접 중엔 타자 칠 틈이 없을 수 있어서.
-// 질문 번호가 뒤로 한 칸씩 밀리므로 표의 줄을 통째로 다시 씁니다(rewriteAnswers — «질문 고치기» 와 같은 길).
+// 2026-10-12 선생님 말씀: 면접 중에 추가 질문을 하는 경우가 있다 → 처음엔 «＋ 꼬리 질문» 하나로 지금 질문 뒤에 새 질문을 끼웠습니다.
+// 2026-10-19 둘로 나눴습니다(선생님 말씀 두 번):
+//   · **꼬리 질문** — 질문 카드 밑 ↳ 칸의 «＋ 꼬리 질문». 지금 질문에 딸린 줄이라 질문 번호 · «이 질문 답변» 시계 · 받아 적기가 그대로입니다.
+//     (받아 적기를 멈추지 않으려고 저장도 꼬리 질문 칸만 따로 씁니다 — saveFollowUps) 글자 없이 «넣기» 하면 아무것도 안 넣습니다.
+//   · **추가 질문** — 맨 아래 «＋ 추가 질문». 지금 질문 바로 뒤에 **새 질문**이 생기고 그리로 넘어갑니다(시간 · 받아 적기 · 평가 따로).
+//     글자를 안 적고 «넣기» 하면 «추가 질문 (N번에 이어서)» 로 들어갑니다 — 면접 중엔 타자 칠 틈이 없을 수 있어서.
+//     질문 번호가 뒤로 한 칸씩 밀리므로 표의 줄을 통째로 다시 씁니다(rewriteAnswers — «질문 고치기» 와 같은 길).
 function emptyAnswer() {
-  return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {} };
+  return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {}, skipped: false };
 }
 function toggleFollow(open) {
   var box = document.getElementById('follow-box');
   box.hidden = open === undefined ? !box.hidden : !open;
+  var btn = document.getElementById('btn-follow');
+  if (btn) btn.hidden = !box.hidden;          // 칸이 열리면 단추 자리에 칸이 들어섭니다
   if (!box.hidden) document.getElementById('follow-text').focus();
 }
 function followKey(e) {
   if (e.key === 'Escape') { toggleFollow(false); return; }
-  if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;   // 한글 입력 중 Enter 는 글자 확정
-  e.preventDefault();
-  addFollowUp();
+  enterKey(e, addFollowUp);
 }
-async function addFollowUp() {
+function toggleExtra(open) {
+  var box = document.getElementById('extra-box');
+  box.hidden = open === undefined ? !box.hidden : !open;
+  if (!box.hidden) document.getElementById('extra-text').focus();
+}
+function extraKey(e) {
+  if (e.key === 'Escape') { toggleExtra(false); return; }
+  enterKey(e, addExtraQuestion);
+}
+async function addExtraQuestion() {
   if (!liveInterview || !questions.length) return;
-  var input = document.getElementById('follow-text');
-  var btn = document.getElementById('follow-add');
+  var input = document.getElementById('extra-text');
+  var btn = document.getElementById('extra-add');
   var at = qIndex + 1;
-  var text = input.value.trim() || '꼬리 질문 (' + (qIndex + 1) + '번에 이어서)';
+  var text = input.value.trim() || '추가 질문 (' + (qIndex + 1) + '번에 이어서)';
   btn.disabled = true;
   await saveAnswer(qIndex);        // 지금 질문에 받아 적던 글 · 평가부터 남깁니다
-  questions.splice(at, 0, { text: text, competency: questions[qIndex].competency, slot: 'mid' });
+  questions.splice(at, 0, { text: text, competency: questions[qIndex].competency, slot: 'mid', follow: [] });
   answers.splice(at, 0, emptyAnswer());
   var ok = await rewriteAnswers();
   btn.disabled = false;
   if (!ok) { questions.splice(at, 1); answers.splice(at, 1); return; }   // 저장이 안 되면 넣지 않은 것으로
   input.value = '';
-  toggleFollow(false);
+  toggleExtra(false);
   qIndex = at;
   showQuestion();
   scrollToQuestion();
-  toast('꼬리 질문을 ' + (at + 1) + '번에 넣었습니다. 질문하고 «답변 시작» 을 누르세요.', 'ok');
+  toast('추가 질문을 ' + (at + 1) + '번에 넣었습니다. 질문하고 «답변 시작» 을 누르세요.', 'ok');
+}
+// 진행 화면 질문 카드 밑의 ↳ 줄들. 오늘 하는 면접이면 줄마다 × 로 뺄 수 있습니다.
+function paintRunFollow() {
+  var box = document.getElementById('run-follow');
+  var listBox = document.getElementById('run-follow-list');
+  if (!box || !listBox) return;
+  var q = questions[qIndex];
+  var list = (q && q.follow) || [];
+  // 오늘 하는 면접이면 꼬리 질문이 없어도 «＋ 꼬리 질문» 단추가 보이게 칸을 둡니다. 지난 회차는 꼬리 질문이 있을 때만
+  box.hidden = !liveInterview && !list.length;
+  var add = document.getElementById('run-follow-add');
+  if (add) add.hidden = !liveInterview;
+  listBox.innerHTML = list.map(function (t, j) {
+    return '<div class="runfrow"><span class="qfarrow" aria-hidden="true">↳</span><span class="t">' + esc(t) + '</span>' +
+      (liveInterview ? '<button class="linkbtn danger" onclick="removeFollowUp(' + j + ')" title="이 꼬리 질문 빼기">×</button>' : '') +
+      '</div>';
+  }).join('');
+}
+// 꼬리 질문 칸만 서버에 씁니다. saveAnswer 를 부르면 받아 적기를 잠깐 멈췄다 다시 켜서(listenCut) 학생 말이 끊길 수 있습니다.
+// 줄이 아직 없거나 못 썼어도 다음에 질문을 넘길 때 saveAnswer 가 같이 저장합니다.
+async function saveFollowUps(i) {
+  if (!interviewId || !questions[i]) return;
+  const { error } = await sb.from('interview_answers').update({ follow_ups: cleanFollow(questions[i].follow) })
+    .eq('interview_id', interviewId).eq('seq', i + 1);
+  if (error) toast('꼬리 질문을 저장하지 못했습니다(질문을 넘길 때 다시 저장합니다): ' + error.message, 'bad');
+}
+async function addFollowUp() {
+  if (!liveInterview || !questions.length) return;
+  var input = document.getElementById('follow-text');
+  var text = input.value.trim();
+  toggleFollow(false);
+  if (!text) { toast('적은 글이 없어 넣지 않았습니다. 꼬리 질문은 말로 바로 하셔도 시간 · 받아 적기가 이 질문에 그대로 이어집니다.', 'ok'); return; }
+  var q = questions[qIndex];
+  q.follow = cleanFollow(q.follow).concat([text]);
+  input.value = '';
+  paintRunFollow();
+  await saveFollowUps(qIndex);
+  toast('꼬리 질문을 ' + (qIndex + 1) + '번 질문 밑에 적었습니다. 시간은 이 질문에 그대로 이어집니다.', 'ok');
+}
+async function removeFollowUp(j) {
+  if (!liveInterview) return;
+  var q = questions[qIndex];
+  if (!q || !q.follow || !q.follow[j]) return;
+  q.follow.splice(j, 1);
+  paintRunFollow();
+  await saveFollowUps(qIndex);
 }
 
-// 면접 도중 지금 질문 삭제 (2026-10-12 선생님 말씀: 넣은 질문을 지울 수도 있으면 좋겠다. 이름은 «빼기» 였다가 «삭제» 로 — 2026-10-13 선생님 말씀).
-// 잘못 넣은 꼬리 질문 · 시간이 없어 건너뛸 질문을 그 자리에서 뺍니다. 받아 적은 글이나 평가가 있으면 같이 지워진다고 한 번 묻습니다.
-// 번호가 당겨지니 표의 줄을 통째로 다시 씁니다(rewriteAnswers). 질문이 하나뿐이면 못 뺍니다(진행 화면에 보여 줄 것이 없어짐)
-async function removeCurrentQuestion() {
-  if (!liveInterview || questions.length <= 1) return;
-  var q = questions[qIndex], a = answers[qIndex];
-  var has = a.seconds > 0 || a.transcript || a.rating || a.memo || a.good.length || a.bad.length || Object.keys(a.areas || {}).length;
-  if (!confirm('«' + q.text + '» — 이 질문을 삭제할까요?' + (has ? '\n\n이 질문에 받아 적은 글 · 평가도 같이 지워집니다.' : ''))) return;
-  if (answering) { answering = false; paintTimerButton(); }   // 이 질문 받아 적기부터 멈춥니다
-  var at = qIndex;
-  var gone = { q: questions.splice(at, 1)[0], a: answers.splice(at, 1)[0] };
-  var ok = await rewriteAnswers();
-  if (!ok) { questions.splice(at, 0, gone.q); answers.splice(at, 0, gone.a); showQuestion(); return; }
-  if (qIndex >= questions.length) qIndex = questions.length - 1;   // 마지막 질문을 뺐으면 그 앞 질문으로
+// ══════════════ 질문 건너뛰기 (2026-10-19 선생님 말씀) ══════════════
+//
+// «질문지에 다 써 놓는데, 면접 중에 패스하고 싶을 때가 있다.» → 진행 화면 질문 번호 옆 «이 질문 건너뛰기».
+// 누르면 그 질문에 «건너뜀» 표시를 하고 다음 질문으로 갑니다(마지막이면 마무리). 질문은 지우지 않습니다 —
+// 왼쪽 진행 상황에 흐릿하게 «건너뜀» 으로 남고, 눌러서 돌아가 «건너뛴 것 되돌리기»(또는 «답변 시작»)로 되살립니다.
+// 학생 리포트 · 타학교 QR 평가서 · 인쇄에는 안 나옵니다(report.js 의 reportHTML, 서버 함수 other_report).
+// ⚠️ 예전(2026-10-12~)엔 이 자리에 «이 질문 삭제» 가 있었습니다(그땐 꼬리 질문이 새 질문이라 잘못 넣은 것을 지울 일이 있었음).
+//    선생님이 «삭제 대신 건너뛰기» 를 고르셔서 바꿨습니다. 아주 없애려면 첫 질문의 «← 질문 고치기» 에서 «삭제».
+function paintSkip() {
+  var b = document.getElementById('btn-skip');
+  var a = answers[qIndex];
+  if (!b || !a) return;
+  b.hidden = !liveInterview;
+  b.textContent = a.skipped ? '건너뛴 것 되돌리기' : '이 질문 건너뛰기';
+  b.classList.toggle('on', !!a.skipped);
+  var card = document.getElementById('run-question');
+  if (card) card.classList.toggle('skipped', !!a.skipped);
+  var note = document.getElementById('run-skipnote');
+  if (note) note.hidden = !a.skipped;
+}
+async function toggleSkip() {
+  if (!liveInterview || !answers[qIndex]) return;
+  var a = answers[qIndex];
+  if (a.skipped) {             // 되돌리기 — 이 질문에 그대로 머뭅니다
+    a.skipped = false;
+    paintSkip(); renderRailProgress();
+    await saveAnswer(qIndex);
+    toast((qIndex + 1) + '번 질문을 되살렸습니다. 리포트에도 다시 나옵니다.', 'ok');
+    return;
+  }
+  if (answering) { answering = false; paintTimerButton(); }   // 이 질문 답변 시계 · 받아 적기부터 멈춥니다
+  a.skipped = true;
+  var btn = document.getElementById('btn-skip');
+  if (btn) btn.disabled = true;
+  await saveAnswer(qIndex);
+  if (btn) btn.disabled = false;
+  var n = qIndex + 1;
+  if (qIndex === questions.length - 1) { openFinish(); toast(n + '번 질문을 건너뛰었습니다.', 'ok'); return; }
+  qIndex++;
   showQuestion();
   scrollToQuestion();
-  toast('질문을 삭제했습니다. 지금은 ' + (qIndex + 1) + '번입니다.', 'ok');
+  toast(n + '번 질문을 건너뛰었습니다. 학생 리포트에는 안 나옵니다 — 왼쪽에서 눌러 되돌릴 수 있습니다.', 'ok');
 }
 
 async function nextQuestion() {
@@ -1916,7 +2114,7 @@ function openFinish() {
 function renderAnswerSummary() {
   document.getElementById('answer-summary').innerHTML =
     '<div class="rp-answers">' + questions.map(function (q, i) {
-      return '<div class="ansrow edit" id="ansrow-' + i + '">' + answerRowHTML(i) + '</div>';
+      return '<div class="ansrow edit' + (answers[i].skipped ? ' skipped' : '') + '" id="ansrow-' + i + '">' + answerRowHTML(i) + '</div>';
     }).join('') + '</div>';
 }
 
@@ -1927,11 +2125,21 @@ function repaintAnswerRow(i) {
 
 function answerRowHTML(i) {
   var q = questions[i], a = answers[i];
+  // 건너뛴 질문은 한 줄만 — 평가 칸 없이 «되돌리기» 단추. 학생 리포트에는 안 나옵니다
+  if (a.skipped) {
+    return '<div class="anshead">' +
+        '<span class="qno">' + (i + 1) + '</span>' +
+        '<span class="qt">' + esc(q.text) + '</span>' +
+        '<span class="pill skip">건너뜀 · 리포트에 안 나옴</span>' +
+        '<button class="linkbtn" onclick="unskipAt(' + i + ')">되돌리기</button>' +
+      '</div>';
+  }
   return '<div class="anshead">' +
       '<span class="qno">' + (i + 1) + '</span>' +
       '<span class="qt">' + esc(q.text) + '</span>' +
       '<span class="secs">' + mmss(a.seconds) + '</span>' +
     '</div>' +
+    followLinesHTML(q.follow) +
     (q.competency && q.competency !== '기타'
       ? '<div class="anscomp">' + esc(q.competency) + ' 질문</div>' : '') +
     // 학생이 말한 내용 — 받아 적은 것이 없으면 그 자리만 비워 둡니다
@@ -1953,6 +2161,16 @@ function answerRowHTML(i) {
     '</div>';
 }
 
+// 마무리 화면에서 건너뛴 질문 되돌리기 — 평가 칸이 다시 열립니다(저장은 «리포트 보기» 때 한꺼번에)
+function unskipAt(i) {
+  if (!answers[i]) return;
+  answers[i].skipped = false;
+  var row = document.getElementById('ansrow-' + i);
+  if (row) row.classList.remove('skipped');
+  repaintAnswerRow(i);
+  renderRailProgress();
+}
+
 function pickRatingAt(i, r) {
   answers[i].rating = (answers[i].rating === r) ? null : r;   // 다시 누르면 지움
   repaintAnswerRow(i);
@@ -1968,10 +2186,10 @@ async function saveAllAnswers() {
     var a = answers[i];
     return {
       interview_id: interviewId, seq: i + 1,
-      competency: q.competency, question: q.text,
+      competency: q.competency, question: q.text, follow_ups: cleanFollow(q.follow),
       seconds: a.seconds, good_tags: a.good, bad_tags: a.bad,
       rating: a.rating, memo: a.memo || '',
-      transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {}
+      transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {}, skipped: !!a.skipped
     };
   });
   const { error } = await sb.from('interview_answers').upsert(rows, { onConflict: 'interview_id,seq' });
@@ -2045,7 +2263,13 @@ async function finishInterview() {
   btn.disabled = false;
   btn.textContent = label;
   // 마무리했으면 더는 «질문지» 가 아닙니다.
-  if (!error) { sheets = sheets.filter(function (s) { return s.id !== interviewId; }); sheetId = null; sheetSavedAt = null; sheetName = ''; paintSheetNote(); }
+  if (!error && sheetId) {
+    // 시계를 안 누르고 곧장 마무리했어도 질문지는 남깁니다(copySheetBack — 우리 학교 학생만)
+    var keepName = sheetName, keepAt = sheetSavedAt;
+    sheets = sheets.filter(function (s) { return s.id !== interviewId; }); sheetId = null; sheetSavedAt = null; sheetName = '';
+    if (target && !target.other) await copySheetBack(keepName, keepAt);
+    paintSheetNote();
+  }
 
   if (error) { toast('저장하지 못했습니다: ' + error.message, 'bad'); return; }
   liveInterview = false;   // 시간은 여기서 멈춥니다. 뒤에 고쳐도 더 흐르지 않습니다
@@ -2174,12 +2398,12 @@ async function openPast(id, round) {
   interviewId = id;
   viewing = { interview: r.interview, answers: r.answers, round: round };
   questions = putBackSlots(r.answers.map(function (a) {
-    return { text: a.question, competency: a.competency };
+    return { text: a.question, competency: a.competency, follow: a.follow_ups || [] };
   }));
   answers = r.answers.map(function (a) {
     return { seconds: a.seconds || 0, good: a.good_tags || [], bad: a.bad_tags || [],
              rating: a.rating || null, memo: a.memo || '',
-             transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {} };
+             transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {}, skipped: !!a.skipped };
   });
   grades = r.interview.grades || {};
   totalSeconds = r.interview.total_seconds || 0;

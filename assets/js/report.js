@@ -76,6 +76,8 @@ function areasLine(areas) {
 // who   : '30101 고다윤' 처럼 머리에 적을 이름 (학생 앱에서는 비워도 됩니다)
 // round : 몇 회차인지 (모르면 비웁니다)
 function reportHTML(iv, answers, who, round) {
+  // 면접 중에 건너뛴 질문은 학생에게 안 보입니다(2026-10-19) — 번호도 이어서 다시 매깁니다
+  answers = (answers || []).filter(function (a) { return !a.skipped; });
   var g = iv.grades || {};
   var spoken = (answers || []).reduce(function (n, a) { return n + (a.seconds || 0); }, 0);
 
@@ -120,11 +122,12 @@ function reportHTML(iv, answers, who, round) {
       var good = a.good_tags || [], bad = a.bad_tags || [];
       return '<div class="ansrow">' +
         '<div class="anshead">' +
-          '<span class="qno">' + (a.seq || i + 1) + '</span>' +
+          '<span class="qno">' + (i + 1) + '</span>' +
           '<span class="qt">' + esc(a.question) + '</span>' +
           (a.rating ? '<span class="pill rate">' + esc(a.rating) + '</span>' : '') +
           '<span class="secs">' + mmss(a.seconds) + '</span>' +
         '</div>' +
+        followLinesHTML(a.follow_ups) +
         (a.competency && a.competency !== '기타'
           ? '<div class="anscomp">' + esc(a.competency) + ' 질문</div>' : '') +
         saidBlock(a.transcript) +
@@ -140,6 +143,16 @@ function reportHTML(iv, answers, who, round) {
     }).join('') + '</div>';
 
   return head + list + sheet + note;
+}
+
+// 꼬리 질문 줄들 — 그 질문 밑에 ↳ 로. 시간 · 평가는 원래 질문 하나로 갑니다(2026-10-19).
+// 리포트(학생 · 선생님 · 타학교 QR 평가서)와 선생님 마무리 화면이 같이 씁니다.
+function followLinesHTML(list) {
+  list = (list || []).filter(function (t) { return String(t || '').trim(); });
+  if (!list.length) return '';
+  return '<div class="ansfollow">' + list.map(function (t) {
+    return '<p><span class="qfarrow" aria-hidden="true">↳</span>' + esc(t) + '</p>';
+  }).join('') + '</div>';
 }
 
 // ── 인쇄 · PDF ──

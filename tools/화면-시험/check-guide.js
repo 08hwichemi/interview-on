@@ -123,12 +123,23 @@ async function 걸음(p, 글, 테두리도) {
   await 걸음(p, '순서를 바꿔');
   확인('  «학업역량» 이 골라졌는가', await p.evaluate(() => midQuestions[midQuestions.length - 1].competency === '학업역량'));
   await p.click('#q-list .qrow:last-child .qmove[data-d="-1"]');
-  await 걸음(p, '«질문지 저장»');
+  await 걸음(p, '«＋ 꼬리»');
   확인('  예시 질문이 한 칸 위로', await p.evaluate(() => midQuestions[midQuestions.length - 2].text.indexOf('반응 속도') > -1));
+  await p.evaluate(() => { const r = [...document.querySelectorAll('#q-list .qrow')].find(x => x.querySelector('input').value.indexOf('반응 속도') > -1); r.querySelector('.qfadd').setAttribute('data-test', 'ex'); });
+  await p.click('#q-list .qfadd[data-test="ex"]');
+  await 걸음(p, '«질문지 저장»');
+  확인('  꼬리 질문 예시가 그 질문 밑 ↳ 칸에 저절로', await p.evaluate(() => {
+    const q = midQuestions.find(x => x.text.indexOf('반응 속도') > -1);
+    const r = [...document.querySelectorAll('#q-list .qrow')].find(x => x.querySelector('input').value.indexOf('반응 속도') > -1);
+    return q.follow[0] === '그 어려움을 어떻게 풀었나요?' && r.nextElementSibling.classList.contains('qfollows') &&
+           r.nextElementSibling.querySelector('input').value === '그 어려움을 어떻게 풀었나요?';
+  }));
   await p.click('#btn-save-sheet');
   await 걸음(p, '1장', false);
-  확인('  가짜 서버에 질문지가 저장됐는가(질문 6개)', await p.evaluate(() =>
-    window.__guideDB.interview_answers.filter(a => a.interview_id === sheetId).length === 6));
+  확인('  가짜 서버에 질문지가 저장됐는가(질문 6개 · 꼬리 질문까지)', await p.evaluate(() => {
+    const rows = window.__guideDB.interview_answers.filter(a => a.interview_id === sheetId);
+    return rows.length === 6 && rows.some(a => (a.follow_ups || [])[0] === '그 어려움을 어떻게 풀었나요?');
+  }));
 
   console.log('\n── 2. 면접 진행 · 받아 적기 — 마이크 없이 예시 답변 ──');
   await 걸음(p, '면접 화면으로 →» 를');
@@ -168,21 +179,25 @@ async function 걸음(p, 글, 테두리도) {
   await 걸음(p, '꼬리 질문 칸');
   await p.click('#follow-text');
   await 걸음(p, '«넣기»');
+  const 질문수 = await p.evaluate(() => questions.length);
   await p.click('#follow-add');
-  await 걸음(p, '2번에 꼬리 질문이', false);
-  확인('  꼬리 질문이 2번에 · 왼쪽 진행 상황에 초록 테두리', await p.evaluate(() =>
-    questions[1].text.indexOf('틀을 만들') > -1 && qIndex === 1 && document.querySelector('.gd-ring').dataset.kind === 'show'));
-  await 걸음(p, '꼬리 질문을 말하고');
-  await p.click('#btn-answer');
+  await 걸음(p, '질문 카드 밑에 꼬리 질문이', false);
+  확인('  꼬리 질문이 새 질문이 아니라 1번 카드 밑 ↳ 줄로 · 초록 테두리', await p.evaluate((n) =>
+    questions.length === n && qIndex === 0 && questions[0].follow.indexOf('그 틀을 만들 생각은 어떻게 하게 됐나요?') > -1 &&
+    /틀을 만들/.test(document.getElementById('run-follow').textContent) && document.querySelector('.gd-ring').dataset.kind === 'show', 질문수));
   await 걸음(p, '«다음 질문 →»');
-  await p.waitForFunction(() => window.__guideSpoke[1], null, { timeout: 30000 });
-  확인('  꼬리 질문에는 그에 맞는 예시 답이 받아 적히는가', await p.evaluate(() => answers[1].transcript.indexOf('온도계 위치') > -1), await p.evaluate(() => answers[1].transcript));
   await p.click('#btn-next');
+  await 걸음(p, '«이 질문 건너뛰기»');
+  await p.click('#btn-skip');
+  await 걸음(p, '«건너뜀» 으로 남았습니다', false);
+  확인('  2번 질문이 «건너뜀» 으로 남고 3번으로 · 질문 수 그대로', await p.evaluate(() =>
+    answers[1].skipped && qIndex === 2 && document.querySelectorAll('#progress-list .railrow.skipped').length === 1 &&
+    /건너뜀/.test(document.querySelectorAll('#progress-list .railrow')[1].textContent)));
   await 걸음(p, '남은 질문도 같은 순서');
   await p.click('#btn-next');
   await 걸음(p, '2장', false);
   확인('  첫 질문의 판정 · 영역이 남고, 질문마다 받아 적은 글이 있는가', await p.evaluate(() =>
-    answers[0].rating === '우수' && answers[0].areas['근거'] === '좋음' && answers.every(a => a.transcript)));
+    answers[0].rating === '우수' && answers[0].areas['근거'] === '좋음' && answers.every(a => a.skipped || a.transcript)));
 
   console.log('\n── 3. 마무리 · 리포트 전달 ──');
   await 걸음(p, '좋았던 점 · 아쉬운 점');

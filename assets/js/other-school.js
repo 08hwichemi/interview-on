@@ -271,11 +271,9 @@ async function otherSaveRoster(next) {
   if (next) otherNew();
 }
 
-// 세 칸에서 Enter = «명단 저장» (한글 입력 중의 Enter 는 글자 확정이라 건너뜁니다)
+// 세 칸에서 Enter = «명단 저장». 한글을 치다 누른 Enter 도 한 번에 되게 teacher-app.js 의 enterKey 를 씁니다(onkeyup 에도 겁니다)
 function otherFormKey(e) {
-  if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
-  e.preventDefault();
-  otherSaveRoster(false);
+  enterKey(e, function () { otherSaveRoster(false); });
 }
 
 // ── 지우기 — 한 명(🗑) 또는 한 학교 모두 ──
@@ -314,7 +312,7 @@ async function otherResetReport() {
   if (!confirm(msg)) return;
   var id = interviewId;
   var a = await sb.from('interview_answers').update({
-    seconds: 0, good_tags: [], bad_tags: [], rating: null, memo: '', transcript: '', marks: [], areas: {}
+    seconds: 0, good_tags: [], bad_tags: [], rating: null, memo: '', transcript: '', marks: [], areas: {}, skipped: false
   }).eq('interview_id', id);
   if (a.error) { toast('지우지 못했습니다: ' + a.error.message, 'bad'); return; }
   var b = await sb.from('interviews').update({

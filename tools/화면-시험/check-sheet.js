@@ -105,12 +105,17 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   await p.click('#btn-start'); await p.waitForTimeout(400);
   await p.click('#btn-timer'); await p.waitForTimeout(500);
   const ivs3b = await 표(p, 'interviews');
-  확인('«진행중» 으로 바뀌었는가', ivs3b[0].status === '진행중', ivs3b[0].status);
-  확인('줄은 여전히 하나인가', ivs3b.length === 1, ivs3b.length + '줄');
-  확인('질문지 표시는 사라졌는가',
+  const 시작한 = await p.evaluate(() => interviewId);
+  확인('질문지 줄이 그대로 «진행중» 면접이 되었는가', ivs3b.some(x => x.id === 시작한 && x.status === '진행중'), ivs3b.map(x => x.status).join(','));
+  // 2026-10-19: 면접을 시작해도 질문지는 남습니다 — 같은 질문의 «준비중» 줄을 하나 새로 (copySheetBack)
+  const 남은 = ivs3b.filter(x => x.status === '준비중' && x.student_id === 's1');
+  확인('질문지가 «준비중» 으로 하나 남는가(줄 둘)', ivs3b.length === 2 && 남은.length === 1, ivs3b.map(x => x.status).join(','));
+  확인('남은 질문지에 질문 5개가 그대로 · 시간은 비움', await p.evaluate((id) => {
+    var r = window.__T.interview_answers.filter(a => a.interview_id === id); return r.length === 5 && r.every(a => !a.seconds);
+  }, 남은[0] && 남은[0].id));
+  확인('질문지 표시는 사라졌는가(지금은 면접)',
        await p.evaluate(()=>sheetId === null && document.getElementById('sheet-note').hidden));
-  확인('그 면접으로 들어갔는가',
-       await p.evaluate(()=>interviewId === window.__T.interviews[0].id));
+  확인('질문지 알약에 남은 질문지가 있는가', await p.evaluate(() => sheets.length === 1));
   await p.evaluate(()=>stopTicking());
 
   console.log('\n── 질문지 지우기 ──');
@@ -121,12 +126,13 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   });
   await p.waitForTimeout(150);
   await p.click('#btn-save-sheet'); await p.waitForTimeout(400);
-  확인('두 번째 학생 질문지가 생겼는가', (await 표(p,'interviews')).length === 2);
-  p.on('dialog', async d => { await d.accept(); });   // 교사 화면은 브라우저 confirm 을 씁니다
+  확인('두 번째 학생 질문지가 생겼는가', (await 표(p,'interviews')).filter(x => x.student_id === 's2').length === 1);
+  const 물음 = [];
+  p.on('dialog', async d => { 물음.push(d.message()); await d.accept(); });   // 교사 화면은 브라우저 confirm 을 씁니다
   await p.evaluate(()=>deleteSheet());
   await p.waitForTimeout(500);
   const ivs4 = await 표(p, 'interviews');
-  확인('질문지 줄이 지워졌는가', ivs4.length === 1 && ivs4[0].status === '진행중',
+  확인('질문지 줄이 지워졌는가', !ivs4.some(x => x.student_id === 's2'),
        ivs4.map(x=>x.status).join(','));
   확인('화면의 질문은 그대로 있는가', await p.evaluate(()=>midQuestions.length === 1));
 
@@ -160,9 +166,28 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
   확인('«1차» 를 누르면 그 질문지가 펴지는가', await p.evaluate(() => midQuestions.length === 1 && midQuestions[0].text === '시험용 질문' && sheetName === '1차' && document.getElementById('sheet-name').value === '1차'));
   await p.fill('#sheet-name', '1차 (연습)');
   await p.click('#btn-save-sheet'); await p.waitForTimeout(400);
-  확인('이름 칸을 고치고 저장하면 이름만 바뀌고 줄은 안 늘어나는가',
-       (await 표(p,'interviews')).filter(x => x.status === '준비중' && x.student_id === 's2').map(x => x.sheet_name).sort().join(',') === '1차 (연습),질문지 2');
-  확인('알약 단추 글자도 바뀌는가', await p.evaluate(() => [...document.querySelectorAll('#sheet-list .sheetchip .pick')].some(x => x.textContent === '1차 (연습)')));
+  // 2026-10-19: 이름 있는 질문지를 열어 다른 이름으로 저장하면 → 새 질문지(열어 둔 «1차» 는 그대로)
+  확인('이름 칸을 다른 이름으로 고쳐 저장하면 새 질문지로 따로 · «1차» 는 그대로',
+       (await 표(p,'interviews')).filter(x => x.status === '준비중' && x.student_id === 's2').map(x => x.sheet_name).sort().join(',') === '1차,1차 (연습),질문지 2',
+       (await 표(p,'interviews')).filter(x => x.status === '준비중' && x.student_id === 's2').map(x => x.sheet_name).join(','));
+  확인('새 질문지가 열려 있고 알약도 셋 · «따로 저장했습니다» 안내', await p.evaluate(() => sheetName === '1차 (연습)' && sheets.length === 3 &&
+    [...document.querySelectorAll('#sheet-list .sheetchip .pick')].some(x => x.textContent === '1차 (연습)' && x.parentNode.getAttribute('aria-pressed') === 'true') &&
+    /따로 저장했습니다/.test(document.getElementById('toast').textContent)));
+  확인('새 질문지에도 질문이 그대로', await p.evaluate(() => {
+    var r = window.__T.interview_answers.filter(a => a.interview_id === sheetId); return r.some(a => a.question === '시험용 질문');
+  }));
+  // 이미 있는 다른 질문지 이름으로 고치면 — 묻고(확인) 그 질문지에 덮어씀, 줄은 안 늘어남
+  const 물음전 = 물음.length;
+  await p.evaluate(() => { addQuestion('덮어쓸 질문', '기타'); });
+  await p.fill('#sheet-name', '1차');
+  await p.click('#btn-save-sheet'); await p.waitForTimeout(400);
+  확인('다른 질문지와 같은 이름이면 «덮어쓸까요?» 를 묻고 그 질문지에 저장(줄 그대로 셋)', 물음.length === 물음전 + 1 && /이미 있습니다/.test(물음[물음.length - 1]) &&
+       (await 표(p,'interviews')).filter(x => x.status === '준비중' && x.student_id === 's2').length === 3 &&
+       await p.evaluate(() => sheetName === '1차' && window.__T.interview_answers.filter(a => a.interview_id === sheetId).some(a => a.question === '덮어쓸 질문')));
+  // 처음 상태로 — «1차» 를 지우고 «1차 (연습)» 을 엽니다
+  await p.evaluate(() => deleteSheet()); await p.waitForTimeout(400);
+  await p.click('#sheet-list .sheetchip .pick:text-is("1차 (연습)")'); await p.waitForTimeout(400);
+  확인('«1차» 를 지우면 «1차 (연습)» · «질문지 2» 가 남는가', await p.evaluate(() => sheetName === '1차 (연습)' && sheets.length === 2 && midQuestions.length === 1));
   // 열어 두지 않은 질문지를 알약의 × 로 지우기 → 열어 둔 것은 그대로
   await p.click('#sheet-list .sheetchip .pick:text-is("질문지 2") >> xpath=following-sibling::button'); await p.waitForTimeout(400);
   확인('다른 알약의 × 를 누르면 그 질문지만 지워지고 열어 둔 것은 그대로',
@@ -179,17 +204,19 @@ const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
 
   await p.click('#btn-start'); await p.waitForTimeout(400);
   await p.click('#btn-timer'); await p.waitForTimeout(400); await p.evaluate(() => stopTicking());
-  확인('면접을 시작하면 그 질문지만 «진행중» 이 되고 «1차 (연습)» 은 «준비중» 으로 남는가',
-       (await 표(p,'interviews')).filter(x => x.student_id === 's2').map(x => x.sheet_name + ':' + x.status).sort().join(',') === '1차 (연습):준비중,질문지 2:진행중',
+  확인('면접을 시작하면 그 질문지 줄은 «진행중» 면접이 되고, «질문지 2» 는 «준비중» 으로 새로 남는가 · «1차 (연습)» 도 그대로',
+       (await 표(p,'interviews')).filter(x => x.student_id === 's2').map(x => x.sheet_name + ':' + x.status).sort().join(',') === '1차 (연습):준비중,질문지 2:준비중,질문지 2:진행중',
        (await 표(p,'interviews')).filter(x => x.student_id === 's2').map(x => x.sheet_name + ':' + x.status).join(','));
   await p.evaluate(async () => { await pickStudent('s1'); await pickStudent('s2'); }); await p.waitForTimeout(500);
-  확인('다시 오면 남은 «1차 (연습)» 이 펴지는가', await p.evaluate(() => sheetName === '1차 (연습)' && sheets.length === 1 && midQuestions.length === 1));
+  확인('다시 오면 남겨 둔 «질문지 2» 가 펴지고 질문지는 둘', await p.evaluate(() => sheetName === '질문지 2' && sheets.length === 2 && midQuestions.length === 2),
+       await p.evaluate(() => sheetName + ' / ' + sheets.length));
 
   await p.evaluate(() => deleteSheet()); await p.waitForTimeout(400);
-  확인('마지막 하나를 지우면 안내 칸이 닫히고 «준비중» 줄이 없는가',
+  await p.evaluate(() => deleteSheet(sheets[0].id)); await p.waitForTimeout(400);
+  확인('마지막 하나까지 지우면 안내 칸이 닫히고 «준비중» 줄이 없는가',
        await p.evaluate(() => document.getElementById('sheet-note').hidden && sheets.length === 0) &&
        !(await 표(p,'interviews')).some(x => x.student_id === 's2' && x.status === '준비중'));
-  확인('화면의 질문은 그대로인가', await p.evaluate(() => midQuestions.length === 1));
+  확인('화면의 질문은 그대로인가', await p.evaluate(() => midQuestions.length === 2));
 
   await p.setViewportSize({ width: 400, height: 800 }); await p.waitForTimeout(300);
   await p.fill('#sheet-name', '휴대폰에서'); await p.click('#btn-save-sheet'); await p.waitForTimeout(400);
