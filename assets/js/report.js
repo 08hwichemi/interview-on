@@ -76,6 +76,8 @@ function areasLine(areas) {
 // who   : '30101 고다윤' 처럼 머리에 적을 이름 (학생 앱에서는 비워도 됩니다)
 // round : 몇 회차인지 (모르면 비웁니다)
 function reportHTML(iv, answers, who, round) {
+  // 면접 중에 건너뛴 질문은 학생에게 안 보입니다(2026-10-19) — 번호도 이어서 다시 매깁니다
+  answers = (answers || []).filter(function (a) { return !a.skipped; });
   var g = iv.grades || {};
   var spoken = (answers || []).reduce(function (n, a) { return n + (a.seconds || 0); }, 0);
 
@@ -120,7 +122,7 @@ function reportHTML(iv, answers, who, round) {
       var good = a.good_tags || [], bad = a.bad_tags || [];
       return '<div class="ansrow">' +
         '<div class="anshead">' +
-          '<span class="qno">' + (a.seq || i + 1) + '</span>' +
+          '<span class="qno">' + (i + 1) + '</span>' +
           '<span class="qt">' + esc(a.question) + '</span>' +
           (a.rating ? '<span class="pill rate">' + esc(a.rating) + '</span>' : '') +
           '<span class="secs">' + mmss(a.seconds) + '</span>' +

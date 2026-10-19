@@ -340,6 +340,16 @@ input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-vis
 .step-no{font-size:12.5px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums}
 .runstep{display:inline-flex;align-items:center;gap:12px}
 .runstep .linkbtn{font-size:12.5px}
+/* 건너뛴 질문 (toggleSkip, 2026-10-19) — 진행 화면 카드 · 왼쪽 진행 상황 · 마무리 화면에서 흐릿하게 */
+.qcard.skipped{opacity:.45;text-decoration:line-through;text-decoration-thickness:1px}
+.skipnote{margin:-6px 0 16px}
+.skipnote[hidden]{display:none}
+.railrow.skipped .qt{color:var(--ink-3);text-decoration:line-through}
+.railrow .done.skip{color:var(--ink-3);font-weight:700}
+.railrow[aria-current="true"].skipped .qt,.railrow[aria-current="true"] .done.skip{color:inherit;opacity:.7}
+.ansrow.skipped{opacity:.6}
+.ansrow.skipped .qt{text-decoration:line-through}
+.pill.skip{background:var(--surface-2);color:var(--ink-3);font-size:11.5px;font-weight:700}
 
 /* 시간 두 개를 나란히 크게. 면접 중에 흘깃 봐야 하는 숫자라 작으면 못 읽습니다.
    «면접 전체» 는 저 혼자 흐르는 것이라 조금 연하게, «이 질문» 은 선생님이

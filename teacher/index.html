@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>면접ON 교사</title>
-  <link rel="icon" href="../assets/icon-192.png?v=2026-10-19.1">
+  <link rel="icon" href="../assets/icon-192.png?v=2026-10-19.2">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-19.1">
-  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-19.1">
-  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-19.1">
-  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-19.1">
-  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-19.1">
-  <link rel="stylesheet" href="../assets/css/hugi.css?v=2026-10-19.1">
-  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-19.1">
+  <link rel="stylesheet" href="../assets/css/teacher.css?v=2026-10-19.2">
+  <link rel="stylesheet" href="../assets/css/report.css?v=2026-10-19.2">
+  <link rel="stylesheet" href="../assets/css/browse.css?v=2026-10-19.2">
+  <link rel="stylesheet" href="../assets/css/chat.css?v=2026-10-19.2">
+  <link rel="stylesheet" href="../assets/css/practice.css?v=2026-10-19.2">
+  <link rel="stylesheet" href="../assets/css/hugi.css?v=2026-10-19.2">
+  <link rel="stylesheet" href="../assets/css/saenggibu.css?v=2026-10-19.2">
 </head>
 <body>
 
@@ -377,13 +377,15 @@
           <div class="headline">
             <span class="pill teacher" id="run-comp"></span>
             <span class="runstep">
-              <!-- 지금 질문을 면접 도중에 삭제합니다(시간이 없어 건너뛸 질문 등 — teacher-app.js removeCurrentQuestion) -->
-              <button class="linkbtn danger" id="btn-delq" onclick="removeCurrentQuestion()">이 질문 삭제</button>
+              <!-- 질문지에 써 둔 질문을 묻지 않고 넘깁니다. 지우지 않고 «건너뜀» 으로 남아 되돌릴 수 있고, 학생 리포트에는 안 나옵니다
+                   (2026-10-19 선생님 말씀 — 예전 «이 질문 삭제» 자리. teacher-app.js toggleSkip) -->
+              <button class="linkbtn" id="btn-skip" onclick="toggleSkip()">이 질문 건너뛰기</button>
               <span class="step-no" id="run-step"></span>
             </span>
           </div>
 
           <div class="qcard" id="run-question"></div>
+          <p class="note info skipnote" id="run-skipnote" hidden>건너뛴 질문입니다. 학생 리포트에는 안 나옵니다 — 다시 물으려면 «건너뛴 것 되돌리기» 나 «답변 시작».</p>
           <!-- 이 질문의 꼬리 질문들(↳) — 준비 화면에서 적어 둔 것 + 면접 중 «＋ 꼬리 질문» 으로 더한 것. 시간 · 받아 적기는 이 질문 하나로 (teacher-app.js paintRunFollow) -->
           <div class="runfollow" id="run-follow" hidden></div>
 
@@ -729,34 +731,34 @@
   // 화면 · 단추는 실제와 똑같고, 저장은 이 창 안에서만 됩니다(실제 서버로 아무것도 안 감).
   // config.js 가 서버에 붙기 전에 끼워야 해서 여기 둡니다.
   var GUIDE_MODE = /[?&]guide(=|&|$)/.test(location.search);
-  if (GUIDE_MODE) document.write('<script src="../assets/js/guide-server.js?v=2026-10-19.1"><\/script>');
+  if (GUIDE_MODE) document.write('<script src="../assets/js/guide-server.js?v=2026-10-19.2"><\/script>');
 </script>
-<script src="../assets/js/config.js?v=2026-10-19.1"></script>
-<script src="../assets/js/update-bar.js?v=2026-10-19.1"></script>
-<script src="../assets/js/utils.js?v=2026-10-19.1"></script>
-<script src="../assets/js/api.js?v=2026-10-19.1"></script>
-<script src="../assets/js/browse.js?v=2026-10-19.1"></script>
-<script src="../assets/js/reviews.js?v=2026-10-19.1"></script>
-<script src="../assets/js/questions.js?v=2026-10-19.1"></script>
-<script src="../assets/js/report.js?v=2026-10-19.1"></script>
-<script src="../assets/js/chat.js?v=2026-10-19.1"></script>
-<script src="../assets/js/practice.js?v=2026-10-19.1"></script>
-<script src="../assets/js/hugi.js?v=2026-10-19.1"></script>
-<script src="../assets/js/notice.js?v=2026-10-19.1"></script>
-<script src="../assets/js/badges.js?v=2026-10-19.1"></script>
-<script src="../assets/js/admin-notice.js?v=2026-10-19.1"></script>
-<script src="../assets/js/teacher-app.js?v=2026-10-19.1"></script>
-<script src="../assets/js/listen.js?v=2026-10-19.1"></script>
+<script src="../assets/js/config.js?v=2026-10-19.2"></script>
+<script src="../assets/js/update-bar.js?v=2026-10-19.2"></script>
+<script src="../assets/js/utils.js?v=2026-10-19.2"></script>
+<script src="../assets/js/api.js?v=2026-10-19.2"></script>
+<script src="../assets/js/browse.js?v=2026-10-19.2"></script>
+<script src="../assets/js/reviews.js?v=2026-10-19.2"></script>
+<script src="../assets/js/questions.js?v=2026-10-19.2"></script>
+<script src="../assets/js/report.js?v=2026-10-19.2"></script>
+<script src="../assets/js/chat.js?v=2026-10-19.2"></script>
+<script src="../assets/js/practice.js?v=2026-10-19.2"></script>
+<script src="../assets/js/hugi.js?v=2026-10-19.2"></script>
+<script src="../assets/js/notice.js?v=2026-10-19.2"></script>
+<script src="../assets/js/badges.js?v=2026-10-19.2"></script>
+<script src="../assets/js/admin-notice.js?v=2026-10-19.2"></script>
+<script src="../assets/js/teacher-app.js?v=2026-10-19.2"></script>
+<script src="../assets/js/listen.js?v=2026-10-19.2"></script>
 <!-- 녹음 파일 띠(record.js) — 녹음이 끝난 파일마다 «⬇ 내려받기». 끝내도 저절로 안 받습니다(2026-10-14 선생님: 원하면 받게) -->
 <div id="rec-files" class="recfiles" hidden></div>
-<script src="../assets/js/record.js?v=2026-10-19.1"></script>
-<script src="../assets/js/saenggibu.js?v=2026-10-19.1"></script>
-<script src="../assets/vendor/qrcode.js?v=2026-10-19.1"></script>
-<script src="../assets/js/other-school.js?v=2026-10-19.1"></script>
+<script src="../assets/js/record.js?v=2026-10-19.2"></script>
+<script src="../assets/js/saenggibu.js?v=2026-10-19.2"></script>
+<script src="../assets/vendor/qrcode.js?v=2026-10-19.2"></script>
+<script src="../assets/js/other-school.js?v=2026-10-19.2"></script>
 <script>
   // 연습 모드의 안내 칸 — 눌러야 할 단추에 테두리를 두르고 한 걸음씩 안내합니다 (guide-coach.js)
-  if (GUIDE_MODE) document.write('<link rel="stylesheet" href="../assets/css/guide.css?v=2026-10-19.1">' +
-                                 '<script src="../assets/js/guide-coach.js?v=2026-10-19.1"><\/script>');
+  if (GUIDE_MODE) document.write('<link rel="stylesheet" href="../assets/css/guide.css?v=2026-10-19.2">' +
+                                 '<script src="../assets/js/guide-coach.js?v=2026-10-19.2"><\/script>');
 </script>
 <script>
   function gateFail(msg, detail) {

@@ -124,6 +124,7 @@
     if (!on('run') && !on('finish')) return;
     if (!startedOnce) toggleTimer();
     answers.forEach(function (a, i) {
+      if (a.skipped) return;     // 건너뛴 질문은 그대로 비워 둡니다
       // 예시 학생이 아직 다 말하지 않은 질문은 예시 답변을 통째로 넣습니다
       if (!window.__guideSpoke[i]) { a.transcript = saidFor(i); window.__guideSpoke[i] = true; }
       if (!a.seconds) { a.seconds = 40 + (i * 17) % 50; totalSeconds += a.seconds + 15; }
@@ -299,12 +300,18 @@
         show: { at: '#run-follow', t: '질문 카드 밑에 꼬리 질문이 붙었습니다', b: '질문 번호도, «이 질문 답변» 시계도, 받아 적기도 그대로입니다. 리포트에도 이 질문 밑에 ↳ 로 나옵니다.' },
         done: function () { return qIndex === 0 && cur() && questions[0].follow && questions[0].follow.indexOf(FOLLOW_Q) > -1; },
         b: '칸에서 ' + kbd('Enter') + ' 도 됩니다. 잘못 넣었으면 그 줄 끝의 × 로 뺍니다.' +
-           '<p class="gd-more">꼬리 질문은 준비 화면에서 질문마다 «＋ 꼬리» 로 미리 적어 둘 수도 있습니다. 건너뛸 질문은 질문 번호 옆 «이 질문 삭제».</p>' },
+           '<p class="gd-more">꼬리 질문은 준비 화면에서 질문마다 «＋ 꼬리» 로 미리 적어 둘 수도 있습니다. </p>' },
       { at: '#btn-next', real: true, t: '«다음 질문 →» 을 누르세요',
         done: function () { return qIndex >= 1 || on('finish'); },
         b: '키보드 ' + kbd('→') + ' 도 됩니다. 답변 시계와 받아 적기가 멈추고 다음 질문으로 갑니다.' +
            '<p class="gd-more">«면접 전체» 는 계속 흐르고, «이 질문 답변» 은 질문마다 새로 잽니다. 잠깐 멈출 일이 생기면 «일시정지» → «이어서». ' +
            '질문을 고치려면 첫 질문의 «← 질문 고치기» — 매긴 평가는 그대로 남습니다.</p>' },
+      // 건너뛰기 (2026-10-19 더함 — 예전 «이 질문 삭제» 자리)
+      { at: '#btn-skip', real: true, t: '묻지 않고 넘길 질문이면 «이 질문 건너뛰기»',
+        show: { at: '#progress-list', t: '왼쪽에 «건너뜀» 으로 남았습니다', b: '질문은 지워지지 않습니다. 눌러서 돌아가 «건너뛴 것 되돌리기»(또는 «답변 시작») 하면 다시 물을 수 있습니다.' },
+        done: function () { return !!(answers[1] && answers[1].skipped) && (qIndex >= 2 || on('finish')); },
+        b: '질문지에 써 둔 질문을 시간이 없거나 앞 답에서 이미 나와서 <b>묻지 않을 때</b> 누릅니다. 다음 질문으로 넘어가고, ' +
+           '<b>학생 리포트에는 안 나옵니다.</b><p class="gd-more">아주 지우려면 첫 질문의 «← 질문 고치기» 에서 «삭제».</p>' },
       { at: '#btn-next', t: '남은 질문도 같은 순서 — «다음 질문 →» 을 누르세요',
         act: fastFinish,
         done: function () { return on('finish'); },

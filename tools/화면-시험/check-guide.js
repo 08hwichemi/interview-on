@@ -187,11 +187,17 @@ async function 걸음(p, 글, 테두리도) {
     /틀을 만들/.test(document.getElementById('run-follow').textContent) && document.querySelector('.gd-ring').dataset.kind === 'show', 질문수));
   await 걸음(p, '«다음 질문 →»');
   await p.click('#btn-next');
+  await 걸음(p, '«이 질문 건너뛰기»');
+  await p.click('#btn-skip');
+  await 걸음(p, '«건너뜀» 으로 남았습니다', false);
+  확인('  2번 질문이 «건너뜀» 으로 남고 3번으로 · 질문 수 그대로', await p.evaluate(() =>
+    answers[1].skipped && qIndex === 2 && document.querySelectorAll('#progress-list .railrow.skipped').length === 1 &&
+    /건너뜀/.test(document.querySelectorAll('#progress-list .railrow')[1].textContent)));
   await 걸음(p, '남은 질문도 같은 순서');
   await p.click('#btn-next');
   await 걸음(p, '2장', false);
   확인('  첫 질문의 판정 · 영역이 남고, 질문마다 받아 적은 글이 있는가', await p.evaluate(() =>
-    answers[0].rating === '우수' && answers[0].areas['근거'] === '좋음' && answers.every(a => a.transcript)));
+    answers[0].rating === '우수' && answers[0].areas['근거'] === '좋음' && answers.every(a => a.skipped || a.transcript)));
 
   console.log('\n── 3. 마무리 · 리포트 전달 ──');
   await 걸음(p, '좋았던 점 · 아쉬운 점');

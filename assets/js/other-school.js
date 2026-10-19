@@ -314,7 +314,7 @@ async function otherResetReport() {
   if (!confirm(msg)) return;
   var id = interviewId;
   var a = await sb.from('interview_answers').update({
-    seconds: 0, good_tags: [], bad_tags: [], rating: null, memo: '', transcript: '', marks: [], areas: {}
+    seconds: 0, good_tags: [], bad_tags: [], rating: null, memo: '', transcript: '', marks: [], areas: {}, skipped: false
   }).eq('interview_id', id);
   if (a.error) { toast('지우지 못했습니다: ' + a.error.message, 'bad'); return; }
   var b = await sb.from('interviews').update({

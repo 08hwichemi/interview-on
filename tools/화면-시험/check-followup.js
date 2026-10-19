@@ -7,7 +7,8 @@
 //     진행 화면 «＋ 꼬리 질문» → 한 줄 칸 → «넣기»(Enter) — 질문 수 · 번호 · 답변 시계 · 받아 적기 그대로, 카드 밑에 ↳ 줄
 //     글자를 안 적으면 아무것도 안 넣음 · Esc 로 닫힘 · × 로 빼기 · «질문 고치기» 다녀와도 그대로 · 마무리 화면 · 리포트에 ↳ 줄
 //     지난 회차를 열었을 때는 단추가 없음
-//   · «이 질문 삭제» — 받아 적은 글이 있으면 «같이 지워집니다» 를 묻고 · 표도 다시 씀 · 마지막을 빼면 앞 질문으로 · 하나 남으면 숨음
+//   · «이 질문 건너뛰기»(2026-10-19 — 예전 «이 질문 삭제» 자리) — 다음 질문으로 · 질문 수 그대로 · 왼쪽에 «건너뜀» · 표에 skipped ·
+//     돌아가 «건너뛴 것 되돌리기» / «답변 시작» 으로 풀림 · 마지막이면 마무리로 · 마무리 화면 «되돌리기» · 리포트에 안 나오고 번호 이어짐
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const SB = fs.readFileSync(path.join(__dirname, 'stub5.js'), 'utf8');
@@ -222,41 +223,59 @@ const 줄 = p => p.evaluate(() => [].map.call(document.querySelectorAll('#q-list
   }));
   await p.evaluate(() => backToRun()); await p.waitForTimeout(300);
 
-  console.log('\n── 면접 도중 질문 삭제 ──');
-  B.묻기 = [];
-  // 빈 질문(3번)부터
-  await p.evaluate(() => { qIndex = questions.findIndex(q => q.text === '실험에서 가장 어려웠던 점은?'); showQuestion(); });
-  확인('질문 번호 옆에 «이 질문 삭제»', await p.evaluate(() => { var b = document.getElementById('btn-delq'); return !b.hidden && b.offsetWidth > 0; }));
-  p.removeAllListeners('dialog');
-  p.on('dialog', d => { B.묻기.push(d.message()); d.accept(); });
-  const 앞수 = await p.evaluate(() => questions.length);
-  await p.click('#btn-delq'); await p.waitForTimeout(400);
-  확인('빈 질문은 그냥 묻고 빠지는가(«같이 지워집니다» 없음)', B.묻기.length === 1 && B.묻기[0].indexOf('같이 지워집니다') === -1, B.묻기[0]);
-  확인('질문이 하나 줄고 표도 같이', await p.evaluate((n) => questions.length === n - 1 &&
-    window.__T.interview_answers.filter(a => a.interview_id === 'iv1').length === n - 1 && questions.every(q => q.text !== '실험에서 가장 어려웠던 점은?'), 앞수));
-  확인('그 자리의 질문이 보이는가', await p.evaluate(() => document.getElementById('run-question').textContent === questions[qIndex].text &&
-    document.getElementById('run-step').textContent === (qIndex + 1) + ' / ' + questions.length));
-  확인('표를 다시 써도 꼬리 질문이 남는가', await p.evaluate(() => {
-    var r = window.__T.interview_answers.find(a => a.interview_id === 'iv1' && a.question === '탐구는 무엇이 궁금해서 시작했나요?');
-    return r && r.follow_ups[0] === '그 궁금증은 풀렸나요?';
+  console.log('\n── 면접 도중 질문 건너뛰기 ──');
+  // 지금 질문: 자기소개(받아 적은 글 있음) · 탐구(꼬리 질문) · 실험
+  await p.evaluate(() => { qIndex = 1; showQuestion(); });
+  확인('질문 번호 옆에 «이 질문 건너뛰기» (삭제 단추는 없음)', await p.evaluate(() => {
+    var b = document.getElementById('btn-skip'); return !b.hidden && b.offsetWidth > 0 && b.textContent === '이 질문 건너뛰기' && !document.getElementById('btn-delq');
   }));
-  // 받아 적은 글이 있는 질문을 뺄 때는 «같이 지워집니다», 아니오를 누르면 그대로
-  await p.evaluate(() => { qIndex = 0; showQuestion(); });
-  p.removeAllListeners('dialog');
-  p.on('dialog', d => { B.묻기.push(d.message()); d.dismiss(); });
-  const 지금수 = await p.evaluate(() => questions.length);
-  await p.click('#btn-delq'); await p.waitForTimeout(300);
-  확인('받아 적은 글이 있으면 «같이 지워집니다» 를 묻고, «취소» 면 그대로', B.묻기[1] && B.묻기[1].indexOf('같이 지워집니다') > -1 && await p.evaluate((n) => questions.length === n, 지금수));
-  p.removeAllListeners('dialog');
-  p.on('dialog', d => d.accept());
-  // 마지막 질문을 빼면 그 앞 질문으로 (지금 질문 둘: 자기소개 · 탐구)
-  await p.evaluate(() => { qIndex = questions.length - 1; showQuestion(); });
-  await p.click('#btn-delq'); await p.waitForTimeout(400);
-  확인('마지막 질문을 빼면 앞 질문으로 · 단추가 «면접 마무리 →»', await p.evaluate(() =>
-    questions.length === 1 && qIndex === 0 && document.getElementById('btn-next').textContent === '면접 마무리 →'));
-  확인('남은 첫 질문의 받아 적은 글 · 꼬리 질문은 그대로', await p.evaluate(() => answers[0].transcript.indexOf('저는 고다윤입니다') === 0 &&
-    questions[0].follow[0] === '그 경험에서 가장 크게 배운 점은?'));
-  확인('질문이 하나 남으면 «이 질문 삭제» 가 숨는가', await p.evaluate(() => document.getElementById('btn-delq').hidden));
+  const 수 = await p.evaluate(() => questions.length);
+  await p.click('#btn-skip'); await p.waitForTimeout(400);
+  확인('누르면 다음 질문으로 · 질문 수 그대로', await p.evaluate((n) => qIndex === 2 && questions.length === n && answers[1].skipped, 수));
+  확인('표에 skipped 로 남음(지우지 않음)', await p.evaluate(() => {
+    var r = window.__T.interview_answers.find(a => a.interview_id === 'iv1' && a.seq === 2); return r && r.skipped === true && r.question === '탐구는 무엇이 궁금해서 시작했나요?';
+  }));
+  확인('왼쪽 진행 상황에 «건너뜀» 으로 흐릿하게', await p.evaluate(() => {
+    var r = document.querySelectorAll('#progress-list .railrow')[1]; return r.classList.contains('skipped') && /건너뜀/.test(r.textContent);
+  }));
+  // 돌아가면 카드가 흐리고 단추가 «되돌리기»
+  await p.click('#progress-list .railrow:nth-child(2)'); await p.waitForTimeout(300);
+  확인('건너뛴 질문으로 가면 카드가 흐리고 안내 · «건너뛴 것 되돌리기»', await p.evaluate(() => qIndex === 1 &&
+    document.getElementById('run-question').classList.contains('skipped') && !document.getElementById('run-skipnote').hidden &&
+    document.getElementById('btn-skip').textContent === '건너뛴 것 되돌리기'));
+  await p.click('#btn-skip'); await p.waitForTimeout(300);
+  확인('«되돌리기» 면 그 자리에 머물고 풀림 · 표도', await p.evaluate(() => qIndex === 1 && !answers[1].skipped &&
+    !document.getElementById('run-question').classList.contains('skipped') && document.getElementById('btn-skip').textContent === '이 질문 건너뛰기' &&
+    window.__T.interview_answers.find(a => a.interview_id === 'iv1' && a.seq === 2).skipped === false));
+  // 다시 건너뛰고 → 돌아가 «답변 시작» 하면 풀림
+  await p.click('#btn-skip'); await p.waitForTimeout(300);
+  await p.evaluate(() => goToQuestion(1)); await p.waitForTimeout(300);
+  await p.click('#btn-answer'); await p.waitForTimeout(200);
+  확인('건너뛴 질문에서 «답변 시작» 하면 건너뜀이 풀림', await p.evaluate(() => answering && !answers[1].skipped && !document.getElementById('run-question').classList.contains('skipped')));
+  await p.click('#btn-answer');
+  // 받아 적는 중에 건너뛰면 답변 시계 · 받아 적기부터 멈춤
+  await p.click('#btn-answer'); await p.waitForTimeout(100);
+  await p.click('#btn-skip'); await p.waitForTimeout(400);
+  확인('답변 중에 건너뛰면 답변 시계가 멈추고 다음 질문으로', await p.evaluate(() => !answering && qIndex === 2 && answers[1].skipped));
+  // 마지막 질문을 건너뛰면 마무리 화면으로
+  await p.click('#btn-skip'); await p.waitForTimeout(500);
+  확인('마지막 질문을 건너뛰면 마무리 화면으로', await p.evaluate(() => !document.getElementById('view-finish').hidden && answers[2].skipped));
+  확인('마무리 화면에 건너뛴 질문은 한 줄 «건너뜀» + «되돌리기» (평가 칸 없음)', await p.evaluate(() => {
+    var r = document.getElementById('ansrow-1');
+    return r.classList.contains('skipped') && /건너뜀/.test(r.textContent) && !!r.querySelector('button[onclick^="unskipAt"]') && !r.querySelector('.anseval');
+  }));
+  await p.click('#ansrow-2 button[onclick^="unskipAt"]'); await p.waitForTimeout(200);
+  확인('«되돌리기» 하면 평가 칸이 열림', await p.evaluate(() => !answers[2].skipped && !!document.querySelector('#ansrow-2 .anseval') &&
+    !document.getElementById('ansrow-2').classList.contains('skipped')));
+  // 리포트 — 건너뛴 질문은 빠지고 번호 이어짐
+  await p.click('#btn-finish'); await p.waitForTimeout(600);
+  확인('리포트에 건너뛴 질문이 안 나오고 번호가 1 · 2 로 이어짐', await p.evaluate(() => {
+    var rows = [...document.querySelectorAll('#report-body .rp-answers .ansrow')];
+    return rows.length === 2 && !/탐구는 무엇이 궁금해서/.test(document.getElementById('report-body').textContent) &&
+      rows.map(r => r.querySelector('.qno').textContent).join(',') === '1,2' && /2문항/.test(document.getElementById('report-body').textContent);
+  }));
+  확인('표에는 세 줄 다 남음(건너뛴 것 포함)', await p.evaluate(() => window.__T.interview_answers.filter(a => a.interview_id === 'iv1').length === 3));
+  await p.evaluate(() => { backToFinish(); backToRun(); }); await p.waitForTimeout(300);
 
   await p.setViewportSize({ width: 400, height: 900 }); await p.waitForTimeout(200);
   확인('400px — 단추 줄이 옆으로 안 넘침', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
@@ -269,8 +288,8 @@ const 줄 = p => p.evaluate(() => [].map.call(document.querySelectorAll('#q-list
   await p.evaluate(async () => { target = students[1]; await openPast('iv0', 1); });
   await p.waitForTimeout(300);
   await p.evaluate(() => { backToFinish(); backToRun(); }); await p.waitForTimeout(200);
-  확인('지난 회차를 고칠 때는 «＋ 꼬리 질문» · «이 질문 삭제» 가 없음', await p.evaluate(() =>
-    !document.getElementById('view-run').hidden && document.getElementById('btn-follow').hidden && document.getElementById('btn-delq').hidden));
+  확인('지난 회차를 고칠 때는 «＋ 꼬리 질문» · «이 질문 건너뛰기» 가 없음', await p.evaluate(() =>
+    !document.getElementById('view-run').hidden && document.getElementById('btn-follow').hidden && document.getElementById('btn-skip').hidden));
   await p.evaluate(() => { questions[0].follow = ['지난 꼬리']; showQuestion(); });
   확인('지난 회차의 꼬리 질문 줄에는 × 가 없음', await p.evaluate(() => !document.getElementById('run-follow').hidden &&
     !document.querySelector('#run-follow .linkbtn')));
