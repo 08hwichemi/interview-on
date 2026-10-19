@@ -289,9 +289,10 @@
         done: function () { return !!(cur() && cur().memo === '지원 동기가 또렷함. 결론을 먼저 말하면 더 좋겠음.'); },
         b: '한두 줄 적습니다 — <b>학생 리포트에 그대로 들어갑니다.</b> 안 적어도 됩니다. <span class="gd-ex">(연습에서는 예시가 적힙니다)</span>' },
       // 꼬리 질문 (2026-10-12 더함 · 2026-10-19 바뀜 — 새 질문이 아니라 지금 질문 밑의 ↳ 줄, 시간은 그대로)
-      { at: '#btn-follow', real: true, t: '더 묻고 싶으면 «＋ 꼬리 질문»',
+      { at: '#btn-follow', real: true, t: '이어서 더 물으면 질문 카드 밑 «＋ 꼬리 질문»',
         done: function () { return !$('#follow-box').hidden; },
-        b: '학생 답을 듣고 이어서 묻고 싶을 때 누릅니다. <b>새 질문이 아니라</b> 지금 질문 카드 밑에 ↳ 줄로 붙습니다.' },
+        b: '학생 답을 듣고 이어서 묻고 싶을 때 누릅니다. <b>새 질문이 아니라</b> 지금 질문 카드 밑에 ↳ 줄로 붙고, 시간은 이 질문에 그대로 갑니다.' +
+           '<p class="gd-more">따로 시간을 재는 <b>새 질문</b>을 넣으려면 맨 아래 «＋ 추가 질문» — 지금 질문 바로 뒤에 들어갑니다.</p>' },
       { at: '#follow-text', t: '꼬리 질문 칸을 누르세요',
         act: function () { return typeInto($('#follow-text'), FOLLOW_Q); },
         done: function () { return $('#follow-text').value === FOLLOW_Q; },
@@ -299,7 +300,7 @@
       { at: '#follow-add', real: true, t: '«넣기» 를 누르세요',
         show: { at: '#run-follow', t: '질문 카드 밑에 꼬리 질문이 붙었습니다', b: '질문 번호도, «이 질문 답변» 시계도, 받아 적기도 그대로입니다. 리포트에도 이 질문 밑에 ↳ 로 나옵니다.' },
         done: function () { return qIndex === 0 && cur() && questions[0].follow && questions[0].follow.indexOf(FOLLOW_Q) > -1; },
-        b: '칸에서 ' + kbd('Enter') + ' 도 됩니다. 잘못 넣었으면 그 줄 끝의 × 로 뺍니다.' +
+        b: '칸에서 ' + kbd('Enter') + ' 한 번이면 됩니다. 잘못 넣었으면 그 줄 끝의 × 로 뺍니다.' +
            '<p class="gd-more">꼬리 질문은 준비 화면에서 질문마다 «＋ 꼬리» 로 미리 적어 둘 수도 있습니다. </p>' },
       { at: '#btn-next', real: true, t: '«다음 질문 →» 을 누르세요',
         done: function () { return qIndex >= 1 || on('finish'); },

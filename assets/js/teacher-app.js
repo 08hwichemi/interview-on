@@ -177,6 +177,25 @@ function composeQuestions() {
 // ⚠️ 예전(2026-10-12~)엔 «＋ 꼬리 질문» 이 지금 질문 뒤에 **새 질문**을 끼워 넣어 시간도 따로 쟀습니다.
 //    «꼬리 질문은 원래 질문에서 시간이 그대로 가야 한다» 는 말씀에 바꿨습니다.
 // 빈 줄은 저장할 때 뺍니다.
+// ── 한 번의 Enter 로 마치기 (2026-10-19 선생님 말씀: «엔터 쳐서 마무리가 안 되더라») ──
+// ⚠️ 한글을 치다가 Enter 를 누르면 크롬은 그 Enter 를 «글자 확정» 에만 쓰고(keydown 의 isComposing · 229),
+//    keydown 을 다시 보내지 않습니다. 그래서 예전엔 Enter 를 두 번 눌러야 들어갔습니다.
+//    글자 확정 중의 Enter 는 표시만 해 두었다가 손을 뗄 때(keyup) 마칩니다. onkeydown 과 onkeyup 에 둘 다 겁니다.
+function enterKey(e, done) {
+  if (e.key !== 'Enter') return;
+  var el = e.target;
+  if (e.type === 'keydown') {
+    if (e.isComposing || e.keyCode === 229) { el.__enterLater = true; return; }
+    el.__enterLater = false;
+    e.preventDefault();
+    done(e);
+    return;
+  }
+  if (e.type === 'keyup' && el.__enterLater) { el.__enterLater = false; e.preventDefault(); done(e); }
+}
+// 준비 화면의 질문 · 꼬리 칸 — 글자는 칠 때마다 담기므로 Enter 는 «다 적었다» 로 칸에서 나가기만 합니다
+function enterDone(e) { enterKey(e, function () { e.target.blur(); }); }
+
 function cleanFollow(list) {
   return (list || []).map(function (t) { return String(t || '').trim(); }).filter(Boolean);
 }
@@ -1164,7 +1183,7 @@ function prepFollowHTML(q, i) {
   return '<div class="qfollows">' + list.map(function (t, j) {
     return '<div class="qfrow"><span class="qfarrow" aria-hidden="true">↳</span>' +
       '<input type="text" value="' + esc(t) + '" placeholder="꼬리 질문을 적으세요" maxlength="300"' +
-      ' oninput="setPrepFollow(' + i + ', ' + j + ', this.value)">' +
+      ' oninput="setPrepFollow(' + i + ', ' + j + ', this.value)" onkeydown="enterDone(event)" onkeyup="enterDone(event)">' +
       '<button class="linkbtn danger" onclick="removePrepFollow(' + i + ', ' + j + ')" title="이 꼬리 질문 빼기">×</button></div>';
   }).join('') + '</div>';
 }
@@ -1198,7 +1217,7 @@ function renderQuestions() {
       return '<div class="qrow">' +
         '<span class="qno">' + (base + i + 1) + '</span>' +
         '<input type="text" value="' + esc(q.text) + '" placeholder="질문을 적으세요"' +
-        ' oninput="setQText(' + i + ', this.value)">' +
+        ' oninput="setQText(' + i + ', this.value)" onkeydown="enterDone(event)" onkeyup="enterDone(event)">' +
         '<select onchange="setQComp(' + i + ', this.value)">' +
           COMPETENCIES.map(function (c) {
             return '<option value="' + c + '"' + (c === q.competency ? ' selected' : '') + '>' + c + '</option>';
@@ -1692,12 +1711,13 @@ function showQuestion() {
   prev.textContent = (qIndex === 0) ? '← 질문 고치기' : '← 이전';
   document.getElementById('btn-next').textContent =
     (qIndex === questions.length - 1) ? '면접 마무리 →' : '다음 질문 →';
-  // 꼬리 질문은 오늘 하는 면접에서만(지난 회차를 열어 고칠 때는 없음)
-  var fb = document.getElementById('btn-follow');
-  if (fb) fb.hidden = !liveInterview;
+  // 꼬리 질문 · 추가 질문은 오늘 하는 면접에서만(지난 회차를 열어 고칠 때는 없음). 질문을 넘기면 열린 칸은 닫습니다
+  toggleFollow(false);
+  var xb = document.getElementById('btn-extra');
+  if (xb) xb.hidden = !liveInterview;
+  var xbox = document.getElementById('extra-box');
+  if (xbox && !liveInterview) xbox.hidden = true;
   paintSkip();
-  var fbox = document.getElementById('follow-box');
-  if (fbox && !liveInterview) fbox.hidden = true;
 
   renderRating();
   renderAreas('area-grid', qIndex);
@@ -1919,36 +1939,70 @@ async function prevQuestion() {
   scrollToQuestion();
 }
 
-// ══════════════ 꼬리 질문 — 면접 도중에 지금 질문 밑에 더하기 ══════════════
+// ══════════════ 꼬리 질문 · 추가 질문 — 면접 도중에 질문 더하기 ══════════════
 //
-// 2026-10-12 선생님 말씀: 면접 중에 추가 질문을 하는 경우가 있다.
-// 진행 화면의 «＋ 꼬리 질문» → 한 줄 칸 → «넣기»(Enter) 하면 **지금 질문 카드 밑에** ↳ 줄로 붙습니다.
-// ⚠️ 처음(2026-10-12)엔 지금 질문 바로 뒤에 **새 질문**을 끼워 넣고 그리로 넘어가 시간 · 받아 적기 · 평가를 따로 했습니다.
-//    2026-10-19 선생님 말씀 «꼬리 질문은 그 질문에서 시간이 그대로 가고, 추가 질문만 적어 두고 싶다» 로 바꿨습니다.
-//    이제 질문 번호는 그대로이고 시계 · 받아 적기도 끊기지 않습니다(받아 적기를 멈추지 않으려고 저장도 꼬리 질문 칸만 따로 씁니다).
-// 글자를 안 적고 «넣기» 하면 아무것도 안 넣습니다 — 말로 바로 물어도 시간은 이 질문에 그대로 이어지니까요.
+// 2026-10-12 선생님 말씀: 면접 중에 추가 질문을 하는 경우가 있다 → 처음엔 «＋ 꼬리 질문» 하나로 지금 질문 뒤에 새 질문을 끼웠습니다.
+// 2026-10-19 둘로 나눴습니다(선생님 말씀 두 번):
+//   · **꼬리 질문** — 질문 카드 밑 ↳ 칸의 «＋ 꼬리 질문». 지금 질문에 딸린 줄이라 질문 번호 · «이 질문 답변» 시계 · 받아 적기가 그대로입니다.
+//     (받아 적기를 멈추지 않으려고 저장도 꼬리 질문 칸만 따로 씁니다 — saveFollowUps) 글자 없이 «넣기» 하면 아무것도 안 넣습니다.
+//   · **추가 질문** — 맨 아래 «＋ 추가 질문». 지금 질문 바로 뒤에 **새 질문**이 생기고 그리로 넘어갑니다(시간 · 받아 적기 · 평가 따로).
+//     글자를 안 적고 «넣기» 하면 «추가 질문 (N번에 이어서)» 로 들어갑니다 — 면접 중엔 타자 칠 틈이 없을 수 있어서.
+//     질문 번호가 뒤로 한 칸씩 밀리므로 표의 줄을 통째로 다시 씁니다(rewriteAnswers — «질문 고치기» 와 같은 길).
 function emptyAnswer() {
   return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {}, skipped: false };
 }
 function toggleFollow(open) {
   var box = document.getElementById('follow-box');
   box.hidden = open === undefined ? !box.hidden : !open;
+  var btn = document.getElementById('btn-follow');
+  if (btn) btn.hidden = !box.hidden;          // 칸이 열리면 단추 자리에 칸이 들어섭니다
   if (!box.hidden) document.getElementById('follow-text').focus();
 }
 function followKey(e) {
   if (e.key === 'Escape') { toggleFollow(false); return; }
-  if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;   // 한글 입력 중 Enter 는 글자 확정
-  e.preventDefault();
-  addFollowUp();
+  enterKey(e, addFollowUp);
+}
+function toggleExtra(open) {
+  var box = document.getElementById('extra-box');
+  box.hidden = open === undefined ? !box.hidden : !open;
+  if (!box.hidden) document.getElementById('extra-text').focus();
+}
+function extraKey(e) {
+  if (e.key === 'Escape') { toggleExtra(false); return; }
+  enterKey(e, addExtraQuestion);
+}
+async function addExtraQuestion() {
+  if (!liveInterview || !questions.length) return;
+  var input = document.getElementById('extra-text');
+  var btn = document.getElementById('extra-add');
+  var at = qIndex + 1;
+  var text = input.value.trim() || '추가 질문 (' + (qIndex + 1) + '번에 이어서)';
+  btn.disabled = true;
+  await saveAnswer(qIndex);        // 지금 질문에 받아 적던 글 · 평가부터 남깁니다
+  questions.splice(at, 0, { text: text, competency: questions[qIndex].competency, slot: 'mid', follow: [] });
+  answers.splice(at, 0, emptyAnswer());
+  var ok = await rewriteAnswers();
+  btn.disabled = false;
+  if (!ok) { questions.splice(at, 1); answers.splice(at, 1); return; }   // 저장이 안 되면 넣지 않은 것으로
+  input.value = '';
+  toggleExtra(false);
+  qIndex = at;
+  showQuestion();
+  scrollToQuestion();
+  toast('추가 질문을 ' + (at + 1) + '번에 넣었습니다. 질문하고 «답변 시작» 을 누르세요.', 'ok');
 }
 // 진행 화면 질문 카드 밑의 ↳ 줄들. 오늘 하는 면접이면 줄마다 × 로 뺄 수 있습니다.
 function paintRunFollow() {
   var box = document.getElementById('run-follow');
-  if (!box) return;
+  var listBox = document.getElementById('run-follow-list');
+  if (!box || !listBox) return;
   var q = questions[qIndex];
   var list = (q && q.follow) || [];
-  box.hidden = !list.length;
-  box.innerHTML = list.map(function (t, j) {
+  // 오늘 하는 면접이면 꼬리 질문이 없어도 «＋ 꼬리 질문» 단추가 보이게 칸을 둡니다. 지난 회차는 꼬리 질문이 있을 때만
+  box.hidden = !liveInterview && !list.length;
+  var add = document.getElementById('run-follow-add');
+  if (add) add.hidden = !liveInterview;
+  listBox.innerHTML = list.map(function (t, j) {
     return '<div class="runfrow"><span class="qfarrow" aria-hidden="true">↳</span><span class="t">' + esc(t) + '</span>' +
       (liveInterview ? '<button class="linkbtn danger" onclick="removeFollowUp(' + j + ')" title="이 꼬리 질문 빼기">×</button>' : '') +
       '</div>';
@@ -1998,6 +2052,7 @@ function paintSkip() {
   if (!b || !a) return;
   b.hidden = !liveInterview;
   b.textContent = a.skipped ? '건너뛴 것 되돌리기' : '이 질문 건너뛰기';
+  b.classList.toggle('on', !!a.skipped);
   var card = document.getElementById('run-question');
   if (card) card.classList.toggle('skipped', !!a.skipped);
   var note = document.getElementById('run-skipnote');

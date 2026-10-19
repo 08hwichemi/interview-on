@@ -108,6 +108,8 @@ const 줄 = p => p.evaluate(() => [].map.call(document.querySelectorAll('#q-list
   await p.keyboard.type('가 꼬리 하나');
   await p.click('#q-list .qrow:nth-child(1) .qfadd'); await p.waitForTimeout(100);
   await p.keyboard.type('가 꼬리 둘');
+  await p.keyboard.press('Enter'); await p.waitForTimeout(50);
+  확인('준비 화면 꼬리 칸에서 Enter 를 치면 칸에서 나감(다 적음)', await p.evaluate(() => !document.activeElement.closest || !document.activeElement.closest('.qfrow')));
   확인('꼬리 질문 두 줄이 그 질문에', await p.evaluate(() => JSON.stringify(midQuestions[0].follow) === JSON.stringify(['가 꼬리 하나', '가 꼬리 둘'])));
   확인('질문 줄(.qrow) 수는 그대로 2 · «질문 N개» 도 그대로', await p.evaluate(() => document.querySelectorAll('#q-list .qrow').length === 2 &&
     composeQuestions().length === 4));
@@ -147,7 +149,9 @@ const 줄 = p => p.evaluate(() => [].map.call(document.querySelectorAll('#q-list
     var f = document.getElementById('run-follow'); return !f.hidden && /↳\s*가 꼬리 둘/.test(f.textContent);
   }));
   await p.evaluate(() => { qIndex = questions.findIndex(q => q.text === '나 질문'); showQuestion(); });
-  확인('꼬리 질문이 없는 질문에서는 그 칸이 숨음', await p.evaluate(() => document.getElementById('run-follow').hidden));
+  확인('꼬리 질문이 없는 질문에서는 줄 없이 «＋ 꼬리 질문» 단추만', await p.evaluate(() =>
+    !document.getElementById('run-follow').hidden && document.getElementById('run-follow-list').children.length === 0 &&
+    document.getElementById('btn-follow').offsetWidth > 0));
   await p.setViewportSize({ width: 400, height: 900 }); await p.evaluate(() => { editQuestions(); }); await p.waitForTimeout(300);
   확인('400px — 꼬리 칸이 옆으로 안 넘침', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1 &&
     [...document.querySelectorAll('#q-list .qfrow')].every(r => r.getBoundingClientRect().right <= innerWidth)));
@@ -158,7 +162,14 @@ const 줄 = p => p.evaluate(() => [].map.call(document.querySelectorAll('#q-list
   const B = await 새창(b, 1440);
   p = B.p;
   await p.click('#unfinished-list button'); await p.waitForTimeout(400);
-  확인('진행 화면에 «＋ 꼬리 질문» 단추', await p.evaluate(() => { var b = document.getElementById('btn-follow'); return !!b && !b.hidden && b.offsetWidth > 0; }));
+  확인('«＋ 꼬리 질문» 단추가 질문 카드 밑 ↳ 칸에 · 맨 아래는 «＋ 추가 질문»', await p.evaluate(() => {
+    var b = document.getElementById('btn-follow'), x = document.getElementById('btn-extra');
+    return !!b && b.offsetWidth > 0 && !!b.closest('#run-follow') && !!x && x.offsetWidth > 0 && x.textContent.indexOf('추가 질문') > -1 && !x.closest('#run-follow');
+  }));
+  확인('«이 질문 건너뛰기» 는 테두리 있는 네모 단추', await p.evaluate(() => {
+    var b = document.getElementById('btn-skip'), cs = getComputedStyle(b);
+    return parseFloat(cs.borderTopWidth) >= 1 && cs.borderTopStyle === 'solid' && cs.backgroundColor !== 'rgba(0, 0, 0, 0)';
+  }));
   확인('불러온 면접의 꼬리 질문(2번)이 그대로', await p.evaluate(() => JSON.stringify(questions[1].follow) === JSON.stringify(['그 궁금증은 풀렸나요?'])));
   await p.click('#btn-timer'); await p.waitForTimeout(100);
   await p.click('#btn-answer'); await p.waitForTimeout(100);
@@ -195,6 +206,19 @@ const 줄 = p => p.evaluate(() => [].map.call(document.querySelectorAll('#q-list
   확인('칸에 치는 «1 2» 는 판정으로 안 감', await p.evaluate(() => answers[0].rating === null && document.getElementById('follow-text').value === '1 2'));
   await p.keyboard.press('Escape');
   await p.evaluate(() => { document.getElementById('follow-text').value = ''; });
+  // 한글을 치다 누른 Enter(글자 확정 중) 한 번으로 들어가는가 — 크롬은 keydown 에 isComposing 을 붙이고 keydown 을 다시 안 보냅니다
+  await p.click('#btn-follow');
+  await p.evaluate(() => {
+    var el = document.getElementById('follow-text'); el.value = '한글 엔터 한 번';
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true }));
+  });
+  await p.waitForTimeout(100);
+  확인('글자 확정 중의 Enter(keydown) 에는 아직 안 들어감', await p.evaluate(() => questions[0].follow.indexOf('한글 엔터 한 번') === -1));
+  await p.evaluate(() => { document.getElementById('follow-text').dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true })); });
+  await p.waitForTimeout(300);
+  확인('손을 떼면(keyup) 들어감 — Enter 한 번으로', await p.evaluate(() => questions[0].follow.indexOf('한글 엔터 한 번') > -1 && document.getElementById('follow-box').hidden));
+  await p.evaluate(() => { questions[0].follow = questions[0].follow.filter(t => t !== '한글 엔터 한 번'); paintRunFollow(); saveFollowUps(0); });
+  await p.waitForTimeout(200);
   // 하나 더 넣고 × 로 빼기
   await p.click('#btn-follow'); await p.keyboard.type('지울 꼬리'); await p.keyboard.press('Enter'); await p.waitForTimeout(300);
   await p.click('#run-follow .runfrow:nth-child(2) .linkbtn'); await p.waitForTimeout(300);
@@ -202,6 +226,25 @@ const 줄 = p => p.evaluate(() => [].map.call(document.querySelectorAll('#q-list
     var r = window.__T.interview_answers.find(a => a.interview_id === 'iv1' && a.seq === 1);
     return questions[0].follow.length === 1 && r.follow_ups.length === 1 && document.querySelectorAll('#run-follow .runfrow').length === 1;
   }));
+  // 맨 아래 «＋ 추가 질문» — 새 질문으로 지금 질문 바로 뒤에, 그리로 넘어감(시간 따로)
+  const 추가전 = await p.evaluate(() => questions.length);
+  await p.click('#btn-extra');
+  확인('«＋ 추가 질문» 을 누르면 아래 한 줄 칸', await p.evaluate(() => !document.getElementById('extra-box').hidden && document.activeElement.id === 'extra-text'));
+  await p.keyboard.type('새로 묻는 질문');
+  await p.keyboard.press('Enter'); await p.waitForTimeout(400);
+  확인('지금 질문 바로 뒤(2번)에 새 질문으로 들어가고 그리로 넘어감', await p.evaluate((n) =>
+    questions.length === n + 1 && qIndex === 1 && questions[1].text === '새로 묻는 질문' && document.getElementById('run-step').textContent === '2 / ' + (n + 1), 추가전));
+  확인('새 질문은 «답변 시작» 을 기다림 · 앞 질문 글 · 꼬리 질문 그대로', await p.evaluate(() => !answering &&
+    answers[0].transcript.indexOf('협업') > -1 && questions[0].follow[0] === '그 경험에서 가장 크게 배운 점은?'));
+  확인('표의 질문 순서도 다시 써짐', await p.evaluate(() => {
+    var rows = window.__T.interview_answers.filter(a => a.interview_id === 'iv1').sort((a, z) => a.seq - z.seq);
+    return rows[1].question === '새로 묻는 질문' && rows[0].follow_ups[0] === '그 경험에서 가장 크게 배운 점은?';
+  }));
+  await p.click('#btn-extra'); await p.click('#extra-add'); await p.waitForTimeout(400);
+  확인('글자 없이 «넣기» 면 «추가 질문 (2번에 이어서)»', await p.evaluate(() => questions[2].text === '추가 질문 (2번에 이어서)' && qIndex === 2));
+  // 두 추가 질문은 빼 둡니다(아래 건너뛰기 검사가 질문 셋을 씁니다)
+  await p.evaluate(async () => { questions.splice(1, 2); answers.splice(1, 2); await rewriteAnswers(); qIndex = 0; showQuestion(); });
+  await p.waitForTimeout(300);
   // 질문 고치기 다녀와도 그대로 (첫인사에 붙은 꼬리 질문까지)
   await p.click('#btn-prev'); await p.waitForTimeout(400);
   확인('«← 질문 고치기» 에서 2번 질문 밑에 꼬리 질문', await p.evaluate(() => {
@@ -289,10 +332,12 @@ const 줄 = p => p.evaluate(() => [].map.call(document.querySelectorAll('#q-list
   await p.waitForTimeout(300);
   await p.evaluate(() => { backToFinish(); backToRun(); }); await p.waitForTimeout(200);
   확인('지난 회차를 고칠 때는 «＋ 꼬리 질문» · «이 질문 건너뛰기» 가 없음', await p.evaluate(() =>
-    !document.getElementById('view-run').hidden && document.getElementById('btn-follow').hidden && document.getElementById('btn-skip').hidden));
+    !document.getElementById('view-run').hidden && document.getElementById('btn-follow').offsetParent === null &&
+    document.getElementById('btn-extra').hidden && document.getElementById('btn-skip').hidden));
   await p.evaluate(() => { questions[0].follow = ['지난 꼬리']; showQuestion(); });
   확인('지난 회차의 꼬리 질문 줄에는 × 가 없음', await p.evaluate(() => !document.getElementById('run-follow').hidden &&
-    !document.querySelector('#run-follow .linkbtn')));
+    /지난 꼬리/.test(document.getElementById('run-follow-list').textContent) && !document.querySelector('#run-follow-list .linkbtn') &&
+    document.getElementById('btn-follow').offsetParent === null));
   await C.ctx.close();
 
   await b.close();
