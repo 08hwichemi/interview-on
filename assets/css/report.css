@@ -46,6 +46,11 @@
   font-size:14px;line-height:1.7;color:var(--ink);
 }
 .anscomp{margin:5px 0 0 29px;font-size:11.5px;font-weight:600;color:var(--ink-3)}
+/* 꼬리 질문 — 그 질문 밑에 ↳ 줄로 (report.js 의 followLinesHTML, 2026-10-19) */
+.ansfollow{margin:5px 0 0 29px}
+.ansfollow p{margin:2px 0 0;font-size:13px;font-weight:600;line-height:1.5;color:var(--ink-2);word-break:keep-all}
+.ansfollow .qfarrow{color:var(--ink-3);margin-right:5px}
+#print-root .ansfollow p{font-size:11.5px;line-height:1.35}
 .pill.ok2{background:#E9EFEA;color:#2F6B4F}
 
 @media(max-width:640px){
@@ -54,6 +59,7 @@
   .rp-srow{grid-template-columns:1fr 44px;gap:8px}
   .rp-srow .area{grid-column:1/-1}
   .anscomp{margin-left:0}
+  .ansfollow{margin-left:0}
 }
 
 /* 질문별 기록 — 무슨 질문을 받았고, 얼마나 말했고, 어땠는지 */

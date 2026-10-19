@@ -125,6 +125,7 @@ function reportHTML(iv, answers, who, round) {
           (a.rating ? '<span class="pill rate">' + esc(a.rating) + '</span>' : '') +
           '<span class="secs">' + mmss(a.seconds) + '</span>' +
         '</div>' +
+        followLinesHTML(a.follow_ups) +
         (a.competency && a.competency !== '기타'
           ? '<div class="anscomp">' + esc(a.competency) + ' 질문</div>' : '') +
         saidBlock(a.transcript) +
@@ -140,6 +141,16 @@ function reportHTML(iv, answers, who, round) {
     }).join('') + '</div>';
 
   return head + list + sheet + note;
+}
+
+// 꼬리 질문 줄들 — 그 질문 밑에 ↳ 로. 시간 · 평가는 원래 질문 하나로 갑니다(2026-10-19).
+// 리포트(학생 · 선생님 · 타학교 QR 평가서)와 선생님 마무리 화면이 같이 씁니다.
+function followLinesHTML(list) {
+  list = (list || []).filter(function (t) { return String(t || '').trim(); });
+  if (!list.length) return '';
+  return '<div class="ansfollow">' + list.map(function (t) {
+    return '<p><span class="qfarrow" aria-hidden="true">↳</span>' + esc(t) + '</p>';
+  }).join('') + '</div>';
 }
 
 // ── 인쇄 · PDF ──

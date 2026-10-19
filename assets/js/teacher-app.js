@@ -162,12 +162,23 @@ function renderGreetings() {
 // 이걸 보고 첫인사·가운데·끝인사로 도로 풀어 놓습니다 (decomposeQuestions).
 function composeQuestions() {
   var list = [];
-  if (hasOpening()) list.push({ text: opening.text.trim(), competency: opening.comp, slot: 'opening' });
+  if (hasOpening()) list.push({ text: opening.text.trim(), competency: opening.comp, slot: 'opening', follow: cleanFollow(opening.follow) });
   midQuestions.forEach(function (q) {
-    if (q.text.trim()) list.push({ text: q.text.trim(), competency: q.competency, slot: 'mid' });
+    if (q.text.trim()) list.push({ text: q.text.trim(), competency: q.competency, slot: 'mid', follow: cleanFollow(q.follow) });
   });
-  if (hasClosing()) list.push({ text: closing.text.trim(), competency: '기타', slot: 'closing' });
+  if (hasClosing()) list.push({ text: closing.text.trim(), competency: '기타', slot: 'closing', follow: cleanFollow(closing.follow) });
   return list;
+}
+
+// ── 꼬리 질문 (2026-10-19 선생님 말씀) ──
+// 질문 하나에 딸린 꼬리 질문들. 따로 된 질문이 아니라 원래 질문 밑의 줄이라
+// **시간 · 받아 적기 · 평가는 원래 질문 하나로** 갑니다. 표에는 그 질문 줄의 follow_ups 칸(글자 목록)에 남습니다.
+// 준비 화면에서는 질문마다 «＋ 꼬리» 로 미리 적고, 진행 화면에서는 «＋ 꼬리 질문» 으로 지금 질문 밑에 더합니다.
+// ⚠️ 예전(2026-10-12~)엔 «＋ 꼬리 질문» 이 지금 질문 뒤에 **새 질문**을 끼워 넣어 시간도 따로 쟀습니다.
+//    «꼬리 질문은 원래 질문에서 시간이 그대로 가야 한다» 는 말씀에 바꿨습니다.
+// 빈 줄은 저장할 때 뺍니다.
+function cleanFollow(list) {
+  return (list || []).map(function (t) { return String(t || '').trim(); }).filter(Boolean);
 }
 
 // ⚠️ 표에는 «첫인사/끝인사» 라는 칸이 없습니다 — 질문 글자만 남습니다.
@@ -200,11 +211,12 @@ function decomposeQuestions(list) {
       //    다시 열면 글자는 맞는데 칩은 «자기소개» 가 켜져 있었습니다(2026-10-11 선생님이 발견).
       //    글자와 같은 인사말이 있으면 그 칩을, 글자를 고쳐 둔 것이면 이전 칩을 그대로 둡니다.
       var same = OPENINGS.filter(function (o) { return o.text === q.text; })[0];
-      opening = { on: true, key: same ? same.key : opening.key, text: q.text, comp: q.competency };
+      opening = { on: true, key: same ? same.key : opening.key, text: q.text, comp: q.competency, follow: q.follow || [] };
       return;
     }
-    if (q.slot === 'closing') { closing = { on: true, text: q.text }; return; }
-    midQuestions.push({ text: q.text, competency: q.competency });
+    // 첫인사 · 끝인사에 면접 중 더한 꼬리 질문도 «질문 고치기» 를 다녀와도 남게 같이 들고 있습니다
+    if (q.slot === 'closing') { closing = { on: true, text: q.text, follow: q.follow || [] }; return; }
+    midQuestions.push({ text: q.text, competency: q.competency, follow: (q.follow || []).slice() });
   });
 }
 
@@ -645,7 +657,7 @@ async function resumeInterview(id) {
   talk.onclick = function () { openChatRoom(target.auth_user_id, whoLabel(target)); };
 
   questions = putBackSlots((r.answers || []).map(function (a) {
-    return { text: a.question, competency: a.competency };
+    return { text: a.question, competency: a.competency, follow: a.follow_ups || [] };
   }));
   answers = (r.answers || []).map(function (a) {
     return { seconds: a.seconds || 0, good: a.good_tags || [], bad: a.bad_tags || [],
@@ -776,7 +788,7 @@ async function openSheet(id, row) {
   row = row || sheets.filter(function (s) { return s.id === id; })[0];
   if (!row) return;
   const rows = await sb.from('interview_answers')
-    .select('seq, question, competency')
+    .select('seq, question, competency, follow_ups')
     .eq('interview_id', id).order('seq', { ascending: true });
   if (rows.error) { toast('질문지를 불러오지 못했습니다: ' + rows.error.message, 'bad'); return; }
   if (!target || !sheets.some(function (s) { return s.id === id; })) return;   // 그새 다른 학생으로 갔음
@@ -786,7 +798,7 @@ async function openSheet(id, row) {
   sheetSavedAt = row.started_at;
   sheetName = row.sheet_name || '';
   decomposeQuestions(putBackSlots((rows.data || []).map(function (a) {
-    return { text: a.question, competency: a.competency || '기타' };
+    return { text: a.question, competency: a.competency || '기타', follow: a.follow_ups || [] };
   })));
   renderGreetings();
   renderQuestions();
@@ -874,7 +886,7 @@ async function keepSheet(list) {
   if (!res.error) {
     var rows = list.map(function (q, i) {
       return { interview_id: sheetId, seq: i + 1,
-               competency: q.competency, question: q.text,
+               competency: q.competency, question: q.text, follow_ups: cleanFollow(q.follow),
                seconds: 0, good_tags: [], bad_tags: [], memo: '' };
     });
     res = await sb.from('interview_answers').insert(rows);
@@ -1125,6 +1137,35 @@ function moveQuestion(i, d) {
   }
 }
 function setQText(i, v) { midQuestions[i].text = v; renderGreetings(); }
+
+// 준비 화면 — 질문 밑의 꼬리 질문 줄들(.qfrow). 질문 줄(.qrow) 밖에 두어서, «.qrow input» 을 집는 곳(따라 하기 · 시험)이 헷갈리지 않게 했습니다.
+function prepFollowHTML(q, i) {
+  var list = q.follow || [];
+  if (!list.length) return '';
+  return '<div class="qfollows">' + list.map(function (t, j) {
+    return '<div class="qfrow"><span class="qfarrow" aria-hidden="true">↳</span>' +
+      '<input type="text" value="' + esc(t) + '" placeholder="꼬리 질문을 적으세요" maxlength="300"' +
+      ' oninput="setPrepFollow(' + i + ', ' + j + ', this.value)">' +
+      '<button class="linkbtn danger" onclick="removePrepFollow(' + i + ', ' + j + ')" title="이 꼬리 질문 빼기">×</button></div>';
+  }).join('') + '</div>';
+}
+function addPrepFollow(i) {
+  var q = midQuestions[i];
+  if (!q) return;
+  q.follow = (q.follow || []).concat(['']);
+  renderQuestions();
+  // 방금 생긴 빈 칸에 바로 글자를 치게
+  var rows = document.querySelectorAll('#q-list .qrow');
+  var box = rows[i] && rows[i].nextElementSibling;
+  var ins = box && box.classList.contains('qfollows') ? box.querySelectorAll('input') : [];
+  if (ins.length) ins[ins.length - 1].focus();
+}
+function setPrepFollow(i, j, v) { if (midQuestions[i] && midQuestions[i].follow) midQuestions[i].follow[j] = v; }
+function removePrepFollow(i, j) {
+  if (!midQuestions[i] || !midQuestions[i].follow) return;
+  midQuestions[i].follow.splice(j, 1);
+  renderQuestions();
+}
 function setQComp(i, v) { midQuestions[i].competency = v; }
 
 function renderQuestions() {
@@ -1148,8 +1189,10 @@ function renderQuestions() {
           '<button class="qmove" data-d="-1" onclick="moveQuestion(' + i + ', -1)" title="위로"' + (i === 0 ? ' disabled' : '') + '>▲</button>' +
           '<button class="qmove" data-d="1" onclick="moveQuestion(' + i + ', 1)" title="아래로"' + (i === midQuestions.length - 1 ? ' disabled' : '') + '>▼</button>' +
         '</span>' +
+        '<button class="linkbtn qfadd" onclick="addPrepFollow(' + i + ')" title="이 질문에 딸린 꼬리 질문 — 시간은 이 질문으로 잽니다">＋ 꼬리</button>' +
         '<button class="linkbtn danger" onclick="removeQuestion(' + i + ')">삭제</button>' +
-        '</div>';
+        '</div>' +
+        prepFollowHTML(q, i);
     }).join('');
   }
   renderGreetings();
@@ -1490,7 +1533,7 @@ async function rewriteAnswers() {
     var a = answers[i];
     return {
       interview_id: interviewId, seq: i + 1,
-      competency: q.competency, question: q.text,
+      competency: q.competency, question: q.text, follow_ups: cleanFollow(q.follow),
       seconds: a.seconds, good_tags: a.good, bad_tags: a.bad,
       rating: a.rating, memo: a.memo || '',
       transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {}
@@ -1584,6 +1627,7 @@ function showQuestion() {
   document.getElementById('run-step').textContent = (qIndex + 1) + ' / ' + questions.length;
   document.getElementById('run-comp').textContent = q.competency;
   document.getElementById('run-question').textContent = q.text;
+  paintRunFollow();
 
   // 면접 전체 시계는 그대로 둡니다. 질문을 넘겼다고 면접이 멈추는 건 아니니까요.
   // 「이 질문 답변」은 새 질문의 시간으로 갈아 끼우고 **멈춘 채** 둡니다 — 선생님이 질문을 읽고 «답변 시작» 을 누르면 흐릅니다.
@@ -1779,6 +1823,7 @@ async function saveAnswer(i) {
     seq: i + 1,
     competency: q.competency,
     question: q.text,
+    follow_ups: cleanFollow(q.follow),  // 꼬리 질문 — 시간 · 평가는 이 질문 하나로
     seconds: a.seconds,
     good_tags: a.good,
     bad_tags: a.bad,
@@ -1823,13 +1868,14 @@ async function prevQuestion() {
   scrollToQuestion();
 }
 
-// ══════════════ 꼬리 질문 — 면접 도중에 질문 더하기 ══════════════
+// ══════════════ 꼬리 질문 — 면접 도중에 지금 질문 밑에 더하기 ══════════════
 //
 // 2026-10-12 선생님 말씀: 면접 중에 추가 질문을 하는 경우가 있다.
-// 진행 화면의 «＋ 꼬리 질문» → 한 줄 칸 → «넣기»(Enter) 하면 **지금 질문 바로 뒤**에 새 질문이 생기고 그리로 넘어갑니다.
-// 질문을 말로 하고 «답변 시작» 을 누르면 받아 적기 · 평가가 다른 질문과 똑같이 붙습니다.
-// 글자를 안 적고 «넣기» 하면 «꼬리 질문 (N번에 이어서)» 로 들어갑니다 — 면접 중엔 타자 칠 틈이 없을 수 있어서.
-// 질문 번호가 뒤로 한 칸씩 밀리므로 표의 줄을 통째로 다시 씁니다(rewriteAnswers — «질문 고치기» 와 같은 길).
+// 진행 화면의 «＋ 꼬리 질문» → 한 줄 칸 → «넣기»(Enter) 하면 **지금 질문 카드 밑에** ↳ 줄로 붙습니다.
+// ⚠️ 처음(2026-10-12)엔 지금 질문 바로 뒤에 **새 질문**을 끼워 넣고 그리로 넘어가 시간 · 받아 적기 · 평가를 따로 했습니다.
+//    2026-10-19 선생님 말씀 «꼬리 질문은 그 질문에서 시간이 그대로 가고, 추가 질문만 적어 두고 싶다» 로 바꿨습니다.
+//    이제 질문 번호는 그대로이고 시계 · 받아 적기도 끊기지 않습니다(받아 적기를 멈추지 않으려고 저장도 꼬리 질문 칸만 따로 씁니다).
+// 글자를 안 적고 «넣기» 하면 아무것도 안 넣습니다 — 말로 바로 물어도 시간은 이 질문에 그대로 이어지니까요.
 function emptyAnswer() {
   return { seconds: 0, good: [], bad: [], rating: null, memo: '', transcript: '', marks: [], areas: {} };
 }
@@ -1844,25 +1890,47 @@ function followKey(e) {
   e.preventDefault();
   addFollowUp();
 }
+// 진행 화면 질문 카드 밑의 ↳ 줄들. 오늘 하는 면접이면 줄마다 × 로 뺄 수 있습니다.
+function paintRunFollow() {
+  var box = document.getElementById('run-follow');
+  if (!box) return;
+  var q = questions[qIndex];
+  var list = (q && q.follow) || [];
+  box.hidden = !list.length;
+  box.innerHTML = list.map(function (t, j) {
+    return '<div class="runfrow"><span class="qfarrow" aria-hidden="true">↳</span><span class="t">' + esc(t) + '</span>' +
+      (liveInterview ? '<button class="linkbtn danger" onclick="removeFollowUp(' + j + ')" title="이 꼬리 질문 빼기">×</button>' : '') +
+      '</div>';
+  }).join('');
+}
+// 꼬리 질문 칸만 서버에 씁니다. saveAnswer 를 부르면 받아 적기를 잠깐 멈췄다 다시 켜서(listenCut) 학생 말이 끊길 수 있습니다.
+// 줄이 아직 없거나 못 썼어도 다음에 질문을 넘길 때 saveAnswer 가 같이 저장합니다.
+async function saveFollowUps(i) {
+  if (!interviewId || !questions[i]) return;
+  const { error } = await sb.from('interview_answers').update({ follow_ups: cleanFollow(questions[i].follow) })
+    .eq('interview_id', interviewId).eq('seq', i + 1);
+  if (error) toast('꼬리 질문을 저장하지 못했습니다(질문을 넘길 때 다시 저장합니다): ' + error.message, 'bad');
+}
 async function addFollowUp() {
   if (!liveInterview || !questions.length) return;
   var input = document.getElementById('follow-text');
-  var btn = document.getElementById('follow-add');
-  var at = qIndex + 1;
-  var text = input.value.trim() || '꼬리 질문 (' + (qIndex + 1) + '번에 이어서)';
-  btn.disabled = true;
-  await saveAnswer(qIndex);        // 지금 질문에 받아 적던 글 · 평가부터 남깁니다
-  questions.splice(at, 0, { text: text, competency: questions[qIndex].competency, slot: 'mid' });
-  answers.splice(at, 0, emptyAnswer());
-  var ok = await rewriteAnswers();
-  btn.disabled = false;
-  if (!ok) { questions.splice(at, 1); answers.splice(at, 1); return; }   // 저장이 안 되면 넣지 않은 것으로
-  input.value = '';
+  var text = input.value.trim();
   toggleFollow(false);
-  qIndex = at;
-  showQuestion();
-  scrollToQuestion();
-  toast('꼬리 질문을 ' + (at + 1) + '번에 넣었습니다. 질문하고 «답변 시작» 을 누르세요.', 'ok');
+  if (!text) { toast('적은 글이 없어 넣지 않았습니다. 꼬리 질문은 말로 바로 하셔도 시간 · 받아 적기가 이 질문에 그대로 이어집니다.', 'ok'); return; }
+  var q = questions[qIndex];
+  q.follow = cleanFollow(q.follow).concat([text]);
+  input.value = '';
+  paintRunFollow();
+  await saveFollowUps(qIndex);
+  toast('꼬리 질문을 ' + (qIndex + 1) + '번 질문 밑에 적었습니다. 시간은 이 질문에 그대로 이어집니다.', 'ok');
+}
+async function removeFollowUp(j) {
+  if (!liveInterview) return;
+  var q = questions[qIndex];
+  if (!q || !q.follow || !q.follow[j]) return;
+  q.follow.splice(j, 1);
+  paintRunFollow();
+  await saveFollowUps(qIndex);
 }
 
 // 면접 도중 지금 질문 삭제 (2026-10-12 선생님 말씀: 넣은 질문을 지울 수도 있으면 좋겠다. 이름은 «빼기» 였다가 «삭제» 로 — 2026-10-13 선생님 말씀).
@@ -1932,6 +2000,7 @@ function answerRowHTML(i) {
       '<span class="qt">' + esc(q.text) + '</span>' +
       '<span class="secs">' + mmss(a.seconds) + '</span>' +
     '</div>' +
+    followLinesHTML(q.follow) +
     (q.competency && q.competency !== '기타'
       ? '<div class="anscomp">' + esc(q.competency) + ' 질문</div>' : '') +
     // 학생이 말한 내용 — 받아 적은 것이 없으면 그 자리만 비워 둡니다
@@ -1968,7 +2037,7 @@ async function saveAllAnswers() {
     var a = answers[i];
     return {
       interview_id: interviewId, seq: i + 1,
-      competency: q.competency, question: q.text,
+      competency: q.competency, question: q.text, follow_ups: cleanFollow(q.follow),
       seconds: a.seconds, good_tags: a.good, bad_tags: a.bad,
       rating: a.rating, memo: a.memo || '',
       transcript: a.transcript || '', marks: a.marks || [], areas: a.areas || {}
@@ -2174,7 +2243,7 @@ async function openPast(id, round) {
   interviewId = id;
   viewing = { interview: r.interview, answers: r.answers, round: round };
   questions = putBackSlots(r.answers.map(function (a) {
-    return { text: a.question, competency: a.competency };
+    return { text: a.question, competency: a.competency, follow: a.follow_ups || [] };
   }));
   answers = r.answers.map(function (a) {
     return { seconds: a.seconds || 0, good: a.good_tags || [], bad: a.bad_tags || [],
