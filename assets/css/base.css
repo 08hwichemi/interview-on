@@ -197,6 +197,22 @@ html { overflow-y: auto; scrollbar-gutter: stable; }
 .menu-icon { font-size: clamp(32px, 5.2vh, 48px); margin-right: clamp(12px, 2.4vw, 20px); }
 .menu-title { font-size: clamp(17px, 2.4vh, 22px); font-weight: 800; color: var(--ink); margin-bottom: 6px; }
 .menu-desc { font-size: clamp(12.5px, 1.7vh, 14px); color: var(--ink-3); line-height: 1.4; word-break: keep-all; }
+/* ⚠️ «면접 후기 쓰기» 까지 메뉴가 여섯 개가 되자 짧은 폰(360×640 에 새 판 띠가 뜬 때 · 320×568)에서
+      다시 넘쳐 꼬리말이 화면 밖으로 밀렸습니다(2026-10-22 시험에서 발견). 짧은 화면에서는
+      틈을 줄이고 설명을 한 줄로(넘치면 … ), 아주 짧은 화면에서는 설명을 빼고 제목만 둡니다. */
+@media (max-height: 700px) {
+  .home-grid { gap: 8px; }
+  .menu-btn { min-height: 48px; padding-top: 8px; padding-bottom: 8px; }
+  .menu-icon { font-size: 30px; }
+  .menu-title { margin-bottom: 2px; }
+  .menu-text-box { min-width: 0; }
+  .menu-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .menu-desc br { display: none; }
+}
+@media (max-height: 600px) {
+  .menu-btn { min-height: 42px; }
+  .menu-desc { display: none; }
+}
 
 /* 대학 고르기 단추·필터·팝업은 browse.css 로 옮겼습니다 */
 

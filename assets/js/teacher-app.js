@@ -196,6 +196,20 @@ function enterKey(e, done) {
 // 준비 화면의 질문 · 꼬리 칸 — 글자는 칠 때마다 담기므로 Enter 는 «다 적었다» 로 칸에서 나가기만 합니다
 function enterDone(e) { enterKey(e, function () { e.target.blur(); }); }
 
+// ── 질문지에 저장 안 한 고침이 있는가 (2026-10-22, 새 판 저절로 받기 — update-bar.js 의 updateIsBusy) ──
+// 질문지를 열거나 저장한 때의 모습(질문 · 꼬리 질문 · 첫인사 · 끝인사 · 이름 칸)을 적어 두고, 지금과 다르면 «고치는 중» 입니다.
+// 고치는 중에는 새 판이 와도 저절로 새로고침하지 않습니다(띠만).
+var prepCleanSig = null;
+function prepSig() {
+  var nm = document.getElementById('sheet-name');
+  return JSON.stringify([composeQuestions(), nm ? nm.value.trim() : '']);
+}
+function markPrepClean() { prepCleanSig = prepSig(); }
+function prepDirty() {
+  if (typeof target === 'undefined' || !target) return false;
+  return prepSig() !== prepCleanSig;
+}
+
 function cleanFollow(list) {
   return (list || []).map(function (t) { return String(t || '').trim(); }).filter(Boolean);
 }
@@ -615,6 +629,8 @@ async function pickStudent(id) {
   show('setup');
   paintHistoryAcc();   // 학생을 고를 때마다 접힌 상태를 다시 맞춥니다 (휴대폰: 접어서 스크롤 줄이기)
   paintQsect();
+  paintSheetNote();
+  markPrepClean();  // 빈 화면이 «고친 것 없음» — 질문지가 있으면 openSheet 가 다시 적습니다
   loadSheet();      // 미리 만들어 둔 질문지가 있으면 그대로 펴 놓습니다
   loadHistory();
   loadSusi();       // 수시로 어디에 지원했는지 (있으면)
@@ -825,6 +841,7 @@ async function openSheet(id, row) {
   renderGreetings();
   renderQuestions();
   paintSheetNote();
+  markPrepClean();
 }
 
 // «＋ 새 질문지» — 화면을 비우고, 다음 «질문지 저장» 이 새 줄을 만들게 합니다. 저장해 둔 것은 그대로.
@@ -840,6 +857,7 @@ function newSheet() {
   paintSheetNote();
   var nameIn = document.getElementById('sheet-name');
   if (nameIn) { nameIn.value = ''; try { nameIn.focus(); } catch (e) { /* */ } }
+  markPrepClean();
 }
 
 // 질문지 줄('준비중')을 챙기고 질문을 통째로 다시 씁니다.
@@ -929,6 +947,7 @@ async function keepSheet(list) {
   }
   if (res.error) { toast('질문지를 저장하지 못했습니다: ' + res.error.message, 'bad'); return false; }
   paintSheetNote();
+  markPrepClean();                 // 저장했으니 «고친 것 없음»
   if (target.other) otherLoad();   // 왼쪽 타학교 목록에 새 학생 · 고친 이름이 바로 뜨게
   return true;
 }
