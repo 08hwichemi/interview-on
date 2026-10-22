@@ -184,6 +184,7 @@ async function enterApp() {
 
   setBusy(false);
   navigateTo('home');
+  if (typeof updateRestore === 'function') updateRestore();   // 새 판으로 저절로 다시 열렸으면 보던 화면으로 (update-bar.js)
   noticeWatch();    // 공지 실시간 알림(🔔 점)
 
   // 톡은 어느 화면에서나 쓸 수 있게 머리말에 있습니다

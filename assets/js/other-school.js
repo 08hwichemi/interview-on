@@ -362,6 +362,7 @@ function otherSetup(t) {
   show('setup');
   paintQsect();
   paintSheetNote();
+  markPrepClean();   // 새 판 저절로 받기 — 질문지를 열면 openSheet 가 다시 적습니다
   otherRenderList();
 }
 

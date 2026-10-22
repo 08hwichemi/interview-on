@@ -20,17 +20,28 @@
 // ── 2026-09-30: 업데이트를 «무조건» 받게 ──
 // 띠만 띄우면 안 누르고 계속 쓰는 사람이 있습니다. 예전 판이 켜진 채로 남으면
 // 고친 것(예: 서버 요청 줄이기)이 그 기기에는 영영 안 먹습니다. 그래서
-//   · 하던 일이 없는 화면이면 → 화면 전체를 덮는 안내를 띄워 «업데이트» 만 누를 수 있게
+//   · 하던 일이 없는 화면이면 → 화면 전체를 덮는 안내를 띄워 «업데이트» 만 누를 수 있게 (2026-10-22 부터는 그냥 새로고침 — 아래)
 //   · 화면을 안 보고 있거나(다른 탭·앱) 돌아오는 순간이면 → 알아서 새로고침
 //   · 날아가면 안 되는 일을 하는 중이면 → 예전처럼 띠만. 그 일이 끝나면 위 둘로
 //     (학생 모의 면접 화면, 선생님이 면접 중이거나 학생을 골라 질문지를 만드는 중,
 //      관리자 화면 — updateIsBusy() 참고)
 // 답안 연습장은 쓰는 글이 그 기기에 임시로 남아서(practice.js) 새로고침해도 안전합니다.
 //
+// ── 2026-10-22: 아무것도 안 하고 있으면 누르지 않아도 저절로 ──
+// 선생님 말씀: «학생 화면 · 교사 화면 아무것도 안 하고 있을 때 알아서 업데이트 하게».
+//   · 하던 일이 없고(updateIsBusy) **1분 동안 손대지 않았으면**(누르기 · 치기 · 스크롤 — updateIsIdle) → 그대로 새로고침.
+//     화면을 덮던 «업데이트» 안내는 없앴습니다. 막 열어서 아직 손대지 않았을 때도 바로 새로고침합니다
+//   · 하던 일이 없지만 손대는 중이면 → 띠만. 손을 놓고 1분 지나면 저절로(새 판을 안 뒤 20초마다 다시 봅니다 — 서버에 묻지 않음)
+//   · 하던 일이 있으면 → 띠만. 끝나면 위대로
+//   · 새로고침 뒤에는 보던 곳으로 돌려놓습니다(updateSaveRestore · updateRestore) —
+//     선생님: 보던 학생 · 탭(우리 학교 / 타학교), 학생: 보던 화면(홈 · 후기 · 기출 · 연습장 · 리포트 목록 · 모의 면접 세팅 · 후기 쓰기)
+//   · 선생님 화면에서 «하던 일» = 면접 진행 · 마무리 중, 생기부 화면, 질문지에 저장 안 한 고침(teacher-app.js 의 prepDirty),
+//     저장 안 한 타학교 학생, 붙여넣기 칸 · 코멘트 칸에 적다 만 글, 떠 있는 창, 따라 하기(?guide)
+//
 // ※ 새 판을 올릴 때는 손으로 고치지 말고 `python3 tools/판올리기.py` 를 쓰세요.
 //    version.txt · BUILD_ID · 파일 주소 세 곳을 한꺼번에 맞춥니다.
 
-var BUILD_ID = '2026-10-19.3';
+var BUILD_ID = '2026-10-22.1';
 var UPDATE_SHOWN = false;
 var SERVER_VERSION = null;   // 서버에 올라와 있는 판 번호
 
@@ -104,45 +115,91 @@ function rememberTried(v) {
 // 지금 새로고침하면 하던 것이 날아가는 중인가
 function updateIsBusy() {
   if (location.pathname.indexOf('/admin/') > -1) return true;            // 관리자: 붙여 넣은 명단 등
+  if (/[?&]guide/.test(location.search)) return true;                     // 따라 하기 — 새로고침하면 처음부터
   var el = document.activeElement;                                        // 지금 글을 쓰는 중(톡 입력칸 등)
   if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !document.hidden) return true;
   var chat = document.getElementById('chat-input');                       // 보내지 않은 톡
   if (chat && chat.value && chat.value.trim()) return true;
-  if (document.querySelector('#screen-interview-setup.active, #screen-interview-run.active, #screen-interview-result.active'))
-    return true;                                                          // 학생: 모의 면접(녹음) 중
-  if (typeof liveInterview !== 'undefined' && liveInterview) return true; // 선생님: 면접 진행 중
-  if (typeof target !== 'undefined' && target) return true;               // 선생님: 학생을 골라 질문지 만드는 중
+  // 떠 있는 창(받은 질문 · 연습장에서 가져오기 · 학생 질문 · 공지 · 톡 …) — 잠깐 쓰는 것이라 닫을 때까지 기다립니다
+  var overlays = document.querySelectorAll('.modal-overlay, .chat-modal');
+  for (var i = 0; i < overlays.length; i++) {
+    var d = overlays[i].style.display;
+    if (d === 'flex' || d === 'block') return true;
+  }
+  // 학생: 모의 면접(녹음 · 받아 적기) 중 · 결과 화면(녹음은 이 기기 안에만 있습니다).
+  // 세팅 화면은 질문을 칠 때마다 기기에 담아 두므로(interview.js) 새로고침해도 됩니다
+  if (document.querySelector('#screen-interview-run.active, #screen-interview-result.active')) return true;
+  if (typeof liveInterview !== 'undefined' && liveInterview) return true; // 선생님: 면접 진행 중(질문 고치기 포함)
+  if (location.pathname.indexOf('/teacher/') > -1) {
+    var vis = function (id) { var v = document.getElementById(id); return !!v && !v.hidden; };
+    if (vis('view-run') || vis('view-finish') || vis('view-saenggibu')) return true;   // 진행 · 마무리(지난 회차 고치기) · 생기부(PDF 는 이 화면에만)
+    if (typeof prepDirty === 'function' && prepDirty()) return true;        // 질문지에 저장 안 한 고침
+    if (typeof target !== 'undefined' && target && target.other && !target.ivId && String(target.name || '').trim()) return true;  // 명단에 안 넣은 타학교 학생
+    var paste = document.getElementById('other-paste-text');
+    if (paste && paste.value.trim()) return true;                          // 붙여넣기 칸에 적다 만 글
+    var tas = document.querySelectorAll('#t-prac-list textarea, #finish-note');
+    for (var j = 0; j < tas.length; j++) if (tas[j].value && tas[j].value.trim()) return true;   // 코멘트 · 총평에 적다 만 글
+  }
   return false;
 }
 
-// 화면 전체를 덮는 안내. 닫기 단추가 없습니다 — «업데이트» 만 누를 수 있습니다.
-function showUpdateCover() {
-  if (document.getElementById('update-cover')) return;
-  hideUpdateBar();
-  var c = document.createElement('div');
-  c.id = 'update-cover';
-  c.setAttribute('role', 'alertdialog');
-  c.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(20,20,20,.72);' +
-    'display:flex;align-items:center;justify-content:center;padding:16px;';
-  c.innerHTML =
-    '<div style="background:#fff;color:#111;border-radius:14px;padding:24px 22px;max-width:340px;width:100%;' +
-      'text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3);font-family:inherit">' +
-      '<div style="font-size:17px;font-weight:700;margin-bottom:8px">새 버전이 나왔습니다</div>' +
-      '<div style="font-size:14px;color:#555;line-height:1.5;margin-bottom:18px">' +
-        '업데이트를 눌러 주세요.<br>쓰던 내용은 그대로 남습니다.</div>' +
-      '<button type="button" id="update-cover-go" style="width:100%;padding:12px;border:0;border-radius:10px;' +
-        'background:#111;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer">업데이트</button>' +
-    '</div>';
-  document.body.appendChild(c);
-  document.getElementById('update-cover-go').addEventListener('click', reloadFresh);
+// 1분 동안 손대지 않았는가. 막 열어서 아직 한 번도 안 만졌으면 «안 만진 것» 입니다.
+var UPDATE_IDLE_MS = 60 * 1000;
+var lastTouchAt = 0;
+['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(function (t) {
+  window.addEventListener(t, function () { lastTouchAt = Date.now(); }, { capture: true, passive: true });
+});
+function updateIsIdle() { return !lastTouchAt || Date.now() - lastTouchAt >= UPDATE_IDLE_MS; }
+
+// ── 새로고침 뒤 보던 곳으로 ──
+// 다시 여는 것은 같은 창(탭) 안이라 sessionStorage 에 적어 둡니다. 2분이 지난 것은 버립니다.
+var RESTORE_KEY = 'updateRestore';
+var RESTORE_SCREENS = ['home', 'reviews', 'questions', 'practice', 'my-reports', 'interview-setup', 'hugi'];
+function updateSaveRestore() {
+  var r = null;
+  if (location.pathname.indexOf('/teacher/') > -1) {
+    r = { t: 'teacher', other: typeof railOther !== 'undefined' && !!railOther };
+    if (typeof target !== 'undefined' && target) {
+      if (target.other) r.oid = target.ivId || null; else r.sid = target.id;
+      r.tab = typeof teacherLastGoTab !== 'undefined' ? teacherLastGoTab : 'prep';
+    }
+  } else {
+    var s = document.querySelector('.screen.active');
+    var id = s ? s.id.replace('screen-', '') : '';
+    if (RESTORE_SCREENS.indexOf(id) > -1) r = { t: 'student', screen: id };
+  }
+  if (!r) return;
+  r.at = Date.now();
+  try { sessionStorage.setItem(RESTORE_KEY, JSON.stringify(r)); } catch (e) { /* 못 적으면 처음 화면으로 */ }
+}
+// 앱이 다 뜬 뒤 부릅니다(학생: auth.js 의 enterApp, 선생님: teacher/index.html 의 시작 부분)
+async function updateRestore() {
+  var r = null;
+  try { r = JSON.parse(sessionStorage.getItem(RESTORE_KEY) || 'null'); sessionStorage.removeItem(RESTORE_KEY); } catch (e) { return; }
+  if (!r || !r.at || Date.now() - r.at > 2 * 60 * 1000) return;
+  try {
+    if (r.t === 'teacher' && location.pathname.indexOf('/teacher/') > -1) {
+      if (r.other && typeof railShowOther === 'function') railShowOther(true);
+      if (r.tab && typeof teacherLastGoTab !== 'undefined') teacherLastGoTab = r.tab;
+      if (r.sid && typeof pickStudent === 'function') await pickStudent(r.sid);
+      else if (r.oid && typeof otherOpen === 'function') { if (typeof otherLoad === 'function') await otherLoad(); await otherOpen(r.oid); }
+    } else if (r.t === 'student' && r.screen && r.screen !== 'home' && typeof navigateTo === 'function') {
+      navigateTo(r.screen);
+    }
+  } catch (e) { console.warn('보던 화면으로 돌아가지 못했습니다:', e); }
 }
 
 // 새 판이 있다는 걸 안 뒤, 지금 형편에 맞게 처리합니다.
+// ⚠️ 2026-09-30 ~ 10-21 엔 «하던 일이 없으면» 화면을 덮는 «업데이트» 안내를 띄워 누르게 했습니다.
+//    «아무것도 안 할 때는 알아서» 라는 말씀(2026-10-22)에 덮는 안내는 없애고 그냥 새로고침합니다.
+var UPDATE_WATCH = null;
 function applyUpdate() {
   if (!SERVER_VERSION) return;
-  if (updateIsBusy()) { showUpdateBar(); return; }   // 하던 일이 끝나면 다음 확인 때 다시 옵니다
-  if (document.hidden) { reloadFresh(); return; }    // 안 보고 있을 때 조용히
-  showUpdateCover();
+  // 새 판을 안 뒤로는 20초마다 형편을 다시 봅니다 — 하던 일이 끝나거나 손을 놓으면 그때 새로고침(서버에 묻지 않습니다)
+  if (!UPDATE_WATCH) UPDATE_WATCH = setInterval(applyUpdate, 20 * 1000);
+  if (updateIsBusy()) { showUpdateBar(); return; }   // 하던 일이 있으면 띠만
+  if (document.hidden || updateIsIdle()) { reloadFresh(); return; }   // 안 보고 있거나 1분 동안 손대지 않았으면 조용히
+  showUpdateBar();                                   // 손대는 중이면 띠만 — 손을 놓고 1분 지나면 저절로
 }
 
 function checkForUpdate() {
@@ -178,6 +235,7 @@ function reloadFresh() {
   if (typeof allowLeaving === 'function') allowLeaving();
   // 답안 연습장에 쓰던 글을 서버로 보내 봅니다(못 가도 그 기기 임시본에서 다음에 올라갑니다)
   if (typeof practiceFlushAll === 'function') { try { practiceFlushAll(); } catch (e) { /* 그래도 새로고침 */ } }
+  updateSaveRestore();   // 새로 연 뒤 보던 곳으로 돌아가게
   var base = location.href.split('?')[0].split('#')[0];
   var v = SERVER_VERSION || String(Date.now());
   rememberTried(v);
