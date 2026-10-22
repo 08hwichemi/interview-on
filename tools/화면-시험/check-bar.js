@@ -38,7 +38,7 @@ const 잼 = p => p.evaluate(() => {
 
   console.log('\n── 띠가 떠도 한 화면에 ──');
   for (const [w,h,로그인,이름] of [[450,946,false,'로그인'],[390,844,false,'로그인'],[360,640,false,'로그인'],
-                                   [320,568,false,'로그인'],[390,844,true,'홈'],[360,640,true,'홈']]) {
+                                   [320,568,false,'로그인'],[390,844,true,'홈'],[360,640,true,'홈'],[320,568,true,'홈']]) {
     const { ctx, p } = await 열기(b, w, h, 로그인, fs.readFileSync('/home/user/interview-on/version.txt','utf8').trim());   // 같은 판 — 저절로 다시 열지 않게
     await 띠만(p); await p.waitForTimeout(100);
     const r = await 잼(p);

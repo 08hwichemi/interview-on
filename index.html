@@ -6,9 +6,9 @@
 
   <title>면접ON</title>
 
-  <link rel="manifest" href="manifest.json?v=2026-10-22.1">
-  <link rel="icon" href="assets/icon-192.png?v=2026-10-22.1">
-  <link rel="apple-touch-icon" href="assets/icon-192.png?v=2026-10-22.1">
+  <link rel="manifest" href="manifest.json?v=2026-10-22.2">
+  <link rel="icon" href="assets/icon-192.png?v=2026-10-22.2">
+  <link rel="apple-touch-icon" href="assets/icon-192.png?v=2026-10-22.2">
   <meta name="theme-color" content="#18181B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <!-- 홈 화면에 담아 열면 상태표시줄이 머리말과 같은 먹빛이 됩니다.
@@ -20,13 +20,13 @@
 
   <!-- 스타일: base = 레이아웃·헤더·로그인·모달 / app = 카드·훈련화면·푸터 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="assets/css/base.css?v=2026-10-22.1">
-  <link rel="stylesheet" href="assets/css/report.css?v=2026-10-22.1">
-  <link rel="stylesheet" href="assets/css/browse.css?v=2026-10-22.1">
-  <link rel="stylesheet" href="assets/css/chat.css?v=2026-10-22.1">
-  <link rel="stylesheet" href="assets/css/practice.css?v=2026-10-22.1">
-  <link rel="stylesheet" href="assets/css/hugi.css?v=2026-10-22.1">
-  <link rel="stylesheet" href="assets/css/app.css?v=2026-10-22.1">
+  <link rel="stylesheet" href="assets/css/base.css?v=2026-10-22.2">
+  <link rel="stylesheet" href="assets/css/report.css?v=2026-10-22.2">
+  <link rel="stylesheet" href="assets/css/browse.css?v=2026-10-22.2">
+  <link rel="stylesheet" href="assets/css/chat.css?v=2026-10-22.2">
+  <link rel="stylesheet" href="assets/css/practice.css?v=2026-10-22.2">
+  <link rel="stylesheet" href="assets/css/hugi.css?v=2026-10-22.2">
+  <link rel="stylesheet" href="assets/css/app.css?v=2026-10-22.2">
 </head>
 <body>
 
@@ -136,14 +136,14 @@
             <!-- 안 읽은 리포트가 있으면 빨간 숫자가 붙습니다 (student-report.js) -->
             <span class="newbadge" id="report-badge" hidden></span>
           </div>
-          <div class="menu-desc">선생님이 보내주신 면접 결과<br>회차별로 계속 쌓입니다</div>
+          <div class="menu-desc">선생님이 보내주신 면접 결과<br> 회차별로 계속 쌓입니다</div>
         </div>
       </button>
       <button class="menu-btn" onclick="navigateTo('interview-setup')">
         <span class="menu-icon">⏱️</span>
         <div class="menu-text-box">
           <div class="menu-title">모의 면접 연습</div>
-          <div class="menu-desc">나만의 생기부 맞춤 질문<br>타이머 & 녹음으로 실전 연습</div>
+          <div class="menu-desc">나만의 생기부 맞춤 질문<br> 타이머 & 녹음으로 실전 연습</div>
         </div>
       </button>
       <button class="menu-btn" onclick="navigateTo('practice')">
@@ -153,14 +153,14 @@
             <!-- 선생님이 코멘트를 남기거나 질문을 보내면 빨간 숫자가 붙습니다 (practice.js) -->
             <span class="newbadge" id="practice-badge" hidden></span>
           </div>
-          <div class="menu-desc">예상 질문에 내 답을 미리 써 두기<br>선생님도 볼 수 있습니다</div>
+          <div class="menu-desc">예상 질문에 내 답을 미리 써 두기<br> 선생님도 볼 수 있습니다</div>
         </div>
       </button>
       <button class="menu-btn" onclick="navigateTo('hugi')">
         <span class="menu-icon">🗒️</span>
         <div class="menu-text-box">
           <div class="menu-title">면접 후기 쓰기</div>
-          <div class="menu-desc">면접 본 대학마다 한 장씩<br>합격·불합격 모두 씁니다</div>
+          <div class="menu-desc">면접 본 대학마다 한 장씩<br> 합격·불합격 모두 씁니다</div>
         </div>
       </button>
     </div>
@@ -576,23 +576,23 @@
      config.js 가 이걸 써서 클라이언트를 만들므로 반드시 먼저 와야 합니다. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="assets/js/config.js?v=2026-10-22.1"></script>
-<script src="assets/js/update-bar.js?v=2026-10-22.1"></script>
-<script src="assets/js/utils.js?v=2026-10-22.1"></script>
-<script src="assets/js/api.js?v=2026-10-22.1"></script>
-<script src="assets/js/ui.js?v=2026-10-22.1"></script>
-<script src="assets/js/auth.js?v=2026-10-22.1"></script>
-<script src="assets/js/browse.js?v=2026-10-22.1"></script>
-<script src="assets/js/reviews.js?v=2026-10-22.1"></script>
-<script src="assets/js/questions.js?v=2026-10-22.1"></script>
-<script src="assets/js/interview.js?v=2026-10-22.1"></script>
-<script src="assets/js/report.js?v=2026-10-22.1"></script>
-<script src="assets/js/chat.js?v=2026-10-22.1"></script>
-<script src="assets/js/student-report.js?v=2026-10-22.1"></script>
-<script src="assets/js/practice.js?v=2026-10-22.1"></script>
-<script src="assets/js/hugi.js?v=2026-10-22.1"></script>
-<script src="assets/js/notice.js?v=2026-10-22.1"></script>
-<script src="assets/js/badges.js?v=2026-10-22.1"></script>
-<script src="assets/js/main.js?v=2026-10-22.1"></script>
+<script src="assets/js/config.js?v=2026-10-22.2"></script>
+<script src="assets/js/update-bar.js?v=2026-10-22.2"></script>
+<script src="assets/js/utils.js?v=2026-10-22.2"></script>
+<script src="assets/js/api.js?v=2026-10-22.2"></script>
+<script src="assets/js/ui.js?v=2026-10-22.2"></script>
+<script src="assets/js/auth.js?v=2026-10-22.2"></script>
+<script src="assets/js/browse.js?v=2026-10-22.2"></script>
+<script src="assets/js/reviews.js?v=2026-10-22.2"></script>
+<script src="assets/js/questions.js?v=2026-10-22.2"></script>
+<script src="assets/js/interview.js?v=2026-10-22.2"></script>
+<script src="assets/js/report.js?v=2026-10-22.2"></script>
+<script src="assets/js/chat.js?v=2026-10-22.2"></script>
+<script src="assets/js/student-report.js?v=2026-10-22.2"></script>
+<script src="assets/js/practice.js?v=2026-10-22.2"></script>
+<script src="assets/js/hugi.js?v=2026-10-22.2"></script>
+<script src="assets/js/notice.js?v=2026-10-22.2"></script>
+<script src="assets/js/badges.js?v=2026-10-22.2"></script>
+<script src="assets/js/main.js?v=2026-10-22.2"></script>
 </body>
 </html>
