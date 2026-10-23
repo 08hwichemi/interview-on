@@ -18,6 +18,9 @@
 //   · 크롬이 문장을 확정하면, 듣기가 멈추면, 질문을 넘기면(저장할 때) 보이던 꼬리까지 **모두** 굳힙니다 — 보였던 말은 잃지 않습니다
 //   · 굳힌 데가 크롬의 새 글 어디에 해당하는지는 띄어쓰기를 빼고 글자로 찾습니다(크롬이 «화학 공학» → «화학공학과에» 처럼 띄어쓰기를 자주 바꿔서)
 //       ① 새 글이 굳힌 글로 시작하면 그 뒤가 꼬리 ② 아니면 굳힌 글의 끝 3~16글자를 새 글에서 찾아 그 뒤 ③ 못 찾으면 앞에서부터 같은 데까지 뒤
+//   · (.3) **띄어쓰기는 크롬의 새 글을 따라 고칩니다** — 굳힌 글자는 그대로 두고 띄어쓰기만. 크롬의 첫 짐작은 «속 도 · 미 흡 · 충분 합니다» 처럼
+//     띄어 오는데, 그 모양으로 굳은 뒤에 크롬이 같은 글자를 «속도 · 미흡 · 충분합니다» 로 다시 보내면 지금 문장의 굳힌 글 띄어쓰기를 그걸로 바꿉니다
+//     (선생님 말씀: «많이 좋아졌는데 띄어쓰기가 좀 부자연스럽다»). 글자가 다른 데부터는(크롬이 뺀 말 등) 손대지 않습니다
 // 감수할 점: 두 번 잇달아 같게 온 잘못 들은 말은 남습니다(틀린 것도 그대로 — 학생이 어떻게 말했는지), 드물게 한두 글자가 겹칠 수 있습니다,
 //            크롬이 처음부터 안 보낸 말(«음 · 어» 말버릇 등)은 못 남깁니다 — 그건 녹음 파일로
 // 학생 앱(interview.js 의 모의 면접 받아 적기)과 선생님 화면(listen.js)이 같이 씁니다.
@@ -49,13 +52,35 @@ function sttAlign(seen, w) {
 }
 
 // 듣기 한 번(start ~ end) 동안의 상태
-function sttKeepNew() { return { start: 0, seen: '', prev: '', live: '', lastDone: '' }; }
+function sttKeepNew() { return { start: 0, seen: '', prev: '', live: '', liveGlue: ' ', lastDone: '', doneRaw: '' }; }
+
+// 지금 문장에서 굳혀 붙인 글(doneRaw)의 띄어쓰기를 크롬의 새 글(raw) 것으로 — 글자는 그대로, 앞에서부터 글자가 같은 데까지만
+function sttRespace(doneRaw, raw) {
+  var a = sttStrip(doneRaw), b = sttStrip(raw), L = 0;
+  while (L < a.length && L < b.length && a[L] === b[L]) L++;
+  if (!L) return doneRaw;
+  var head = raw.slice(0, raw.length - sttCutFrom(raw, L).length).replace(/\s+/g, ' ').trim();
+  var rest = sttCutFrom(doneRaw, L);
+  if (!rest) return head;
+  var cutAt = doneRaw.length - rest.length;
+  var gap = /\s/.test(doneRaw[cutAt - 1] || '') ? ' ' : '';
+  return (head + gap + rest).replace(/\s+/g, ' ').trim();
+}
+// 붙인 글에 지금 결과를 반영 — 띄어쓰기 고침(있으면) 뒤 새로 굳힌 글을 잇습니다. 받아 적은 글(text)을 돌려줍니다.
+// o.glue: 이어 붙일 때 사이에 띄어쓰기를 둘지(크롬 글에서 한 낱말 가운데면 '' — «충분» + «합니다» → «충분합니다»)
+function sttKeepApply(text, o) {
+  var t = String(text || '');
+  if (o && o.fixOld && t.slice(-o.fixOld.length) === o.fixOld) t = t.slice(0, t.length - o.fixOld.length) + o.fixNew;
+  var add = o && o.add ? String(o.add).replace(/\s+/g, ' ').trim() : '';
+  if (add) t = t ? t + (o.glue === '' ? '' : ' ') + add : add;
+  return t;
+}
 
 // 크롬의 onresult 한 번을 받아 { add: 굳혀서 붙일 글, live: 아직 안 굳은 꼬리(화면에만) } 를 돌려줍니다
 function sttKeepResult(st, ev) {
   var res = ev.results, raw = '', allFinal = true;
   // 이미 끝낸 칸 번호를 다시 쓰면(크롬은 안 그러지만 다른 브라우저 · 시험 흉내) 그 칸부터 새 말로 봅니다
-  if (ev.resultIndex < st.start || st.start > res.length) { st.start = Math.min(ev.resultIndex, res.length); st.seen = ''; st.prev = ''; st.live = ''; }
+  if (ev.resultIndex < st.start || st.start > res.length) { st.start = Math.min(ev.resultIndex, res.length); st.seen = ''; st.prev = ''; st.live = ''; st.doneRaw = ''; }
   for (var i = st.start; i < res.length; i++) {
     raw += ((res[i] && res[i][0] && res[i][0].transcript) || '') + ' ';
     if (!(res[i] && res[i].isFinal)) allFinal = false;
@@ -64,8 +89,18 @@ function sttKeepResult(st, ev) {
   var w = sttStrip(raw);
   // ⚠️ 안드로이드 크롬은 새 문장에 앞 문장을 통째로 다시 담아 보내기도 합니다 — 그러면 앞 문장은 이미 굳힌 것으로 칩니다
   if (!st.seen && st.lastDone && w.indexOf(st.lastDone) === 0) st.seen = st.lastDone;
-  var tail = sttCutFrom(raw, sttAlign(st.seen, w)).trim();
+  // 지금 문장에서 이미 굳혀 붙인 글의 띄어쓰기를 크롬의 새 글 것으로(글자는 그대로)
+  var fixOld = '', fixNew = '';
+  if (st.doneRaw) {
+    var re = sttRespace(st.doneRaw, raw);
+    if (re !== st.doneRaw) { fixOld = st.doneRaw; fixNew = re; st.doneRaw = re; }
+  }
+  var tailFull = sttCutFrom(raw, sttAlign(st.seen, w));
+  var tail = tailFull.trim();
   var t = sttStrip(tail);
+  // 굳힌 글 뒤에 붙일 때 사이를 띄울지 — 크롬 글에서 그 자리 바로 앞이 띄어쓰기면 띄움(문장 첫머리는 늘 띄움)
+  var at = raw.length - tailFull.length;
+  var glue = (!st.doneRaw || at === 0 || /\s/.test(raw[at - 1]) || /^\s/.test(tailFull)) ? ' ' : '';
   var keep;   // 이번에 굳힐 글자 수(띄어쓰기 뺀 것)
   if (allFinal) keep = t.length;             // 크롬이 확정 — 다 굳힘
   else {
@@ -80,22 +115,27 @@ function sttKeepResult(st, ev) {
       }
     }
   }
-  var add = keep ? tail.slice(0, tail.length - sttCutFrom(tail, keep).length).trim() : '';
-  var live = sttCutFrom(tail, keep).trim();
+  var liveFull = sttCutFrom(tail, keep);
+  var add = keep ? tail.slice(0, tail.length - liveFull.length).trim() : '';
+  var live = liveFull.trim();
   st.seen += sttStrip(add);
+  if (add) st.doneRaw = st.doneRaw ? st.doneRaw + glue + add.replace(/\s+/g, ' ').trim() : add.replace(/\s+/g, ' ').trim();
   st.prev = sttStrip(live);
   st.live = live;
+  // 꼬리를 나중에 굳힐 때(sttKeepFlush) 사이를 띄울지 — 굳힌 것과 꼬리 사이가 크롬 글에서 띄어져 있었는가
+  st.liveGlue = add ? ((tail.length - liveFull.length > 0 && /\s/.test(tail[tail.length - liveFull.length - 1])) || /^\s/.test(liveFull) ? ' ' : '') : glue;
   if (allFinal) {   // 이 문장은 끝 — 다음 말은 새 칸부터
-    st.lastDone = w; st.start = res.length; st.seen = ''; st.prev = ''; st.live = '';
+    st.lastDone = w; st.start = res.length; st.seen = ''; st.prev = ''; st.live = ''; st.doneRaw = '';
   }
-  return { add: add, live: st.live };
+  return { add: add, glue: glue, live: st.live, fixOld: fixOld, fixNew: fixNew };
 }
 
-// 아직 안 굳은 꼬리까지 지금 굳힙니다(듣기가 멈출 때 · 질문을 저장할 때). 굳힐 글을 돌려줍니다.
+// 아직 안 굳은 꼬리까지 지금 굳힙니다(듣기가 멈출 때 · 질문을 저장할 때). sttKeepApply 에 넘길 { add, glue } 를 돌려줍니다.
 // 크롬이 이 문장을 이어 보내면 굳힌 글 뒤부터 이어 붙습니다(겹치지 않게).
 function sttKeepFlush(st) {
-  var add = st.live || '';
+  var add = st.live || '', glue = st.doneRaw ? st.liveGlue : ' ';
   st.seen += sttStrip(add);
+  if (add) st.doneRaw = st.doneRaw ? st.doneRaw + glue + add.replace(/\s+/g, ' ').trim() : add.replace(/\s+/g, ' ').trim();
   st.prev = ''; st.live = '';
-  return add;
+  return { add: add, glue: glue };
 }

@@ -93,7 +93,7 @@ function listenStart() {
     LISTEN.gap = false;
     // 굳은 글은 바로 붙이고, 아직 안 굳은 꼬리는 화면에만(검은 글) — 꼬리는 두 번 잇달아 같게 오거나 확정 · 멈춤 · 저장 때 굳습니다
     var o = sttKeepResult(keep, ev);
-    if (o.add) listenAppend(LISTEN.qi, o.add);
+    listenKeep(LISTEN.qi, o);   // 띄어쓰기 고침(크롬의 새 글을 따라) + 새로 굳힌 글
     LISTEN.interim = o.live;
     LISTEN.fails = 0;
     listenPaint();
@@ -124,8 +124,7 @@ function listenStart() {
     LISTEN.on = false;
     LISTEN.rec = null;
     // 아직 안 굳은 꼬리도 버리지 않고 굳힙니다(크롬이 스스로 멈출 때 생김)
-    var left = sttKeepFlush(keep);
-    if (left) listenAppend(LISTEN.qi, left);
+    listenKeep(LISTEN.qi, sttKeepFlush(keep));
     LISTEN.interim = '';
     // 켜 둔 상태면 다시 켭니다. 잇달아 실패하면 조금 기다렸다가
     // (2026-10-14 핫스팟 면접에서 «잘 되다가 멈춤» — 3초 쉬던 것을 1초로. 쉬는 동안의 말은 사라지니 짧게.
@@ -163,7 +162,7 @@ function listenStop() {
   var rec = LISTEN.rec;
   LISTEN.rec = null;
   LISTEN.on = false;
-  if (LISTEN.keep) { var left = sttKeepFlush(LISTEN.keep); if (left) listenAppend(LISTEN.qi, left); }   // 보이던 꼬리까지 굳혀 그 질문에
+  if (LISTEN.keep) listenKeep(LISTEN.qi, sttKeepFlush(LISTEN.keep));   // 보이던 꼬리까지 굳혀 그 질문에
   LISTEN.interim = '';
   if (rec) { try { rec.abort(); } catch (e) { /* */ } }   // abort — 남은 결과를 또 보내지 않게(보이던 것은 위에서 굳혔음)
 }
@@ -175,10 +174,17 @@ function listenStop() {
 //    끊었다 다시 켜는 0.25초 사이의 말이 빠지기 때문입니다(«손실 없게» — 선생님 말씀). 크롬이 이 문장을 이어 보내면 굳힌 뒤부터 붙습니다
 function listenCut(i) {
   if (!LISTEN.on || i !== LISTEN.qi || !LISTEN.keep) return;
-  var left = sttKeepFlush(LISTEN.keep);
-  if (left) listenAppend(LISTEN.qi, left);
+  listenKeep(LISTEN.qi, sttKeepFlush(LISTEN.keep));
   LISTEN.interim = '';
   listenPaint();
+}
+
+// 받아 적기 결과(stt-keep.js)를 그 질문의 글에 반영 — 지금 문장의 띄어쓰기 고침 + 새로 굳힌 글
+function listenKeep(i, o) {
+  if (typeof answers === 'undefined' || !answers[i] || !o) return;
+  var before = answers[i].transcript || '';
+  answers[i].transcript = sttKeepApply(before, o);
+  if (answers[i].transcript !== before && typeof renderRailProgress === 'function') renderRailProgress();
 }
 
 // 받아 적은 글을 그 질문에 붙입니다. 띄어쓰기 하나로 잇습니다.

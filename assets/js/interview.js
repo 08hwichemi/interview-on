@@ -724,7 +724,7 @@ function mockListenStart() {
   rec.onresult = function (ev) {
     if (MOCK_LISTEN.rec !== rec) return;   // 이미 멈춘 듣기에서 늦게 온 것
     var o = sttKeepResult(keep, ev);
-    if (o.add) mockListenAppend(qi, o.add);
+    textResults[qi] = sttKeepApply(textResults[qi] || '', o);   // 띄어쓰기 고침(크롬의 새 글을 따라) + 새로 굳힌 글
     MOCK_LISTEN.interim = o.live;          // 아직 안 굳은 꼬리 — 화면엔 검은 글로, 멈추면 굳힘
     MOCK_LISTEN.fails = 0;
     mockListenPaint();
@@ -746,8 +746,7 @@ function mockListenStart() {
     if (MOCK_LISTEN.rec !== rec) return;
     MOCK_LISTEN.on = false;
     MOCK_LISTEN.rec = null;
-    var left = sttKeepFlush(keep);         // 보이던 꼬리도 버리지 않고 굳힘(크롬이 스스로 멈출 때)
-    if (left) mockListenAppend(qi, left);
+    textResults[qi] = sttKeepApply(textResults[qi] || '', sttKeepFlush(keep));   // 보이던 꼬리도 버리지 않고 굳힘(크롬이 스스로 멈출 때)
     MOCK_LISTEN.interim = '';
     // 답변 중이면(시계가 흐르면) 다시 켭니다 — 크롬은 조용하면 몇 초 만에 스스로 멈추기 때문. 잇달아 실패하면 조금 기다렸다가
     if (isTimerRunning && isTextOptedIn && !MOCK_LISTEN.stopped) {
@@ -776,7 +775,7 @@ function mockListenStop() {
   var rec = MOCK_LISTEN.rec;
   MOCK_LISTEN.rec = null;
   MOCK_LISTEN.on = false;
-  if (MOCK_LISTEN.keep) { var left = sttKeepFlush(MOCK_LISTEN.keep); if (left) mockListenAppend(currentMockIndex, left); }   // 보이던 꼬리까지 굳힘
+  if (MOCK_LISTEN.keep) textResults[currentMockIndex] = sttKeepApply(textResults[currentMockIndex] || '', sttKeepFlush(MOCK_LISTEN.keep));   // 보이던 꼬리까지 굳힘
   MOCK_LISTEN.interim = '';
   if (rec) { try { rec.abort(); } catch (e) { /* */ } }   // abort — 남은 결과를 또 보내지 않게(보이던 것은 위에서 굳혔음)
   mockListenPaint();

@@ -224,6 +224,16 @@ const FAKE_MIC = () => {
   await p.waitForTimeout(50);
   확인('실제 크롬 모양(칸 나뉨 · 한 글자씩 띄움)에서도 겹치지 않고 바르게', await p.evaluate(() => answers[0].transcript === '받아 적기 손실을 최대로 선생님 면접 화면과 학생'),
        await p.evaluate(() => answers[0].transcript));
+  // (.3) 띄어쓰기 — 첫 짐작 «속 도 태 도 · 충분 합» 으로 굳은 글도 크롬이 «속도 태도 · 충분합니다» 로 다시 보내면 띄어쓰기를 따라 고침(글자는 그대로)
+  await p.evaluate(() => {
+    answers[0].transcript = '';
+    [[['말하기 결론부터']], [['말하기 결론부터 알맞은 길이와 속 도']], [['말하기 결론부터 알맞은 길이와 속 도 태 도']],
+     [['말하기 결론부터 알맞은 길이와 속도 태도 시선']], [['말하기 결론부터 알맞은 길이와 속도 태도 시선 자세', 1]],
+     [[' 한두 줄이면']], [[' 한두 줄이면 충분 합']], [[' 한두 줄이면 충분 합니다']], [[' 한두 줄이면 충분합니다', 1]]].forEach(function (p) { window.__sayParts(p); });
+  });
+  await p.waitForTimeout(50);
+  확인('띄어쓰기도 크롬의 새 글을 따라 고쳐지는가(«속도 태도» · «충분합니다»)', await p.evaluate(() =>
+       answers[0].transcript === '말하기 결론부터 알맞은 길이와 속도 태도 시선 자세 한두 줄이면 충분합니다'), await p.evaluate(() => answers[0].transcript));
   await p.evaluate(() => { answers[0].transcript = '안녕하세요 저는 고다윤입니다'; listenPaint(); });   // 아래 검사들이 보는 글로 되돌림
   console.log('\n── 끊겨서 다시 켜는 사이 (2026-10-14 핫스팟) ──');
   await p.evaluate(() => { LISTEN.fails = 5; window.__end(); }); await p.waitForTimeout(300);
