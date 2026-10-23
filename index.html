@@ -6,9 +6,9 @@
 
   <title>면접ON</title>
 
-  <link rel="manifest" href="manifest.json?v=2026-10-22.2">
-  <link rel="icon" href="assets/icon-192.png?v=2026-10-22.2">
-  <link rel="apple-touch-icon" href="assets/icon-192.png?v=2026-10-22.2">
+  <link rel="manifest" href="manifest.json?v=2026-10-23.3">
+  <link rel="icon" href="assets/icon-192.png?v=2026-10-23.3">
+  <link rel="apple-touch-icon" href="assets/icon-192.png?v=2026-10-23.3">
   <meta name="theme-color" content="#18181B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <!-- 홈 화면에 담아 열면 상태표시줄이 머리말과 같은 먹빛이 됩니다.
@@ -20,13 +20,13 @@
 
   <!-- 스타일: base = 레이아웃·헤더·로그인·모달 / app = 카드·훈련화면·푸터 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="assets/css/base.css?v=2026-10-22.2">
-  <link rel="stylesheet" href="assets/css/report.css?v=2026-10-22.2">
-  <link rel="stylesheet" href="assets/css/browse.css?v=2026-10-22.2">
-  <link rel="stylesheet" href="assets/css/chat.css?v=2026-10-22.2">
-  <link rel="stylesheet" href="assets/css/practice.css?v=2026-10-22.2">
-  <link rel="stylesheet" href="assets/css/hugi.css?v=2026-10-22.2">
-  <link rel="stylesheet" href="assets/css/app.css?v=2026-10-22.2">
+  <link rel="stylesheet" href="assets/css/base.css?v=2026-10-23.3">
+  <link rel="stylesheet" href="assets/css/report.css?v=2026-10-23.3">
+  <link rel="stylesheet" href="assets/css/browse.css?v=2026-10-23.3">
+  <link rel="stylesheet" href="assets/css/chat.css?v=2026-10-23.3">
+  <link rel="stylesheet" href="assets/css/practice.css?v=2026-10-23.3">
+  <link rel="stylesheet" href="assets/css/hugi.css?v=2026-10-23.3">
+  <link rel="stylesheet" href="assets/css/app.css?v=2026-10-23.3">
 </head>
 <body>
 
@@ -427,7 +427,7 @@
     <div class="interview-q-card"><div class="interview-q-text" id="mock-question-text">질문을 불러오는 중...</div></div>
     <div class="timer-display" id="timer" style="color:var(--ink);">00:00</div>
     <button id="mock-timer-btn" class="action-btn" onclick="handleTimerClick()">▶ 답변 시작</button>
-    <!-- 받아 적기를 골랐을 때만 보이는 칸 — 확정 전 글은 회색(.interim), 멈추면 그대로 남습니다 (interview.js 의 mockListenPaint) -->
+    <!-- 받아 적기를 골랐을 때만 보이는 칸 — 들리는 대로 바로 검은 글, 한 번 적은 글은 지우지 않습니다(stt-keep.js · interview.js 의 mockListenPaint) -->
     <div id="mock-live" class="mock-live" hidden>
       <div class="mock-live-state" id="mock-live-state"></div>
       <div class="mock-live-text" id="mock-live-text"></div>
@@ -576,23 +576,24 @@
      config.js 가 이걸 써서 클라이언트를 만들므로 반드시 먼저 와야 합니다. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
-<script src="assets/js/config.js?v=2026-10-22.2"></script>
-<script src="assets/js/update-bar.js?v=2026-10-22.2"></script>
-<script src="assets/js/utils.js?v=2026-10-22.2"></script>
-<script src="assets/js/api.js?v=2026-10-22.2"></script>
-<script src="assets/js/ui.js?v=2026-10-22.2"></script>
-<script src="assets/js/auth.js?v=2026-10-22.2"></script>
-<script src="assets/js/browse.js?v=2026-10-22.2"></script>
-<script src="assets/js/reviews.js?v=2026-10-22.2"></script>
-<script src="assets/js/questions.js?v=2026-10-22.2"></script>
-<script src="assets/js/interview.js?v=2026-10-22.2"></script>
-<script src="assets/js/report.js?v=2026-10-22.2"></script>
-<script src="assets/js/chat.js?v=2026-10-22.2"></script>
-<script src="assets/js/student-report.js?v=2026-10-22.2"></script>
-<script src="assets/js/practice.js?v=2026-10-22.2"></script>
-<script src="assets/js/hugi.js?v=2026-10-22.2"></script>
-<script src="assets/js/notice.js?v=2026-10-22.2"></script>
-<script src="assets/js/badges.js?v=2026-10-22.2"></script>
-<script src="assets/js/main.js?v=2026-10-22.2"></script>
+<script src="assets/js/config.js?v=2026-10-23.3"></script>
+<script src="assets/js/update-bar.js?v=2026-10-23.3"></script>
+<script src="assets/js/utils.js?v=2026-10-23.3"></script>
+<script src="assets/js/api.js?v=2026-10-23.3"></script>
+<script src="assets/js/ui.js?v=2026-10-23.3"></script>
+<script src="assets/js/auth.js?v=2026-10-23.3"></script>
+<script src="assets/js/browse.js?v=2026-10-23.3"></script>
+<script src="assets/js/reviews.js?v=2026-10-23.3"></script>
+<script src="assets/js/questions.js?v=2026-10-23.3"></script>
+<script src="assets/js/stt-keep.js?v=2026-10-23.3"></script>
+<script src="assets/js/interview.js?v=2026-10-23.3"></script>
+<script src="assets/js/report.js?v=2026-10-23.3"></script>
+<script src="assets/js/chat.js?v=2026-10-23.3"></script>
+<script src="assets/js/student-report.js?v=2026-10-23.3"></script>
+<script src="assets/js/practice.js?v=2026-10-23.3"></script>
+<script src="assets/js/hugi.js?v=2026-10-23.3"></script>
+<script src="assets/js/notice.js?v=2026-10-23.3"></script>
+<script src="assets/js/badges.js?v=2026-10-23.3"></script>
+<script src="assets/js/main.js?v=2026-10-23.3"></script>
 </body>
 </html>

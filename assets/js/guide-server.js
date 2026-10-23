@@ -32,8 +32,9 @@
 
   // ── 받아 적기 흉내 ──
   // 설명서는 «보여 주는» 시뮬레이션이라(2026-10-12 선생님 말씀 — 마이크 녹음도 예시로 어떻게 되는지 보여 주고 싶다)
-  // 크롬의 음성 인식 자리에 가짜를 끼웁니다. «답변 시작» 을 누르면 예시 답변이 한 낱말씩 회색(확정 전)으로 뜨다가
-  // 몇 낱말마다 검은 글(확정)로 굳습니다 — 실제 받아 적기와 같은 모양. 마이크 허용도 묻지 않습니다.
+  // 크롬의 음성 인식 자리에 가짜를 끼웁니다. «답변 시작» 을 누르면 예시 답변이 한 낱말씩 들리는 대로 바로 적힙니다
+  // (2026-10-23 부터 받아 적기는 회색 없이 바로 검은 글 — stt-keep.js). 마이크 허용도 묻지 않습니다.
+  // 크롬처럼 다섯 낱말마다 그 칸을 «확정» 하고 다음 칸(결과 번호 +1)으로 넘어갑니다.
   // 무엇을 말할지는 guide-coach.js 의 window.__guideSaid(질문 번호) 가 질문 글자를 보고 골라 줍니다.
   // 다 말하면 window.__guideSpoke[질문 번호] = true
   window.__guideSpoke = {};
@@ -46,12 +47,13 @@
     if (window.__guideSpoke[qi]) return;              // 이 질문은 이미 다 말함 — 조용히 듣기만
     // 마이크 허용 창(연습용 그림, guide-coach.js)에서 «허용» 을 누르기 전에는 말하지 않습니다 — 실제 크롬도 그렇습니다
     if (!window.__guideMicOK) { me.timer = setTimeout(function () { me.start(); }, 200); return; }
-    // 듣기가 끊겼다 다시 켜지면(질문 저장 등) 처음부터가 아니라 말하던 데서 잇습니다 — 끊길 때의 회색 글은 listen.js 가 이미 붙입니다
+    // 듣기가 끊겼다 다시 켜지면(질문을 넘길 때 등) 처음부터가 아니라 말하던 데서 잇습니다 — 받은 글은 listen.js 가 이미 붙였습니다
     window.__guideSpeechAt = window.__guideSpeechAt || {};
-    var words = line.split(' '), at = window.__guideSpeechAt[qi] || 0, chunk = [];
+    var words = line.split(' '), at = window.__guideSpeechAt[qi] || 0, chunk = [], done = [];
     function emit(textNow, fin) {
       var r = [{ transcript: textNow }]; r.isFinal = fin;
-      if (me.onresult) me.onresult({ resultIndex: 0, results: [r] });
+      if (me.onresult) me.onresult({ resultIndex: done.length, results: done.concat([r]) });
+      if (fin) done.push(r);   // 확정한 칸은 남기고 다음 말은 새 칸에(실제 크롬과 같게)
     }
     (function next() {
       if (at >= words.length) {
