@@ -85,7 +85,8 @@ async function 열기(b, init, width) {
   확인('«받아 적는 중» 표시', (await p.evaluate(() => document.getElementById('mock-live-state').textContent)).indexOf('받아 적는 중') > -1);
   확인('시계도 흐르는가', await p.evaluate(() => isTimerRunning && secondsElapsed >= 1));
   await p.evaluate(() => window.__say('안녕하세요 저는', false)); await p.waitForTimeout(50);
-  확인('확정 전 글도 회색 없이 바로 적힘(2026-10-23)', await p.evaluate(() => !document.querySelector('#mock-live-text .interim') && textResults[0] === '안녕하세요 저는'));
+  확인('확정 전 글도 회색 없이 바로 화면에(2026-10-23, 아직 안 굳음)', await p.evaluate(() => !document.querySelector('#mock-live-text .interim') &&
+       document.getElementById('mock-live-text').textContent.indexOf('안녕하세요 저는') > -1 && !(textResults[0] || '')));
   await p.evaluate(() => window.__say('안녕하세요 저는 고다윤입니다', true)); await p.waitForTimeout(50);
   확인('확정된 글이 첫 질문에 붙는가', await p.evaluate(() => textResults[0] === '안녕하세요 저는 고다윤입니다'), await p.evaluate(() => textResults[0]));
   확인('화면에도 검은 글로', await p.evaluate(() => document.getElementById('mock-live-text').textContent.indexOf('고다윤입니다') > -1 && !document.querySelector('#mock-live-text .interim')));

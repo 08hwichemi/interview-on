@@ -11,7 +11,7 @@
 //   · **«답변 시작» 을 누른 동안만** 받아 적습니다(toggleAnswer). 선생님이 질문을 읽는 소리는 안 적힙니다
 //   · 크롬은 조용하면 몇 초 만에 스스로 멈춥니다(onend). 켜 둔 상태면 바로 다시 켭니다
 //   · 질문을 넘기면 그때까지 받아 적은 글은 그 질문에, 그 뒤는 새 질문에 붙습니다
-//   · (2026-10-23) 회색 글 없이 **들리는 대로 바로 검은 글**, 한 번 적은 글은 지우지 않습니다 — stt-keep.js 의 sttKeepResult.
+//   · (2026-10-23) 회색 글 없이 **들리는 대로 바로 검은 글**, 굳은 글은 지우지 않습니다 — stt-keep.js (까닭 · 한 번 크게 틀린 것은 거기에).
 //     크롬이 확정하며 단어를 바꾸거나 빼 버려 말한 것이 사라지던 것을 막으려고(선생님 말씀: «틀린 것도 다 적혀 있는 게 좋아»)
 //   · 마이크를 막았거나 인터넷이 끊기면 받아 적기를 끄고 까닭을 적습니다. 면접은 그대로 이어집니다
 //
@@ -22,8 +22,8 @@ var LISTEN = {
   rec: null,        // SpeechRecognition 객체
   on: false,        // 지금 듣고 있는가
   qi: -1,           // 어느 질문에 적는 중인가 (answers 의 번호)
-  interim: '',      // (예전) 아직 확정 안 된 글 — 2026-10-23 부터는 늘 비어 있습니다(바로 적으므로)
-  keep: null,       // 듣기 한 번 동안 칸마다 이미 적은 글(stt-keep.js)
+  interim: '',      // 아직 안 굳은 꼬리 — 화면엔 검은 글로 바로 보이고, 크롬이 고치면 따라 고칩니다(stt-keep.js). 듣기가 멈추면 굳힙니다
+  keep: null,       // 듣기 한 번 동안의 굳힌 글 · 꼬리(stt-keep.js 의 sttKeepNew)
   hint: '',         // 화면에 적을 까닭 («마이크를 허용해 주세요» 등)
   restartId: null,
   fails: 0,         // 잇달아 실패한 횟수 — 많으면 조금 천천히 다시 켭니다
@@ -85,16 +85,16 @@ function listenStart() {
   rec.interimResults = true;    // 확정 전 글도 받습니다 — 받는 대로 바로 적습니다(stt-keep.js)
   rec.maxAlternatives = 1;
   LISTEN.qi = (typeof qIndex === 'number') ? qIndex : 0;
-  var keep = { seen: {} };      // 이 듣기에서 칸마다 이미 적은 글 — 새로 켤 때마다 새로(크롬도 칸 번호를 0부터 다시 셉니다)
+  var keep = sttKeepNew();      // 이 듣기의 굳힌 글 · 꼬리 — 새로 켤 때마다 새로(크롬도 칸 번호를 0부터 다시 셉니다)
 
   rec.onstart = function () { if (LISTEN.rec === rec) { LISTEN.gap = false; listenPaint(); } };   // 서버가 다시 듣기 시작 — 빨간 표시 끔
   rec.onresult = function (ev) {
     if (LISTEN.rec !== rec) return;   // 이미 멈춘(갈아 끼운) 듣기에서 늦게 온 것 — 두 번 붙지 않게
     LISTEN.gap = false;
-    // 확정을 기다리지 않고, 새로 늘어난 글만 바로 붙입니다. 이미 적은 글은 크롬이 고쳐도 그대로 둡니다
-    var add = sttKeepResult(keep, ev);
-    if (add) listenAppend(LISTEN.qi, add);
-    LISTEN.interim = '';
+    // 굳은 글은 바로 붙이고, 아직 안 굳은 꼬리는 화면에만(검은 글) — 꼬리는 두 번 잇달아 같게 오거나 확정 · 멈춤 · 저장 때 굳습니다
+    var o = sttKeepResult(keep, ev);
+    if (o.add) listenAppend(LISTEN.qi, o.add);
+    LISTEN.interim = o.live;
     LISTEN.fails = 0;
     listenPaint();
   };
@@ -123,7 +123,10 @@ function listenStart() {
     if (LISTEN.rec !== rec) return;
     LISTEN.on = false;
     LISTEN.rec = null;
-    // (예전엔 여기서 확정 안 된 글을 붙였습니다 — 이제는 받는 대로 이미 붙어 있습니다)
+    // 아직 안 굳은 꼬리도 버리지 않고 굳힙니다(크롬이 스스로 멈출 때 생김)
+    var left = sttKeepFlush(keep);
+    if (left) listenAppend(LISTEN.qi, left);
+    LISTEN.interim = '';
     // 켜 둔 상태면 다시 켭니다. 잇달아 실패하면 조금 기다렸다가
     // (2026-10-14 핫스팟 면접에서 «잘 되다가 멈춤» — 3초 쉬던 것을 1초로. 쉬는 동안의 말은 사라지니 짧게.
     //  다시 켜는 것은 크롬 안의 일이라 우리 서버 사용량과는 상관없습니다)
@@ -148,6 +151,7 @@ function listenStart() {
   }
   if (started) {
     LISTEN.rec = rec;
+    LISTEN.keep = keep;
     LISTEN.on = true;
     if (LISTEN.hint.indexOf('인터넷') === -1 && LISTEN.hint.indexOf('못 넘깁니다') === -1) LISTEN.hint = '';
     if (typeof recPaint === 'function') recPaint();   // 마이크 줄 안내(«받아 적기도 이 마이크로») 바로
@@ -159,16 +163,23 @@ function listenStop() {
   var rec = LISTEN.rec;
   LISTEN.rec = null;
   LISTEN.on = false;
+  if (LISTEN.keep) { var left = sttKeepFlush(LISTEN.keep); if (left) listenAppend(LISTEN.qi, left); }   // 보이던 꼬리까지 굳혀 그 질문에
   LISTEN.interim = '';
-  if (rec) { try { rec.abort(); } catch (e) { /* */ } }   // abort — 남은 결과를 또 보내지 않게(받은 것은 이미 붙어 있음)
+  if (rec) { try { rec.abort(); } catch (e) { /* */ } }   // abort — 남은 결과를 또 보내지 않게(보이던 것은 위에서 굳혔음)
 }
 
 // 저장하기 직전에 부릅니다(teacher-app.js saveAnswer): 아직 확정 안 된 글까지 그 질문에 붙여 두고
 // 듣기를 한 번 끊습니다 — 안 끊으면 같은 말이 조금 뒤 «확정» 으로 또 와서 두 번 붙습니다.
 // 끊긴 듣기는 질문을 그릴 때(listenShowQuestion) 나 아래 예비 시계가 다시 켭니다.
-// ⚠️ 2026-10-23 부터는 끊지 않습니다. 받는 대로 이미 붙어 있어 두 번 붙을 일이 없고,
-//    끊었다 다시 켜는 0.25초 사이의 말이 빠지기 때문입니다(«손실 없게» — 선생님 말씀). 이름만 남겨 둡니다.
-function listenCut(i) { /* 할 일 없음 */ }
+// ⚠️ 2026-10-23 부터는 끊지 않고, 보이던 꼬리만 지금 굳혀 그 질문에 붙입니다(저장에 들어가게).
+//    끊었다 다시 켜는 0.25초 사이의 말이 빠지기 때문입니다(«손실 없게» — 선생님 말씀). 크롬이 이 문장을 이어 보내면 굳힌 뒤부터 붙습니다
+function listenCut(i) {
+  if (!LISTEN.on || i !== LISTEN.qi || !LISTEN.keep) return;
+  var left = sttKeepFlush(LISTEN.keep);
+  if (left) listenAppend(LISTEN.qi, left);
+  LISTEN.interim = '';
+  listenPaint();
+}
 
 // 받아 적은 글을 그 질문에 붙입니다. 띄어쓰기 하나로 잇습니다.
 function listenAppend(i, text) {
@@ -229,7 +240,8 @@ function listenPaint() {
     if (!fin && !tmp) {
       txt.innerHTML = '<span class="empty">' + (wanted && has ? '학생이 말하면 여기에 적힙니다.' : '') + '</span>';
     } else {
-      txt.innerHTML = esc(fin) + (tmp ? ' <span class="interim">' + esc(tmp) + '</span>' : '');
+      // 꼬리도 회색이 아니라 같은 검은 글로(2026-10-23 — «회색 말고 바로 글로»). 크롬이 고치면 꼬리만 따라 바뀝니다
+      txt.innerHTML = esc(fin) + (tmp ? (fin ? ' ' : '') + '<span class="live">' + esc(tmp) + '</span>' : '');
       txt.scrollTop = txt.scrollHeight;   // 늘 마지막 줄이 보이게
     }
   }

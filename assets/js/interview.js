@@ -717,15 +717,15 @@ function mockListenStart() {
   rec.interimResults = true;   // 확정 전 글도 받습니다 — 받는 대로 바로 적습니다(stt-keep.js)
   rec.maxAlternatives = 1;
   var qi = currentMockIndex;   // 어느 질문에 적는 중인가
-  var keep = { seen: {} };     // 이 듣기에서 칸마다 이미 적은 글
+  var keep = sttKeepNew();     // 이 듣기의 굳힌 글 · 꼬리(stt-keep.js)
 
-  // (2026-10-23) 회색 글 없이 들리는 대로 바로 검은 글, 한 번 적은 글은 지우지 않습니다 — 선생님 화면(listen.js)과 같게.
+  // (2026-10-23) 회색 글 없이 들리는 대로 바로 검은 글, 굳은 글은 지우지 않습니다 — 선생님 화면(listen.js)과 같게.
   // 학생이 «내가 어떻게 말했는지» 를 보는 것이라 틀린 것도 남는 게 낫고, 크롬이 확정하며 빼 버리던 말도 남습니다
   rec.onresult = function (ev) {
     if (MOCK_LISTEN.rec !== rec) return;   // 이미 멈춘 듣기에서 늦게 온 것
-    var add = sttKeepResult(keep, ev);
-    if (add) mockListenAppend(qi, add);
-    MOCK_LISTEN.interim = '';
+    var o = sttKeepResult(keep, ev);
+    if (o.add) mockListenAppend(qi, o.add);
+    MOCK_LISTEN.interim = o.live;          // 아직 안 굳은 꼬리 — 화면엔 검은 글로, 멈추면 굳힘
     MOCK_LISTEN.fails = 0;
     mockListenPaint();
   };
@@ -746,6 +746,9 @@ function mockListenStart() {
     if (MOCK_LISTEN.rec !== rec) return;
     MOCK_LISTEN.on = false;
     MOCK_LISTEN.rec = null;
+    var left = sttKeepFlush(keep);         // 보이던 꼬리도 버리지 않고 굳힘(크롬이 스스로 멈출 때)
+    if (left) mockListenAppend(qi, left);
+    MOCK_LISTEN.interim = '';
     // 답변 중이면(시계가 흐르면) 다시 켭니다 — 크롬은 조용하면 몇 초 만에 스스로 멈추기 때문. 잇달아 실패하면 조금 기다렸다가
     if (isTimerRunning && isTextOptedIn && !MOCK_LISTEN.stopped) {
       var wait = MOCK_LISTEN.fails > 2 ? 1000 : 0;   // (2026-10-23) 3초 · 0.15초 → 1초 · 바로 — 쉬는 동안의 말은 사라지니 짧게
@@ -756,6 +759,7 @@ function mockListenStart() {
   try {
     rec.start();
     MOCK_LISTEN.rec = rec;
+    MOCK_LISTEN.keep = keep;
     MOCK_LISTEN.on = true;
     MOCK_LISTEN.stopped = false;
     if (MOCK_LISTEN.hint.indexOf('인터넷') === -1) MOCK_LISTEN.hint = '';
@@ -772,8 +776,9 @@ function mockListenStop() {
   var rec = MOCK_LISTEN.rec;
   MOCK_LISTEN.rec = null;
   MOCK_LISTEN.on = false;
+  if (MOCK_LISTEN.keep) { var left = sttKeepFlush(MOCK_LISTEN.keep); if (left) mockListenAppend(currentMockIndex, left); }   // 보이던 꼬리까지 굳힘
   MOCK_LISTEN.interim = '';
-  if (rec) { try { rec.abort(); } catch (e) { /* */ } }   // abort — 남은 결과를 또 보내지 않게(받은 것은 이미 붙어 있음)
+  if (rec) { try { rec.abort(); } catch (e) { /* */ } }   // abort — 남은 결과를 또 보내지 않게(보이던 것은 위에서 굳혔음)
   mockListenPaint();
 }
 
@@ -803,6 +808,7 @@ function mockListenPaint() {
   else if (said) state.textContent = '📝 받아 적은 답변';
   else state.textContent = '📝 «답변 시작» 을 누르고 말하면 여기에 받아 적힙니다';
   var html = escapeMockText(said);
-  if (MOCK_LISTEN.interim.trim()) html += (html ? ' ' : '') + '<span class="interim">' + escapeMockText(MOCK_LISTEN.interim) + '</span>';
+  // 아직 안 굳은 꼬리도 회색이 아니라 같은 검은 글로(2026-10-23) — 크롬이 고치면 꼬리만 따라 바뀝니다
+  if (MOCK_LISTEN.interim.trim()) html += (html ? ' ' : '') + '<span class="live">' + escapeMockText(MOCK_LISTEN.interim) + '</span>';
   text.innerHTML = html || (MOCK_LISTEN.on ? '<span class="empty">…</span>' : '');
 }

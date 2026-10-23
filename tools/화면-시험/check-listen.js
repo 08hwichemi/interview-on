@@ -40,6 +40,14 @@ const FAKE_SR = () => {
     r.onresult({ resultIndex: r.__done.length, results: r.__done.concat([one]) });
     if (final) r.__done.push(one);
   };
+  // 실제 한국어 크롬처럼 — 아직 덜 굳은 문장을 여러 칸으로 나눠 보냄. parts = [[글, 확정?], …] (2026-10-23 선생님 화면에서 찾은 모양)
+  window.__sayParts = function (parts) {
+    var r = window.__recs[window.__recs.length - 1];
+    r.__done = r.__done || [];
+    var list = parts.map(function (x) { var one = [{ transcript: x[0] }]; one.isFinal = !!x[1]; return one; });
+    r.onresult({ resultIndex: r.__done.length, results: r.__done.concat(list) });
+    if (list.every(function (o) { return o.isFinal; })) r.__done = r.__done.concat(list);
+  };
   window.__fail = function (kind) { var r = window.__recs[window.__recs.length - 1]; r.onerror({ error: kind }); };
   window.__end = function () { var r = window.__recs[window.__recs.length - 1]; r.started = false; r.onend && r.onend(); };
 };
@@ -185,23 +193,36 @@ const FAKE_MIC = () => {
   await p.evaluate(() => { LISTEN.trackBad = false; LISTEN.hint = ''; LISTEN.fails = 0; });
   확인('«받아 적는 중» 표시', (await p.evaluate(() => document.getElementById('live-state').textContent)).indexOf('받아 적는 중') > -1);
   await p.evaluate(() => window.__say('안녕하세요 저는', false)); await p.waitForTimeout(50);
-  // 2026-10-23: 회색 글 없이 들리는 대로 바로 검은 글로 적습니다(stt-keep.js)
-  확인('확정 전 글도 회색 없이 바로 적히는가', await p.evaluate(() => !document.querySelector('#live-text .interim') && answers[0].transcript === '안녕하세요 저는'),
-       await p.evaluate(() => answers[0].transcript));
+  // 2026-10-23: 회색 글 없이 들리는 대로 바로 검은 글(아직 안 굳은 꼬리 — 크롬이 고치면 따라 바뀜, stt-keep.js)
+  확인('확정 전 글도 회색 없이 바로 화면에 보이는가(아직 안 굳음)', await p.evaluate(() => !document.querySelector('#live-text .interim') &&
+       document.getElementById('live-text').textContent.indexOf('안녕하세요 저는') > -1 && answers[0].transcript === ''),
+       await p.evaluate(() => answers[0].transcript + ' / ' + document.getElementById('live-text').textContent));
   await p.evaluate(() => window.__say('안녕하세요 저는 고다윤입니다', true)); await p.waitForTimeout(50);
-  확인('확정되면 늘어난 말만 이어 붙는가(두 번 안 붙음)', await p.evaluate(() => answers[0].transcript === '안녕하세요 저는 고다윤입니다'), await p.evaluate(() => answers[0].transcript));
+  확인('확정되면 굳어서 한 번만 붙는가', await p.evaluate(() => answers[0].transcript === '안녕하세요 저는 고다윤입니다'), await p.evaluate(() => answers[0].transcript));
   확인('화면에도 보이는가', (await p.evaluate(() => document.getElementById('live-text').textContent)).indexOf('고다윤입니다') > -1);
   // 크롬이 확정하며 앞 말을 빼 버려도(«어릴 때부터» 가 사라짐) 이미 적은 것은 남고, 늘어난 말만 붙음
-  await p.evaluate(() => { window.__say('어릴 때부터 실험을', false); window.__say('실험을 좋아했고', true); }); await p.waitForTimeout(50);
+  await p.evaluate(() => { window.__say('어릴 때부터', false); window.__say('어릴 때부터 실험을', false); window.__say('실험을 좋아했고', true); }); await p.waitForTimeout(50);
   확인('크롬이 확정하며 뺀 말(«어릴 때부터»)도 남는가', await p.evaluate(() => answers[0].transcript === '안녕하세요 저는 고다윤입니다 어릴 때부터 실험을 좋아했고'),
        await p.evaluate(() => answers[0].transcript));
   // 크롬이 뒷부분을 다른 말로 갈아 끼워도(«어릴 때부터» → «실험을 좋아했고») 둘 다 남음 — 처음엔 «했고» 만 붙던 자리
-  await p.evaluate(() => { window.__say('그래서 저는 어릴 때부터', false); window.__say('그래서 저는 실험을 좋아했고', true); }); await p.waitForTimeout(50);
+  await p.evaluate(() => { window.__say('그래서 저는 어릴', false); window.__say('그래서 저는 어릴 때부터', false); window.__say('그래서 저는 어릴 때부터 계속', false); window.__say('그래서 저는 실험을 좋아했고', true); }); await p.waitForTimeout(50);
   확인('크롬이 뒷말을 갈아 끼워도 앞말 · 새 말 둘 다 남는가', await p.evaluate(() => answers[0].transcript.endsWith('그래서 저는 어릴 때부터 실험을 좋아했고')),
        await p.evaluate(() => answers[0].transcript));
   // 띄어쓰기만 바꿔 다시 보내도(«반응 속도» → «반응속도 탐구에서») 겹치지 않고 늘어난 것만
   await p.evaluate(() => { window.__say('반응 속도', false); window.__say('반응속도 탐구에서', false); window.__say('반응속도 탐구에서 온도를', true); }); await p.waitForTimeout(50);
-  확인('띄어쓰기가 바뀌어도 겹치지 않고 이어지는가', await p.evaluate(() => answers[0].transcript.endsWith('좋아했고 반응 속도 탐구에서 온도를')),
+  확인('띄어쓰기가 바뀌어도 겹치지 않고, 두 번째 모양(«반응속도»)으로 굳는가', await p.evaluate(() => answers[0].transcript.endsWith('좋아했고 반응속도 탐구에서 온도를')),
+       await p.evaluate(() => answers[0].transcript));
+  // 🚨 선생님 화면에서 나온 모양 — 칸이 나뉘고 낱말이 칸 사이를 옮겨 다니며, 첫 짐작은 한 글자씩 띄어 옴
+  //    .1 판에서는 «받 아 적 기 손 적기 손실 을 손 실을 손실 손실을 …» 처럼 겹쳐 적혔습니다
+  await p.evaluate(() => {
+    answers[0].transcript = '';
+    var F = '받아 적기 손실을 최대로 선생님';
+    [[['받 아']], [['받아 적 기']], [['받아 적기'], [' 손']], [['받아 적기 손실 을']], [['받아 적기 손실을'], [' 최 대로']],
+     [['받아 적기 손실을 최대로'], [' 선 생님']], [[F, 1]],
+     [[' 면 접']], [[' 면접 화 면']], [[' 면접 화면과'], [' 학 생']], [[' 면접 화면과 학생', 1]]].forEach(function (p) { window.__sayParts(p); });
+  });
+  await p.waitForTimeout(50);
+  확인('실제 크롬 모양(칸 나뉨 · 한 글자씩 띄움)에서도 겹치지 않고 바르게', await p.evaluate(() => answers[0].transcript === '받아 적기 손실을 최대로 선생님 면접 화면과 학생'),
        await p.evaluate(() => answers[0].transcript));
   await p.evaluate(() => { answers[0].transcript = '안녕하세요 저는 고다윤입니다'; listenPaint(); });   // 아래 검사들이 보는 글로 되돌림
   console.log('\n── 끊겨서 다시 켜는 사이 (2026-10-14 핫스팟) ──');
