@@ -6,7 +6,7 @@
 //   · 걸음마다: 테두리가 있는가 · 말풍선이 그 단추를 안 가리는가 · 그 단추를 누르면 넘어가는가
 //   · 말풍선에 «다음» · «대신 해 주기» 같은 안내용 단추가 없는가
 //   · 테두리 밖을 누르거나 키보드를 쳐도 화면이 안 바뀌는가
-//   · 칸을 누르면 예시 글자가 저절로 · «답변 시작» 을 누르면 예시 답변이 회색 → 검은 글로 (마이크 안 씀)
+//   · 칸을 누르면 예시 글자가 저절로 · «답변 시작» 을 누르면 예시 답변이 바로 검은 글로 (마이크 안 씀)
 //   · 목차에서 바로(?guide=N) 테두리 친 곳만 눌러 장마다 끝까지 가는가
 //   · «답변 시작» 뒤 크롬 «마이크 사용» 허용 창(그림) — «허용» 전에는 받아 적지 않음
 //   · 설명서(guide.html)는 따라 하기로 들어가는 한 화면 — 링크 · 400px
@@ -159,8 +159,8 @@ async function 걸음(p, 글, 테두리도) {
   const 들어감 = Date.now();
   확인('  허용 창이 사라졌는가', await p.evaluate(() => !document.getElementById('gd-mic')));
   확인('  언제 넘어가는지 막대 · 안내', await p.evaluate(() => !!document.querySelector('.gd-tip .gd-wait i') && /저절로 넘어갑니다/.test(document.querySelector('.gd-tip').textContent)));
-  // 다섯 낱말마다 검은 글로 굳어 회색이 잠깐 비는 때가 있어, 3초 안에 한 번이라도 보이면 됩니다
-  확인('  예시 답변이 회색(확정 전) 글로 흘러나오는가', await p.waitForFunction(() => !!document.querySelector('#live-text .interim'), null, { timeout: 3000 }).then(() => true, () => false));
+  // 2026-10-23: 회색 없이 들리는 대로 바로 검은 글 — 3초 안에 글이 늘어나면 됩니다
+  확인('  예시 답변이 회색 없이 바로 적히며 늘어나는가', await p.waitForFunction(() => answers[0].transcript.split(' ').length >= 3 && !document.querySelector('#live-text .interim'), null, { timeout: 3000 }).then(() => true, () => false));
   await p.waitForFunction(() => window.__guideSpoke[0], null, { timeout: 30000 });
   const 말끝 = Date.now();
   await 걸음(p, '우수 · 보통 · 미흡');

@@ -25,9 +25,12 @@ const FAKE_SR = () => {
   };
   window.SpeechRecognition = R; window.webkitSpeechRecognition = R;
   window.__say = function (text, final) {
+    // 실제 크롬처럼 — 확정한 칸은 남기고 다음 말은 새 칸(결과 번호 +1)에 (2026-10-23, stt-keep.js 가 칸마다 견줍니다)
     var r = window.__recs[window.__recs.length - 1];
+    r.__done = r.__done || [];
     var one = [{ transcript: text }]; one.isFinal = !!final;
-    r.onresult({ resultIndex: 0, results: [one] });
+    r.onresult({ resultIndex: r.__done.length, results: r.__done.concat([one]) });
+    if (final) r.__done.push(one);
   };
   window.__fail = function (kind) { var r = window.__recs[window.__recs.length - 1]; r.onerror({ error: kind }); };
   window.__end = function () { var r = window.__recs[window.__recs.length - 1]; r.started = false; r.onend && r.onend(); };
@@ -82,7 +85,7 @@ async function 열기(b, init, width) {
   확인('«받아 적는 중» 표시', (await p.evaluate(() => document.getElementById('mock-live-state').textContent)).indexOf('받아 적는 중') > -1);
   확인('시계도 흐르는가', await p.evaluate(() => isTimerRunning && secondsElapsed >= 1));
   await p.evaluate(() => window.__say('안녕하세요 저는', false)); await p.waitForTimeout(50);
-  확인('확정 전 글은 회색으로, 아직 저장 안 됨', await p.evaluate(() => !!document.querySelector('#mock-live-text .interim') && (textResults[0] || '') === ''));
+  확인('확정 전 글도 회색 없이 바로 적힘(2026-10-23)', await p.evaluate(() => !document.querySelector('#mock-live-text .interim') && textResults[0] === '안녕하세요 저는'));
   await p.evaluate(() => window.__say('안녕하세요 저는 고다윤입니다', true)); await p.waitForTimeout(50);
   확인('확정된 글이 첫 질문에 붙는가', await p.evaluate(() => textResults[0] === '안녕하세요 저는 고다윤입니다'), await p.evaluate(() => textResults[0]));
   확인('화면에도 검은 글로', await p.evaluate(() => document.getElementById('mock-live-text').textContent.indexOf('고다윤입니다') > -1 && !document.querySelector('#mock-live-text .interim')));
@@ -93,7 +96,7 @@ async function 열기(b, init, width) {
   확인('이어 말한 것이 띄어서 붙고, 꺾쇠는 글자로만', await p.evaluate(() => textResults[0] === '안녕하세요 저는 고다윤입니다 <b>물리</b>를 좋아합니다' && !document.querySelector('#mock-live-text b')));
   await p.evaluate(() => window.__say('마지막 말', false));
   await p.click('#mock-timer-btn'); await p.waitForTimeout(300);
-  확인('«답변 완료» 를 누르면 끄고, 확정 전 글도 붙이는가', await p.evaluate(() => !MOCK_LISTEN.on && textResults[0].endsWith('마지막 말') && !window.__recs[1].started));
+  확인('«답변 완료» 를 누르면 끄고, 확정 전에 들은 말도 남는가', await p.evaluate(() => !MOCK_LISTEN.on && textResults[0].endsWith('마지막 말') && !window.__recs[1].started));
   확인('«받아 적은 답변» 표시로 바뀌고 글은 남아 있는가', await p.evaluate(() => document.getElementById('mock-live-state').textContent.indexOf('받아 적은 답변') > -1 && document.getElementById('mock-live-text').textContent.indexOf('마지막 말') > -1));
   확인('결과에 시간이 남는가', await p.evaluate(() => interviewResults[0] && interviewResults[0].seconds >= 1));
   // 다시 답변하기 → 글이 비워짐

@@ -33,9 +33,12 @@ const FAKE_SR = () => {
   window.SpeechRecognition = R; window.webkitSpeechRecognition = R;
   // 말을 넣습니다. final=true 면 확정된 글
   window.__say = function (text, final) {
+    // 실제 크롬처럼 — 확정한 칸은 남기고 다음 말은 새 칸(결과 번호 +1)에 (2026-10-23, stt-keep.js 가 칸마다 견줍니다)
     var r = window.__recs[window.__recs.length - 1];
+    r.__done = r.__done || [];
     var one = [{ transcript: text }]; one.isFinal = !!final;
-    r.onresult({ resultIndex: 0, results: [one] });
+    r.onresult({ resultIndex: r.__done.length, results: r.__done.concat([one]) });
+    if (final) r.__done.push(one);
   };
   window.__fail = function (kind) { var r = window.__recs[window.__recs.length - 1]; r.onerror({ error: kind }); };
   window.__end = function () { var r = window.__recs[window.__recs.length - 1]; r.started = false; r.onend && r.onend(); };
@@ -124,7 +127,37 @@ const FAKE_MIC = () => {
   확인('저절로 내려받지 않고 오른쪽 아래 «녹음 파일» 띠에 «⬇ 내려받기» 가 뜨는가(선생님: 원하면 받게)', !(await dl0) && await p.evaluate(() => { var b = document.getElementById('rec-files'); return !b.hidden && b.querySelectorAll('.rfget').length === 1 && b.textContent.indexOf('⬇ 내려받기') > -1; }));
   const dlx = p.waitForEvent('download', { timeout: 3000 }).catch(() => null);
   await p.click('#rec-files .rfget'); const dx = await dlx;
-  확인('«⬇ 내려받기» 를 누르면 그때 받고 «다시 내려받기» 로 바뀌는가', !!dx && /^면접녹음_.*고다윤.*\.webm$/.test(dx.suggestedFilename()) && await p.evaluate(() => REC.files[0].got && document.querySelector('#rec-files .rfget').textContent.indexOf('다시 내려받기') > -1), dx && dx.suggestedFilename());
+  // 가짜 녹음기는 빈 소리(0 으로 채운 조각)라 mp3 로 못 바꿉니다 → 원래 webm 으로 받는 길을 봅니다. 진짜로 바꾸는 것은 아래 «mp3 로 바꾸기» 에서
+  확인('«⬇ 내려받기» 를 누르면 그때 받고 «다시 내려받기» 로 바뀌는가(못 바꾸면 원래 .webm 으로)', !!dx && /^면접녹음_.*고다윤.*\.webm$/.test(dx.suggestedFilename()) && await p.evaluate(() => REC.files[0].got && document.querySelector('#rec-files .rfget').textContent.indexOf('다시 내려받기') > -1), dx && dx.suggestedFilename());
+  확인('띠에 보이는 이름은 .mp3', await p.evaluate(() => /\.mp3/.test(document.querySelector('#rec-files .rfname').textContent)));
+  console.log('\n── mp3 로 바꾸기 (2026-10-23 — 진짜 소리로) ──');
+  {
+    // 3초짜리 진짜 소리(440Hz)를 WAV 로 만들어 녹음 파일 자리에 넣고 «⬇ 내려받기»
+    await p.evaluate(() => {
+      window.__keepFiles = REC.files;   // 아래 검사가 보는 원래 파일들 — 끝나고 되돌립니다
+      var rate = 48000, n = rate * 3, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+      var w = function (o, t) { for (var k = 0; k < t.length; k++) v.setUint8(o + k, t.charCodeAt(k)); };
+      w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+      for (var i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.sin(i / rate * 2 * Math.PI * 440) * 12000, true);
+      REC.files = [{ name: '면접녹음_소리시험.mp3', base: '면접녹음_소리시험', ext: 'webm', blob: new Blob([buf], { type: 'audio/wav' }), mp3: null, busy: null, secs: 3, got: false }];
+      recPaint();
+    });
+    const dlm = p.waitForEvent('download', { timeout: 15000 }).catch(() => null);
+    await p.click('#rec-files .rfget');
+    const 중 = await p.evaluate(() => document.querySelector('#rec-files .rfget').textContent);
+    const dm = await dlm;
+    확인('누르면 «MP3로 바꾸는 중» 표시', /MP3로 바꾸는 중|다시 내려받기/.test(중), 중);
+    확인('.mp3 파일로 받는가', !!dm && /\.mp3$/.test(dm.suggestedFilename()), dm && dm.suggestedFilename());
+    if (dm) {
+      const b = fs.readFileSync(await dm.path());
+      const ok = b.length > 3000 && ((b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) || (b[0] === 0xFF && (b[1] & 0xE0) === 0xE0));
+      확인('받은 파일이 진짜 mp3(첫 바이트가 mp3 머리) · 3초에 알맞은 크기', ok && b.length < 60000, b.length + '바이트 · ' + b.slice(0, 4).toString('hex'));
+    }
+    확인('바꾼 것은 기억 · 크기 표시(MB) · «다시 내려받기»', await p.evaluate(() => REC.files[0].mp3 && REC.files[0].mp3.type === 'audio/mpeg' &&
+      /MB/.test(document.querySelector('#rec-files .rfname').textContent) && /다시 내려받기/.test(document.querySelector('#rec-files .rfget').textContent)));
+    await p.evaluate(() => { REC.files = window.__keepFiles || []; recPaint(); });
+  }
   await p.click('#btn-timer'); await p.waitForTimeout(200); await p.click('#btn-timer'); await p.waitForTimeout(300);   // 일시정지 → 이어서
   확인('멈춘 뒤엔 «이어서» 를 눌러도 저절로 다시 켜지지 않는가', await p.evaluate(() => !REC.on && window.__recorders.length === 1));
   await p.click('#btn-rec'); await p.waitForTimeout(300);   // «⏺ 녹음 다시 켜기»
@@ -152,11 +185,25 @@ const FAKE_MIC = () => {
   await p.evaluate(() => { LISTEN.trackBad = false; LISTEN.hint = ''; LISTEN.fails = 0; });
   확인('«받아 적는 중» 표시', (await p.evaluate(() => document.getElementById('live-state').textContent)).indexOf('받아 적는 중') > -1);
   await p.evaluate(() => window.__say('안녕하세요 저는', false)); await p.waitForTimeout(50);
-  확인('확정 전 글은 회색으로 보이고 아직 저장되지 않는가',
-       await p.evaluate(() => !!document.querySelector('#live-text .interim') && answers[0].transcript === ''));
+  // 2026-10-23: 회색 글 없이 들리는 대로 바로 검은 글로 적습니다(stt-keep.js)
+  확인('확정 전 글도 회색 없이 바로 적히는가', await p.evaluate(() => !document.querySelector('#live-text .interim') && answers[0].transcript === '안녕하세요 저는'),
+       await p.evaluate(() => answers[0].transcript));
   await p.evaluate(() => window.__say('안녕하세요 저는 고다윤입니다', true)); await p.waitForTimeout(50);
-  확인('확정된 글이 첫 질문에 붙는가', await p.evaluate(() => answers[0].transcript === '안녕하세요 저는 고다윤입니다'), await p.evaluate(() => answers[0].transcript));
+  확인('확정되면 늘어난 말만 이어 붙는가(두 번 안 붙음)', await p.evaluate(() => answers[0].transcript === '안녕하세요 저는 고다윤입니다'), await p.evaluate(() => answers[0].transcript));
   확인('화면에도 보이는가', (await p.evaluate(() => document.getElementById('live-text').textContent)).indexOf('고다윤입니다') > -1);
+  // 크롬이 확정하며 앞 말을 빼 버려도(«어릴 때부터» 가 사라짐) 이미 적은 것은 남고, 늘어난 말만 붙음
+  await p.evaluate(() => { window.__say('어릴 때부터 실험을', false); window.__say('실험을 좋아했고', true); }); await p.waitForTimeout(50);
+  확인('크롬이 확정하며 뺀 말(«어릴 때부터»)도 남는가', await p.evaluate(() => answers[0].transcript === '안녕하세요 저는 고다윤입니다 어릴 때부터 실험을 좋아했고'),
+       await p.evaluate(() => answers[0].transcript));
+  // 크롬이 뒷부분을 다른 말로 갈아 끼워도(«어릴 때부터» → «실험을 좋아했고») 둘 다 남음 — 처음엔 «했고» 만 붙던 자리
+  await p.evaluate(() => { window.__say('그래서 저는 어릴 때부터', false); window.__say('그래서 저는 실험을 좋아했고', true); }); await p.waitForTimeout(50);
+  확인('크롬이 뒷말을 갈아 끼워도 앞말 · 새 말 둘 다 남는가', await p.evaluate(() => answers[0].transcript.endsWith('그래서 저는 어릴 때부터 실험을 좋아했고')),
+       await p.evaluate(() => answers[0].transcript));
+  // 띄어쓰기만 바꿔 다시 보내도(«반응 속도» → «반응속도 탐구에서») 겹치지 않고 늘어난 것만
+  await p.evaluate(() => { window.__say('반응 속도', false); window.__say('반응속도 탐구에서', false); window.__say('반응속도 탐구에서 온도를', true); }); await p.waitForTimeout(50);
+  확인('띄어쓰기가 바뀌어도 겹치지 않고 이어지는가', await p.evaluate(() => answers[0].transcript.endsWith('좋아했고 반응 속도 탐구에서 온도를')),
+       await p.evaluate(() => answers[0].transcript));
+  await p.evaluate(() => { answers[0].transcript = '안녕하세요 저는 고다윤입니다'; listenPaint(); });   // 아래 검사들이 보는 글로 되돌림
   console.log('\n── 끊겨서 다시 켜는 사이 (2026-10-14 핫스팟) ──');
   await p.evaluate(() => { LISTEN.fails = 5; window.__end(); }); await p.waitForTimeout(300);
   확인('잇달아 실패한 뒤 끊기면 «끊겨서 다시 켜는 중» 이 빨갛게', await p.evaluate(() => document.getElementById('livebox').getAttribute('data-on') === 'gap' && document.getElementById('live-state').textContent.indexOf('다시 켜는 중') > -1 && !LISTEN.on));
@@ -213,7 +260,7 @@ const FAKE_MIC = () => {
        await p.evaluate(() => !answering && ticking && document.getElementById('btn-answer').textContent === '답변 시작'));
   확인('그래서 듣기도 멈췄는가', await p.evaluate(() => !LISTEN.on));
   await p.click('#btn-answer'); await p.waitForTimeout(200);
-  확인('확정 전 글은 지난 질문에 붙여 두는가', await p.evaluate(() => answers[0].transcript === '안녕하세요 저는 고다윤입니다 그리고 또'), await p.evaluate(() => answers[0].transcript));
+  확인('질문을 넘기기 전에 들은 말은 지난 질문에 남는가', await p.evaluate(() => answers[0].transcript === '안녕하세요 저는 고다윤입니다 그리고 또'), await p.evaluate(() => answers[0].transcript));
   확인('«답변 시작» 으로 새로 듣기 시작했는가(두 번째 인식)', await p.evaluate(() => LISTEN.on && LISTEN.qi === 1 && window.__recs.length === window.__recs0 + 1));
   확인('받아 적는 칸이 비워졌는가', (await p.evaluate(() => document.getElementById('live-text').textContent)).indexOf('고다윤') === -1);
   await p.evaluate(() => window.__say('열을 가하면 패치가', true)); await p.waitForTimeout(50);
