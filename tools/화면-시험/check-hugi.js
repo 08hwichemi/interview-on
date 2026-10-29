@@ -40,7 +40,8 @@ async function 풀기(p, file) {
     const xml = await zip.file('Contents/section0.xml').async('string');
     const bad = new DOMParser().parseFromString(xml, 'application/xml').getElementsByTagName('parsererror').length;
     const mt = await zip.file('mimetype').async('string');
-    return { first: name, method, xml, bad, mt, files: Object.keys(zip.files) };
+    const header = await zip.file('Contents/header.xml').async('string');
+    return { first: name, method, xml, bad, mt, header, files: Object.keys(zip.files) };
   }, b64);
 }
 // 문단마다 글 한 줄 — 빈 문단은 ''
@@ -92,6 +93,28 @@ const 글만 = xml => (xml.match(/<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?<\/hp:p>/g
     확인('교내활동 칸은 9pt(글자 모양 15) · 충원합격 칸은 검은 글씨(7)', /<hp:p [^>]*paraPrIDRef="5"[^>]*><hp:run charPrIDRef="15"><hp:t>과학탐구 동아리/.test(r.xml) &&
       !/charPrIDRef="(9|10)"/.test(r.xml.slice(r.xml.indexOf('rowAddr="5"'), r.xml.indexOf('rowAddr="7"'))));
     확인('실제 학생(30224) 내용이 기본 양식에 안 남았는가', ['수원', '전기전자', '버킷리스트', '가천대'].every(x => r.xml.indexOf(x) === -1));
+
+    console.log('\n── 질문 칸은 질문 줄만큼, 나머지는 답변 칸 · 글씨 크기 (2026-10-29) ──');
+    // 줄(행) 번호마다 칸 높이 — 한 줄짜리 칸만
+    const 높이 = xml => { const out = {}; (xml.match(/<hp:tc [\s\S]*?<\/hp:tc>/g) || []).forEach(tc => {
+      const a = tc.match(/<hp:cellAddr colAddr="(\d+)" rowAddr="(\d+)"\/>/), sp = tc.match(/rowSpan="(\d+)"/), z = tc.match(/<hp:cellSz width="\d+" height="(\d+)"\/>/);
+      if (a && sp && sp[1] === '1' && z) (out[a[2]] = out[a[2]] || []).push(+z[1]); }); return out; };
+    const h = 높이(r.xml);
+    확인('질문 두 개면 질문 줄이 원래(17575)보다 낮아짐', h[10] && h[10].every(x => x === h[10][0]) && h[10][0] < 17575 && h[10][0] >= 3000, JSON.stringify(h[10]));
+    확인('줄인 만큼 답변 줄이 커짐 — 두 줄 합은 그대로(38785, 표 · 쪽 모양 그대로)', h[11] && h[11].every(x => x === h[11][0]) && h[10][0] + h[11][0] === 38785, JSON.stringify(h[11]));
+    확인('«면접 내용»(두 줄에 걸친 칸)은 그대로 38785', /<hp:cellAddr colAddr="0" rowAddr="10"\/><hp:cellSpan colSpan="1" rowSpan="2"\/><hp:cellSz width="\d+" height="38785"\/>/.test(r.xml));
+    확인('질문 · 답변 글씨가 9pt(소감 · 활동과 같게, 글자 모양 14)', /<hh:charPr id="14" height="900"/.test(r.header));
+    확인('질문 · 답변 글씨가 굵지 않음(소감과 같게 — 교육청 양식은 굵게였음)', (() => { const m = r.header.match(/<hh:charPr id="14"[\s\S]*?<\/hh:charPr>/); return !!m && m[0].indexOf('<hh:bold/>') === -1; })());
+    // 질문이 아주 길고 많아도 답변 칸이 반 밑으로 줄지 않음
+    const 긴 = await p.evaluate(async () => {
+      const t = await hugiGetTemplate();
+      const s2 = Object.assign({}, HUGI_SAMPLE, { qa: Array.from({ length: 8 }, (_, i) => ({ q: '아주 긴 질문 '.repeat(20) + i, a: '답' })) });
+      const blob = await hugiMakeHwpx(t.buf, s2, HUGI_SAMPLE_STUDENT);
+      const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+      return zip.file('Contents/section0.xml').async('string');
+    });
+    const h2 = 높이(긴);
+    확인('질문이 아주 길어도 질문 줄은 둘 합의 절반까지', h2[10][0] === Math.round(38785 / 2) && h2[10][0] + h2[11][0] === 38785, h2[10][0] + ' / ' + h2[11][0]);
 
     console.log('\n── 자리표가 글자 조각 여럿에 걸쳐 쪼개져 있어도 ──');
     const 쪼갬 = await p.evaluate(() => {
@@ -203,8 +226,11 @@ const 글만 = xml => (xml.match(/<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?<\/hp:p>/g
     await p.click('#backBtn'); await p.waitForTimeout(200);
     확인('목록에 «직접 쓴 후기» 칸이 생김', /직접 쓴 후기[\s\S]*한국외국어대학교/.test(await p.textContent('#hugi-list')));
     await p.click('#hugi-list .hg-card:has-text("한국외국어대학교")'); await p.waitForTimeout(200);
-    await p.fill('#hugi-qa .hg-qa:nth-child(1) textarea >> nth=1', '가'.repeat(820));
-    확인('답변이 800자를 넘으면 안내가 주황색으로', await p.evaluate(() => document.getElementById('hugi-fit').classList.contains('over')));
+    await p.fill('#hugi-qa .hg-qa:nth-child(1) textarea >> nth=1', '가'.repeat(1000));
+    확인('질문 · 답변 합쳐 1,100자 안이면 안내가 그대로(2026-10-29 — 질문 칸이 줄어 답변 자리가 넓어짐)', await p.evaluate(() => !document.getElementById('hugi-fit').classList.contains('over') &&
+      /질문 · 답변 합쳐 1,100자쯤까지/.test(document.getElementById('hugi-fit').textContent)));
+    await p.fill('#hugi-qa .hg-qa:nth-child(1) textarea >> nth=1', '가'.repeat(1120));
+    확인('합쳐 1,100자를 넘으면 안내가 주황색으로', await p.evaluate(() => document.getElementById('hugi-fit').classList.contains('over')));
     await p.fill('#hugi-qa .hg-qa:nth-child(1) textarea >> nth=1', '');
     await p.click('#hugi-del'); await p.waitForTimeout(300);
     확인('지우기 → 한 장만 남고 목록으로', (await p.evaluate(() => window.__T.hugi_sheets.length)) === 1 && await p.evaluate(() => !document.getElementById('hugi-home').hidden));

@@ -195,11 +195,103 @@ function hugiSpreadPara(p, ts, lines) {
   });
 }
 
+// ── 질문 칸은 질문 줄 수만큼, 남는 높이는 답변 칸에 (2026-10-29 선생님 말씀) ──
+// 선생님 말씀: «질문보다는 답변 내용이 많을 테니 질문 칸을 질문 줄에 맞추고 나머지는 답변 내용으로 하는 게 좋지 않을까».
+// 교육청 양식은 질문 칸 · 답변 칸 높이가 정해져 있어(기본 양식 17575 : 21210 — 한글 단위, 7200 = 1인치) 질문 세 줄에도 칸의 반 가까이를 썼습니다.
+// 이제 채울 때 질문 글이 몇 줄쯤 되는지 어림해(글자 크기 · 줄 간격 · 칸 너비는 양식 것) 질문 줄(행)을 그만큼으로 줄이고,
+// 두 줄의 높이 합은 그대로 두어 줄인 만큼 답변 줄이 커집니다 — 표 전체 높이 · 쪽 모양은 그대로.
+//   · {{질문}} · {{답변}} 이 같은 표의 서로 다른 줄에 있을 때만 합니다(올린 양식도 같은 규칙)
+//   · 질문 줄은 적어도 세 줄 · 많아도 둘을 합친 높이의 절반까지 — 질문이 아주 길어도 답변 칸이 너무 작아지지 않게
+//   · 어림이라 조금 넉넉히(한 줄 더) 잡습니다. 글이 칸보다 길면 한글이 칸을 늘립니다(잘리지 않음)
+// header.xml 에서 글자 크기(charPr height — 100 = 1pt) · 줄 간격(paraPr lineSpacing %) · 내어쓰기(intent)를 읽어 둡니다
+function hugiStyleInfo(headerXml) {
+  var info = { charH: {}, lineSp: {}, indent: {} };
+  if (!headerXml) return info;
+  var doc = new DOMParser().parseFromString(headerXml, 'application/xml');
+  var all = doc.getElementsByTagName('*');
+  for (var i = 0; i < all.length; i++) {
+    var el = all[i];
+    if (el.localName === 'charPr') info.charH[el.getAttribute('id')] = Number(el.getAttribute('height')) || 0;
+    if (el.localName === 'paraPr') {
+      var id = el.getAttribute('id'), kids = el.getElementsByTagName('*');
+      for (var k = 0; k < kids.length; k++) {
+        if (kids[k].localName === 'lineSpacing' && kids[k].getAttribute('type') === 'PERCENT' && !(id in info.lineSp)) info.lineSp[id] = Number(kids[k].getAttribute('value')) || 0;
+        if (kids[k].localName === 'intent' && !(id in info.indent)) info.indent[id] = Math.abs(Number(kids[k].getAttribute('value')) || 0);
+      }
+    }
+  }
+  return info;
+}
+// 한 줄 글의 너비 어림 — 한글 · 한자는 글자 크기만큼, 띄어쓰기는 0.3, 영문 · 숫자 · 문장부호는 0.55
+function hugiTextWidth(s, fs) {
+  var w = 0;
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i);
+    w += (c >= 0x1100 && c <= 0x11FF) || (c >= 0x3130 && c <= 0x318F) || (c >= 0xAC00 && c <= 0xD7A3) || (c >= 0x4E00 && c <= 0x9FFF) ? fs
+       : s[i] === ' ' ? fs * 0.3 : fs * 0.55;
+  }
+  return w;
+}
+function hugiAttrOf(el, local, attr) {
+  var kids = el.getElementsByTagName('*');
+  for (var i = 0; i < kids.length; i++) if (kids[i].localName === local) return kids[i].getAttribute(attr);
+  return null;
+}
+function hugiChildOf(el, local) {
+  for (var i = 0; i < el.childNodes.length; i++) if (el.childNodes[i].localName === local) return el.childNodes[i];
+  return null;
+}
+function hugiFitQaRows(doc, info, questions) {
+  if (!info || !Array.isArray(questions)) return;
+  var tcs = Array.prototype.slice.call(doc.getElementsByTagNameNS(HUGI_HP, 'tc'));
+  var textOf = function (tc) { return Array.prototype.map.call(tc.getElementsByTagNameNS(HUGI_HP, 't'), function (t) { return t.textContent; }).join(''); };
+  var qc = tcs.filter(function (tc) { return /\{\{\s*질문\s*\}\}/.test(textOf(tc)); })[0];
+  var ac = tcs.filter(function (tc) { return /\{\{\s*답변\s*\}\}/.test(textOf(tc)); })[0];
+  if (!qc || !ac) return;
+  var tbl = qc.parentNode && qc.parentNode.parentNode;     // tc → tr → tbl
+  if (!tbl || tbl !== (ac.parentNode && ac.parentNode.parentNode)) return;
+  var rowOf = function (tc) { return Number(hugiAttrOf(tc, 'cellAddr', 'rowAddr')); };
+  var spanOf = function (tc) { return Number(hugiAttrOf(tc, 'cellSpan', 'rowSpan')) || 1; };
+  var szOf = function (tc) { var z = hugiChildOf(tc, 'cellSz'); return z ? { el: z, w: Number(z.getAttribute('width')), h: Number(z.getAttribute('height')) } : null; };
+  var rq = rowOf(qc), ra = rowOf(ac), zq = szOf(qc), za = szOf(ac);
+  if (!(rq >= 0) || !(ra >= 0) || rq === ra || !zq || !za || spanOf(qc) !== 1 || spanOf(ac) !== 1) return;
+  // 글자 크기 · 줄 간격 · 여백 — 질문 칸 첫 문단 것
+  var run = qc.getElementsByTagNameNS(HUGI_HP, 'run')[0], para = qc.getElementsByTagNameNS(HUGI_HP, 'p')[0];
+  var fs = (run && info.charH[run.getAttribute('charPrIDRef')]) || 1000;
+  var pid = para && para.getAttribute('paraPrIDRef');
+  var lineH = fs * ((info.lineSp[pid] || 160) / 100);
+  var m = { l: 0, r: 0, t: 0, b: 0 };
+  var mEl = qc.getAttribute('hasMargin') === '1' ? hugiChildOf(qc, 'cellMargin') : hugiChildOf(tbl, 'inMargin');
+  if (mEl) m = { l: +mEl.getAttribute('left') || 0, r: +mEl.getAttribute('right') || 0, t: +mEl.getAttribute('top') || 0, b: +mEl.getAttribute('bottom') || 0 };
+  var avail = Math.max(fs * 8, zq.w - m.l - m.r - (info.indent[pid] || 0));
+  // 칸에 들어갈 줄 — 「1. 질문」 사이에 빈 줄 하나(hugiFillXml 과 같게)
+  var lines = 0;
+  questions.forEach(function (q, i) {
+    if (i) lines++;
+    lines += Math.max(1, Math.ceil(hugiTextWidth((i + 1) + '. ' + String(q).replace(/\s*\n\s*/g, ' '), fs) / avail));
+  });
+  var total = zq.h + za.h;
+  var need = Math.round((Math.max(lines, 3) + 1) * lineH + m.t + m.b);   // 한 줄 넉넉히 · 적어도 세 줄
+  var hq = Math.min(need, Math.round(total / 2));
+  var ha = total - hq;
+  if (hq === zq.h) return;
+  // 같은 줄(행)의 칸들(«질문» 머리 칸 포함)을 모두 같은 높이로 — 두 줄에 걸친 칸(«면접 내용»)은 합이 그대로라 손대지 않습니다
+  tcs.forEach(function (tc) {
+    if (tc.parentNode.parentNode !== tbl || spanOf(tc) !== 1) return;
+    var r = rowOf(tc), z = hugiChildOf(tc, 'cellSz');
+    if (!z) return;
+    if (r === rq) z.setAttribute('height', String(hq));
+    else if (r === ra) z.setAttribute('height', String(ha));
+  });
+}
+
 // XML 글 하나(Contents/section0.xml 등)를 채웁니다. found 에 양식에서 본 자리표 이름이 모입니다.
-function hugiFillXml(xml, values, found) {
+// info 는 header.xml 에서 읽은 글자 크기 · 줄 간격(hugiStyleInfo) — 있으면 질문 칸 높이를 질문에 맞춥니다
+function hugiFillXml(xml, values, found, info) {
   var head = (xml.match(/^<\?xml[^>]*\?>/) || [''])[0];
   var doc = new DOMParser().parseFromString(xml, 'application/xml');
   if (doc.getElementsByTagName('parsererror').length) throw new Error('양식 파일을 읽지 못했습니다(XML).');
+  if (info) hugiFitQaRows(doc, info, values['질문']);
   var ps = Array.prototype.slice.call(doc.getElementsByTagNameNS(HUGI_HP, 'p'));
   ps.forEach(function (p) {
     var ts = hugiParaTexts(p);
@@ -241,9 +333,11 @@ async function hugiMakeHwpx(templateBuf, sheet, student) {
   var values = hugiValues(sheet, student), found = {};
   var names = hugiSectionNames(zip);
   if (!names.length) throw new Error('한글(hwpx) 양식이 아닙니다.');
+  var hd = zip.file('Contents/header.xml');
+  var info = hugiStyleInfo(hd ? await hd.async('string') : '');   // 글자 크기 · 줄 간격 — 질문 칸 높이 맞추기에
   for (var i = 0; i < names.length; i++) {
     var xml = await zip.file(names[i]).async('string');
-    zip.file(names[i], hugiFillXml(xml, values, found), { createFolders: false });   // 한글이 쓰는 짜임 그대로(폴더 항목을 더하지 않음)
+    zip.file(names[i], hugiFillXml(xml, values, found, info), { createFolders: false });   // 한글이 쓰는 짜임 그대로(폴더 항목을 더하지 않음)
   }
   return hugiZipOut(zip);
 }
@@ -556,15 +650,17 @@ function hugiTouch() { HG.dirty = true; hugiDraftPut(); hugiPaintState(); }
 // ── 한글 파일 한 쪽에 들어가는 양(어림) ──
 // 교육청 양식의 질문 칸은 8pt 글씨로 한 줄 약 47자 × 16줄, 답변 칸은 × 20줄쯤입니다(번호 사이 빈 줄 빼고).
 // 넘어도 표가 다음 쪽으로 이어질 뿐 잘리지는 않지만, 한 쪽에 맞추려면 이만큼이 좋다고 알려 줍니다.
-var HUGI_FIT = { q: 600, a: 800 };
+// (2026-10-29) 질문 칸이 질문 줄만큼으로 줄고 나머지를 답변 칸이 쓰게 되어(hugiFitQaRows), 질문 · 답변을 합쳐 한 양으로 안내합니다.
+//   어림: 질문 · 답변 두 줄 높이 38785 · 9pt · 줄 간격 130% → 33줄쯤, 한 줄 40~45자 — 빈 줄 · 질문 몫을 빼고 1100자쯤
+var HUGI_FIT = { total: 1100 };
 function hugiPaintFit() {
   var el = document.getElementById('hugi-fit');
   if (!el || !HG.cur) return;
   var q = 0, a = 0;
   HG.cur.qa.forEach(function (x) { q += String(x.q || '').trim().length; a += String(x.a || '').trim().length; });
-  var over = q > HUGI_FIT.q || a > HUGI_FIT.a;
+  var over = q + a > HUGI_FIT.total;
   el.className = 'hg-fit' + (over ? ' over' : '');
-  el.textContent = '한글 파일 한 쪽에 맞추려면 질문 합쳐 ' + HUGI_FIT.q + '자 · 답변 합쳐 ' + HUGI_FIT.a + '자쯤까지 — 지금 질문 ' + q + '자 · 답변 ' + a + '자' +
+  el.textContent = '한글 파일 한 쪽에 맞추려면 질문 · 답변 합쳐 ' + HUGI_FIT.total.toLocaleString() + '자쯤까지 — 지금 질문 ' + q + '자 · 답변 ' + a + '자' +
     (over ? ' (넘으면 표가 다음 쪽으로 이어집니다. 줄여 쓸 수 있으면 줄여 주세요)' : '');
 }
 function hugiSet(key, v) { HG.cur[key] = v; hugiTouch(); }
