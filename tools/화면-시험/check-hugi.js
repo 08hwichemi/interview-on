@@ -104,6 +104,7 @@ const 글만 = xml => (xml.match(/<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?<\/hp:p>/g
     확인('줄인 만큼 답변 줄이 커짐 — 두 줄 합은 그대로(38785, 표 · 쪽 모양 그대로)', h[11] && h[11].every(x => x === h[11][0]) && h[10][0] + h[11][0] === 38785, JSON.stringify(h[11]));
     확인('«면접 내용»(두 줄에 걸친 칸)은 그대로 38785', /<hp:cellAddr colAddr="0" rowAddr="10"\/><hp:cellSpan colSpan="1" rowSpan="2"\/><hp:cellSz width="\d+" height="38785"\/>/.test(r.xml));
     확인('질문 · 답변 글씨가 9pt(소감 · 활동과 같게, 글자 모양 14)', /<hh:charPr id="14" height="900"/.test(r.header));
+    확인('질문 · 답변 글씨가 굵지 않음(소감과 같게 — 교육청 양식은 굵게였음)', (() => { const m = r.header.match(/<hh:charPr id="14"[\s\S]*?<\/hh:charPr>/); return !!m && m[0].indexOf('<hh:bold/>') === -1; })());
     // 질문이 아주 길고 많아도 답변 칸이 반 밑으로 줄지 않음
     const 긴 = await p.evaluate(async () => {
       const t = await hugiGetTemplate();
