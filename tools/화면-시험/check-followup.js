@@ -61,7 +61,7 @@ async function 새창(b, w) {
 const 줄 = p => p.evaluate(() => [].map.call(document.querySelectorAll('#q-list .qrow input'), i => i.value));
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 
   console.log('\n── 질문 순서 바꾸기 ──');
   const A = await 새창(b, 1440);

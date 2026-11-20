@@ -32,7 +32,7 @@ async function 새페이지(b, width) {
 }
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 
   console.log('\n── 휴대폰(400px) ──');
   {

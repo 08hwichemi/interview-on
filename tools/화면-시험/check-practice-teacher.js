@@ -8,7 +8,7 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
 const 표 = (p, t) => p.evaluate(t => window.__T[t] || [], t);
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const ctx = await b.newContext({ viewport: { width: 1512, height: 1000 } });
   await ctx.route('**/supabase-js*/**', r => r.fulfill({ contentType: 'application/javascript', body: SB }));
   await ctx.route('**/pretendard*', r => r.fulfill({ contentType: 'text/css', body: '' }));

@@ -66,7 +66,7 @@ async function 걸음(p, 글, 테두리도) {
 }
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 
   console.log('\n── 연습 모드가 뜨는가 ──');
   const A = await 새창(b);

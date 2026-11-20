@@ -33,7 +33,7 @@ async function 열기(b) {
 const OPENING_LABEL = { intro: '자기소개', motive: '지원동기', both: '자기소개 + 지원동기' };
 
 (async () => {
-  const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium' });
 
   for (const [이름, rows, 기대] of [
         ['질문 3개(첫인사·끝인사 포함)', 보통,     { 가운데:1, 첫인사:true,  끝인사:true,  칩:'intro' }],

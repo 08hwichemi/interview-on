@@ -17,7 +17,7 @@ const 물음창 = p => p.evaluate(()=>{
 const 화면 = p => p.evaluate(()=>document.querySelector('.screen.active').id);
 
 (async () => {
-  const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium' });
   const ctx = await b.newContext({ viewport:{width:390,height:844} });
   await ctx.route('**/supabase-js*/**', r => r.fulfill({contentType:'application/javascript', body:SB}));
   await ctx.route('**/pretendard*', r => r.fulfill({contentType:'text/css', body:''}));

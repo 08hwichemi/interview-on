@@ -4,7 +4,7 @@ const SB = fs.readFileSync(path.join(__dirname,'stub5.js'),'utf8');
 let 실패=0;
 function 확인(무엇, ok, 덧){ console.log((ok?'  ✓ ':'  ✗ ')+무엇+(덧?'  → '+덧:'')); if(!ok)실패++; }
 (async () => {
-  const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium' });
   const ctx = await b.newContext({ viewport:{width:1100,height:1000} });
   await ctx.route('**/supabase-js*/**', r => r.fulfill({contentType:'application/javascript', body:SB}));
   await ctx.route('**/pretendard*', r => r.fulfill({contentType:'text/css', body:''}));

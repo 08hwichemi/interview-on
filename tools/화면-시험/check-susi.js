@@ -25,7 +25,7 @@ const 계획 = [
 ];
 
 (async () => {
-  const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium' });
 
   console.log('\n── 교사 화면 ──');
   {

@@ -10,7 +10,7 @@ const 계획 = [
   {student_no:'30101',area:'main',slot:6,uni_name:'세종대',type_name:'종합',admission_name:'학생부종합(창의인재전형)',dept_name:'컴퓨터공학과',interview_date:'2026/11/22',synced_at:'2026-09-18T01:00:00Z'}
 ];
 (async()=>{
-  const b = await chromium.launch({executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome'});
+  const b = await chromium.launch({executablePath:'/opt/pw-browsers/chromium'});
   for (const w of [1100, 400]) {
     const ctx = await b.newContext({viewport:{width:w,height:1200}, deviceScaleFactor:2});
     await ctx.route('**/supabase-js*/**', r=>r.fulfill({contentType:'application/javascript',body:SB}));

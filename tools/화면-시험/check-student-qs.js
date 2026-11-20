@@ -7,7 +7,7 @@ let 실패 = 0;
 function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무엇 + (덧 ? '  → ' + 덧 : '')); if (!ok) 실패++; }
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   for (const [w, h] of [[1512, 1000], [400, 800]]) {
     console.log('\n════ 화면 ' + w + 'px ════');
     const ctx = await b.newContext({ viewport: { width: w, height: h } });

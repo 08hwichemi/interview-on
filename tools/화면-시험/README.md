@@ -17,8 +17,9 @@ NODE_PATH=/opt/node22/lib/node_modules /opt/node22/bin/node check-susi.js
 ```
 
 끝에 `✅ 모두 통과` 또는 `❌ N개 실패` 가 찍힙니다.
-크로뮴 자리는 각 파일 맨 아래의 `executablePath` 에 적혀 있습니다
-(`/opt/pw-browsers/chromium-1194/chrome-linux/chrome`). 자리가 다르면 그 줄만 고치세요.
+크로뮴 자리는 각 파일의 `executablePath` 에 적혀 있습니다 — `/opt/pw-browsers/chromium`(작업 환경이 늘 최신 크로뮴으로 이어 두는 바로가기).
+⚠️ 2026-11-20 까지는 `chromium-1194/chrome-linux/chrome` 처럼 판 번호가 든 자리를 적어 두었다가, 작업 환경의 크로뮴이 새 판(1243)으로 바뀌자 시험이 다 못 떴습니다.
+판 번호 없는 바로가기를 쓰세요.
 
 ## 무엇을 보는 검사인지
 

@@ -10,7 +10,7 @@ function 확인(무엇, ok, 덧) { console.log((ok ? '  ✓ ' : '  ✗ ') + 무�
 const 보임 = (p, sel) => p.evaluate(s => { const e = document.querySelector(s); return !!e && e.offsetParent !== null; }, sel);
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   for (const [w, h] of [[1512, 1000], [400, 800]]) {
     console.log('\n════ 선생님 화면 ' + w + 'px ════');
     const ctx = await b.newContext({ viewport: { width: w, height: h } });
