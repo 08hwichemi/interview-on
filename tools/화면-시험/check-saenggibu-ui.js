@@ -27,7 +27,7 @@ const LINES = [
 ];
 
 async function 열기(viewport) {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const ctx = await b.newContext({ viewport });
   await ctx.route('**/supabase-js*/**', r => r.fulfill({ contentType: 'application/javascript', body: SB }));
   await ctx.route('**/pretendard*', r => r.fulfill({ contentType: 'text/css', body: '' }));

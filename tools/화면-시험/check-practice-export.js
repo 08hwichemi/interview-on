@@ -43,7 +43,7 @@ async function 열기(b, viewport, fake) {
 }
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 
   const 답안들 = [
     { id: 'a1', student_id: 's1', grade: '공통', category: '인성',

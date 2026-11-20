@@ -131,9 +131,15 @@ html { overflow-y: auto; scrollbar-gutter: stable; }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
   padding: 24px 40px; text-align: center;
-  background: linear-gradient(180deg, #27272A 0%, var(--ink) 100%);
+  /* ⚠️ 바탕은 여기(스크롤되는 칸)가 아니라 바깥 #screen-login 에 한 가지 색으로 칠합니다 — 아래 «갤럭시» 참고 */
+  background: transparent;
   color: white;
 }
+/* 🚨 2026-11-20 선생님 갤럭시: 로그인 화면 바탕이 칠해지지 않고 초록 · 회색 줄무늬로 깨지며 가운데는 하얗게 비어,
+      하얀 글씨(제목 · 선생님 탭 · 학번 · 비밀번호 칸)가 하나도 안 보였습니다. 껐다 켜도 그대로.
+      예전엔 스크롤되는 칸(.login-container)에 그라데이션 바탕을 칠했는데, 일부 안드로이드 폰은 «스크롤되는 칸의 그라데이션» 을
+      제대로 못 그립니다. 그래서 바탕을 스크롤 안 되는 바깥 화면에 **한 가지 색**으로 옮겼습니다(겉모습은 거의 같음 — 원래 아주 옅은 그라데이션) */
+#screen-login, #screen-change-password { background-color: var(--ink); }
 /* 화면이 짧은 휴대폰(320×568 같은)에서도 꼬리말까지 한 장에 들어가도록
    윗부분은 화면 높이에 맞춰 같이 줄어듭니다. */
 .login-logo { font-size: clamp(38px, 7.4vh, 60px); margin-bottom: clamp(8px, 2.4vh, 20px); }

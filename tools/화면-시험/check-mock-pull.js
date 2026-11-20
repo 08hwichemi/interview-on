@@ -48,7 +48,7 @@ const 칸 = (p, type) => p.evaluate(t => [...document.querySelectorAll('#' + t +
   v: r.querySelector('.custom-q-input').value, fix: r.querySelector('.q-checkbox').checked })), type);
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 
   for (const w of [1280, 360]) {
     console.log('\n════ 화면 ' + w + 'px ════');

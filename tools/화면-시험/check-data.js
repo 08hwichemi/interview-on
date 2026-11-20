@@ -60,7 +60,7 @@ function 답하기(p, 적을말) {
 }
 
 (async () => {
-  const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium' });
 
   console.log('\n── 탭과 개수 ──');
   {

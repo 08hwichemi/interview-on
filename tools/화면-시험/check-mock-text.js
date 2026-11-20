@@ -59,7 +59,7 @@ async function 열기(b, init, width) {
 }
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 
   console.log('\n── 크롬(음성 인식 있음) — 고르기 창 ──');
   let { ctx, p, errs, dialogs } = await 열기(b, FAKE_SR);

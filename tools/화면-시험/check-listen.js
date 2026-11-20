@@ -82,7 +82,7 @@ const FAKE_MIC = () => {
 
 (async () => {
   // ⚠️ 이 작업 환경은 LANG 이 비어 있어 크롬이 한글 파일 이름(면접녹음_…)을 «download» 로 바꿉니다 — 크롬만 C.UTF-8 로 띄웁니다(check-other 와 같음)
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium',
                                     env: Object.assign({}, process.env, { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' }) });
 
   // ── 1. 크롬(음성 인식 있음) ──

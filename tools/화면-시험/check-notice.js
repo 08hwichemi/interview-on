@@ -24,7 +24,7 @@ function 열기(b, viewport, fake) {
 }
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 
   console.log('\n── 관리자: 새 공지로 올리기 ──');
   {

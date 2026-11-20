@@ -59,7 +59,7 @@ async function 준비(b, rows, vw, vh, init) {
 (async () => {
   // ⚠️ 이 작업 환경은 언어 설정(LANG)이 비어 있어서, 크롬이 한글 파일 이름을 «download» 로 바꿔 버립니다
   //    (폰·선생님 컴퓨터에서는 안 그럽니다). 그래서 크롬만 UTF-8 로 띄웁니다
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium',
                                     env: Object.assign({}, process.env, { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' }) });
 
   // ══ 1. 선생님 화면 ══

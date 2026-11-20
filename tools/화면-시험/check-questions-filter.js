@@ -17,7 +17,7 @@ const QUESTIONS = [
 ];
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 
   // ── 1) 학생 화면 — 필터 연쇄 ──
   {

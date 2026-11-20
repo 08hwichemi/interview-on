@@ -49,7 +49,7 @@ const 글만 = xml => (xml.match(/<hp:p\b[^>]*>(?:(?!<hp:p\b)[\s\S])*?<\/hp:p>/g
   .map(p => (p.match(/<hp:t>([^<]*)<\/hp:t>/g) || []).map(t => t.replace(/<\/?hp:t>/g, '')).join(''));
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 
   // ════════════ 1. 채우는 엔진 ════════════
   console.log('\n════ 1. 한글 양식 채우기 ════');

@@ -34,7 +34,7 @@ const 잼 = p => p.evaluate(() => {
 });
 
 (async () => {
-  const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium' });
 
   console.log('\n── 띠가 떠도 한 화면에 ──');
   for (const [w,h,로그인,이름] of [[450,946,false,'로그인'],[390,844,false,'로그인'],[360,640,false,'로그인'],
